@@ -16,7 +16,7 @@ async function main() {
     throw new Error("Usage: NEW_PASSWORD=… DIRECT_URL=… pnpm user:set-password <username>");
   }
   if (password.length < 10) throw new Error("Password must be at least 10 characters");
-  const client = postgres(url, { prepare: false, max: 1 });
+  const client = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
   try {
     await setPassword(drizzle(client, { schema }), username, password);
     console.log(`Password set for "${username}". Other sessions are signed out.`);
