@@ -8,23 +8,37 @@ Nov 24, 2026 · for Joe · built from spec v0.7 (D1–D46) and `mockup/` v0.7
 
 ## 1. How "without my intervention" works
 
-You never test by hand. Each milestone is one pull request. A PR can merge only when every automated check below passes on GitHub, and each check is a script, not a person.
+You never test by hand. Each milestone is one pull request. **Nothing paid (Joe, Nov 24).** Tests run in two places:
 
-| Gate | What it proves | Runs |
+1. **My session (the gate).** I run every gate below with one command, `pnpm verify`. A PR merges only when that full run passes on the PR's final commit. The PR description holds the run's summary (counts per gate, duration, commit hash), so the proof stays with the code.
+2. **GitHub Actions, free tier only (a second opinion).** The same `pnpm verify` runs on GitHub for each PR. Merging needs both to pass, except when GitHub has blocked runs because the free minutes are used up. Then my local run alone is enough, so a blocked run never stops progress.
+
+| Gate | What it proves | Where |
 | --- | --- | --- |
-| **Typecheck** (`tsc --noEmit`, strict) | No type errors anywhere | Every PR |
-| **Lint** (ESLint + Tailwind rules) | Code style; no arbitrary Tailwind values such as `w-[37px]`; no raw colours outside the theme | Every PR |
-| **Unit tests** (Vitest) | Cost formulas, G-code parser, Zod schemas, money and rate maths, against worked numbers in §6 | Every PR |
-| **Database tests** (Vitest + real Postgres 17 in CI) | Migrations apply from empty; constraints, views and transactions behave as the spec says | Every PR |
-| **End-to-end tests** (Playwright) | Each screen works in a real browser at **phone (390×844)** and **desktop (1280×800)** sizes | Every PR |
-| **Accessibility** (axe-core in Playwright + our own checks) | Zero axe violations; text contrast ≥ 4.5:1; every control ≥ 44×44 px; every input has a label | Every PR |
-| **Build** (`next build`) | Production build succeeds | Every PR |
-| **Migration rehearsal** (throwaway Neon branch) | The new migration applies to a copy of **live data** without error | PRs that add a migration, once Neon exists |
-| **Post-deploy smoke test** | Live site is up: login page loads, health check reaches the database | After every deploy to production |
+| **Typecheck** (`tsc --noEmit`, strict) | No type errors anywhere | My session |
+| **Lint** (ESLint + Tailwind rules) | Code style; no arbitrary Tailwind values such as `w-[37px]`; no raw colours outside the theme | My session |
+| **Unit tests** (Vitest) | Cost formulas, G-code parser, Zod schemas, money and rate maths, against worked numbers in §4 | My session |
+| **Database tests** (Vitest + a throwaway local Postgres) | Migrations apply from empty; constraints, views and transactions behave as the spec says | My session |
+| **End-to-end tests** (Playwright, Chromium already installed in my session) | Each screen works in a real browser at **phone (390×844)** and **desktop (1280×800)** sizes | My session |
+| **Accessibility** (axe-core in Playwright + our own checks) | Zero axe violations; text contrast ≥ 4.5:1; every control ≥ 44×44 px; every input has a label | My session |
+| **Build** (`next build`) | Production build succeeds | My session |
+| **Migration rehearsal** (Neon preview branch, §5) | The new migration applies to a copy of **live data** without error | Vercel preview build, included in your plan |
+| **Smoke test after deploy** | Live site is up: login page loads, health check reaches the database | I run it after each merge |
 
-**Merging.** [Certain] Nothing I read on GitHub can approve a merge, so either you press Merge on each green PR, or you tell me once in this thread "merge milestone PRs when all checks are green" and I do it. I recommend the second. You still get a short summary per milestone, and every PR stays revertible.
+**Merging.** You chose (Nov 24) that I merge each milestone PR once the full `pnpm verify` run passes. You get a short summary per milestone, and every PR stays revertible.
 
-**Where tests run.** [Certain] Private repos on GitHub Free get $12 of Actions compute a month, which is about 2,000 minutes on the standard Linux runner at $0.006 per minute ([GitHub docs](https://docs.github.com/en/billing/concepts/product-billing/github-actions); the 2,000 figure is my division). [Likely] One full run of the gates above takes 6 to 9 minutes, so that is about 200 PR runs a month, well above what this project needs. Database tests in CI use a Postgres container on the runner, **not** your Neon database, so CI needs no secrets and can never touch live data.
+**Why GitHub Actions can't cost you money.** [Certain] Private repos on GitHub Free include $12 a month of Actions compute, about 2,000 minutes on the standard Linux runner at $0.006 per minute (the 2,000 is my division). Once the $12 is used up, runs are **blocked, not charged**, unless a payment method is on file ([GitHub docs](https://docs.github.com/en/billing/concepts/product-billing/github-actions)). Rule: no payment method or paid add-on, ever. If you already have a card on your GitHub account for something else, tell me, and I'll also set the Actions spending limit to $0.
+
+**Keeping inside the free minutes:**
+- Standard Linux 2-core runner only (no larger runners, macOS or Windows).
+- Dependencies and the Playwright browser are cached, so installs take seconds.
+- `concurrency: cancel-in-progress`: a new push to a PR cancels the older run.
+- Path filters: changes that only touch docs (`*.md`, `docs/**`) don't run anything.
+- One browser (Chromium), two viewports; 15-minute timeout per job.
+- Runs only on PRs and on pushes to `main`. No scheduled workflows.
+- [Likely] A full run is 6 to 9 minutes, so that's about 200 runs a month, far more than this project needs.
+
+Database tests never touch your Neon database, locally or on GitHub: both use a throwaway local Postgres.
 
 ---
 
@@ -35,12 +49,12 @@ You never test by hand. Each milestone is one pull request. A PR can merge only 
 | J1 | **Now** | Create an **empty private** repo `print-erp` at [github.com/new](https://github.com/new): no README, no licence. If the Claude app has access to selected repos only, add this one at [Claude GitHub App](https://github.com/apps/claude/installations/select_target). | [Certain] GitHub refused my create call ("403 Resource not accessible by integration"). |
 | J2 | **End of M0** (I'll ask) | In Vercel: **Add New → Project →** import `print-erp`. Then **Storage → Create → Neon** (Marketplace) and **Storage → Create → Blob**, both connected to the project. This sets `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` for you. | Needs your Vercel login and billing. |
 | J3 | Same sitting as J2 | Paste three env vars I'll give you in Vercel → Settings → Environment Variables: `SESSION_SECRET` (I generate it), `INITIAL_USERNAME`, `INITIAL_PASSWORD` (you choose). On first start the app creates your user from them if no user exists. Delete the two `INITIAL_*` vars after your first login. | Your password must never pass through me or git. |
-| J4 | Same sitting | In Neon: **Account → API keys → create**. Paste it and the Neon project ID as GitHub repo secrets `NEON_API_KEY` and `NEON_PROJECT_ID` (repo → Settings → Secrets → Actions). | Turns on the migration rehearsal on a throwaway copy of live data (D44). |
+| J4 | Same sitting | When you create the Neon store in Vercel, tick **Preview** under "create a database branch for deployments" (I'll point at the exact switch then). | Every PR's preview deploy then gets its own throwaway copy of live data and rehearses the migration on it (D44, §5). [Likely] Free on Neon; it uses 1 of the 10 free branches per project ([Neon plans](https://neon.com/docs/introduction/plans)). |
 | J5 | Before real use (M4) | Upgrade Vercel to **Pro** (about $20/month, D7). | [Likely] Hobby is non-commercial only. |
-| J6 | Whenever you can | Data entry in the app, not setup: the printer's purchase price, the electricity price per kWh in Settings, your filament purchases. Later, a plug-meter reading to replace 0.12 kW. | Real numbers only you know. |
+| J6 | Whenever you can | Data entry in the app, not setup: the printer's purchase price, the electricity price per kWh in Settings, your filament purchases. Printer power stays at 0.12 kW (final, Joe, Nov 24), still editable on the machine. | Real numbers only you know. |
 | J7 | When you have one | One real `.gcode` with **two different products** on one plate. | The open question in the spec: the grams-per-item check (D17) is untested on a real file. |
 
-Nothing else needs you: no local install, no terminal, no manual testing.
+Nothing else needs you: no local install, no terminal, no manual testing, no payment method anywhere except Vercel Pro (J5).
 
 ---
 
@@ -84,7 +98,7 @@ Each milestone is one PR (M0 may be two). **Exit criterion = every gate in §1 i
 ### M0. Foundations: scaffold, tooling, theme, schema, login
 
 **Builds**
-- Next.js 16 (App Router, TypeScript strict, Server Actions), pnpm, ESLint, Prettier, Vitest, Playwright, GitHub Actions CI with every gate in §1.
+- Next.js 16 (App Router, TypeScript strict, Server Actions), pnpm, ESLint, Prettier, Vitest, Playwright, and `pnpm verify`, which runs every gate in §1 in order and prints the summary that goes into each PR. The free-tier GitHub workflow (§1) runs the same command.
 - Tailwind theme from `design-system.html`; UI kit in `components/ui` (the 14 components in §3.1) with a dev-only `/dev/ui` page that renders every variant in light and dark. This page is what the accessibility tests scan.
 - Migration `0001`: all **21 tables** with `id, created_at, updated_at, deleted_at, notes, extra` (rule 5), enums, foreign keys, check constraints, the D34 partial unique index, and the views that are pure sums: `stock_on_hand`, `stock_available`, `order_balance`, `order_shortfall`. The three cost views (`stock_average_cost`, `cost_per_good_unit`, `profit_per_hour`) come in M1 and M4, when their formulas are tested.
 - Seed (idempotent): Ender-3 V3 SE machine (0.12 kW, 3,000 h, 0.4 mm, 220×220 mm, purchase cost empty until you enter it), settings `failure_allowance_pct = 12`, `failure_actual_after_prints = 20`, `recipe_grams_tolerance = {g: 2, pct: 2}`. No electricity price (you enter it, spec §v0.1 build step 4).
@@ -114,7 +128,7 @@ Each milestone is one PR (M0 may be two). **Exit criterion = every gate in §1 i
 | U-04 | No horizontal scroll at 390 px on any page | e2e |
 | U-05 | Lint fixture: a file with `className="w-[37px] bg-red-500"` fails lint (proves the rule works) | unit |
 
-**Exit:** CI green; you can log in on the live URL (after J2 and J3).
+**Exit:** `pnpm verify` green; you can log in on the live URL (after J2 and J3).
 
 ### M1. Engines with no screens: G-code parser and cost formulas
 
@@ -257,13 +271,13 @@ Note: the spec's cut line lists reservations last, but D35 makes Deliver depend 
 
 ### M7. Go-live hardening
 
-**Builds:** weekly backup GitHub Action (rule 6: `pg_dump` + CSV of every table + copy of Blob G-code files, stored as an encrypted release artifact in the private repo), restore drill script, production smoke test, error page that keeps typed values.
+**Builds:** weekly backup as a **Vercel Cron** job (rule 6, no GitHub Actions): a protected route exports every table to CSV plus a JSON dump and writes them, with a manifest of the G-code files, to a private `backups/` folder in Blob. Plus a **Download backup** button in Settings so you can keep a copy off Vercel, a restore script, the production smoke test, and an error page that keeps typed values. [Likely] Cron jobs are included in Vercel Pro (J5), so there's no extra charge.
 
 | ID | Test | Kind |
 | --- | --- | --- |
-| K-B1 | Backup job runs on schedule and produces a dump, CSVs and the G-code files | CI |
-| K-B2 | Restore drill: the latest dump restores into a throwaway Neon branch and row counts match | CI (monthly) |
-| K-S1 | Smoke after deploy: `/login` 200, `/api/health` 200 with database reachable | CI |
+| K-B1 | Backup route produces one CSV per table with correct row counts, and refuses calls without the cron secret | db + e2e |
+| K-B2 | Restore drill: a backup restores into an empty local Postgres and every row count and checksum matches | db |
+| K-S1 | Smoke after deploy: `/login` 200, `/api/health` 200 with database reachable; I run it after each merge | script |
 
 [Certain] Neon's Free plan keeps only **6 hours** of restore history ([Neon plans](https://neon.com/docs/introduction/plans)), so the weekly backup is not optional: after 6 hours, a bad write can only be undone from our own backup.
 
@@ -271,29 +285,26 @@ Note: the spec's cut line lists reservations last, but D35 makes Deliver depend 
 
 ## 5. Migration safety (D44: one live database)
 
-Every PR that adds a migration goes through these steps automatically:
+Every PR that adds a migration goes through these steps, with no paid CI:
 
-1. **CI on empty Postgres:** all migrations apply from zero (F-01), and the full test suite runs on the result.
-2. **Rehearsal on live data:** a GitHub Action creates a Neon branch from production (a free, instant copy), applies the new migration there, runs the database tests that read existing data plus row-count checks, then deletes the branch. [Certain] Free allows 10 branches per project ([Neon plans](https://neon.com/docs/introduction/plans)); we use 1, briefly.
-3. **Backup before apply:** on merge, the deploy workflow takes a `pg_dump` first, then runs `drizzle-kit migrate`, then deploys the app.
-4. **Expand, then contract (rule 2):** a migration only adds. Anything removed goes in a later migration, after the new shape has been in use. A lint check fails any migration containing `DROP` or `ALTER … TYPE` unless the PR is labelled `contract`.
-5. **Merged migrations are never edited.** A CI check compares merged migration files with `main` and fails on changes.
+1. **Local run on empty Postgres:** in my session, all migrations apply from zero (F-01) and the full suite runs on the result.
+2. **Rehearsal on live data:** the Vercel build runs `drizzle-kit migrate` before `next build`. For a PR, Vercel builds a preview, and with J4 the Neon integration gives that preview its own branch copied from production. So the new migration is applied to a copy of live data. If it fails, the preview build fails and I don't merge. Your live database is untouched until merge. [Certain] Free allows 10 branches per project ([Neon plans](https://neon.com/docs/introduction/plans)). [Likely] The integration deletes preview branches when they're no longer needed. I check that it does.
+3. **Backup before apply:** before merging a PR with a migration, I trigger the backup route (M7; until M7 exists, there's no live data to lose) and confirm it finished. Merging then deploys to production, and the production build applies the migration.
+4. **Expand, then contract (rule 2):** a migration only adds. Anything removed goes in a later migration, after the new shape has been in use. A check in `pnpm verify` fails any migration containing `DROP` or `ALTER … TYPE` unless its file name contains `contract`.
+5. **Merged migrations are never edited.** `pnpm verify` compares migration files with `main` and fails if a merged one changed.
 
 ---
 
-## 6. CI pipeline (one workflow, `.github/workflows/ci.yml`)
+## 6. `pnpm verify` (run by me before every merge, and on GitHub's free tier)
 
 ```text
-install (pnpm, cached)
-├─ typecheck ─┐
-├─ lint ──────┤
-├─ unit ──────┤  (parallel)
-└─ db tests ──┘  Postgres 17 service container
-      └─ build → e2e (Playwright: phone + desktop, axe, tap and contrast checks)
-                   └─ migration rehearsal (only if drizzle/ changed and Neon secrets exist)
+typecheck → lint → migration checks (no DROP, no edited merged files)
+→ unit → db tests (local Postgres, fresh database per run)
+→ build → e2e (Playwright: phone + desktop, axe, tap and contrast checks)
+→ prints a summary block that I paste into the PR
 ```
 
-Playwright runs with traces off and retries failures once, and uploads screenshots of failures as artifacts, so a red check shows what broke without anyone reproducing it.
+Playwright runs with traces off and retries a failure once. Screenshots of failures are kept: in my session, or as a 7-day artifact on GitHub. `.github/workflows/verify.yml` runs the same command with the free-tier limits in §1. Vercel's preview build of the PR rehearses the migration (§5.2), and it's part of the hosting you already pay for.
 
 ---
 
@@ -303,13 +314,14 @@ Playwright runs with traces off and retries failures once, and uploads screensho
 2. **Placeholder numbers in tests.** The $200 printer price is a test value. When you enter the real price, the live numbers change; the tests don't, because they test the formula, not your data.
 3. **Multi-product plates are untested on a real file (J7).** The synthetic file in R-05 is my guess at Creality Print's format for two different STLs [Guessing]. One real file removes the guess.
 4. **Electricity is a fifth of print cost, not a tenth** at $0.64/kWh (spec open question). Worth checking that figure, since it moves every unit cost.
-5. **Vercel Blob client uploads in CI** are replaced by the in-memory adapter, so the real upload path is only proven by the post-deploy smoke test and your first import. [Likely] low risk, but it is the one path CI can't fully cover.
+5. **Vercel Blob client uploads in tests** are replaced by the in-memory adapter, so the real upload path is only proven by the post-deploy smoke test and your first import. [Likely] low risk, but it is the one path my local tests can't fully cover.
+6. **When the free minutes run out**, GitHub's second opinion stops until the next month, and only my local run remains. Mitigation: `pnpm verify` is one command that can't skip a gate, and its summary with the commit hash goes into every PR, so a missing or stale run is visible.
 
 ---
 
 ## 8. Order of work from here
 
 1. You: J1 (create the repo).
-2. Me: push the M0 scaffold as PR #1 against `main`, CI included.
-3. Me, without stopping: M0 → M1 → M2 → M3 → M4, one PR each, each green before the next starts on top of it.
+2. Me: push the M0 scaffold as PR #1 against `main`, with its `pnpm verify` summary.
+3. Me, without stopping: M0 → M1 → M2 → M3 → M4, one PR each, each verified and merged before the next starts on top of it.
 4. You, once, at the end of M0: J2–J4 (about 15 minutes in Vercel and Neon). Before real use: J5.

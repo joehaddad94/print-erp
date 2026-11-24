@@ -1,0 +1,111 @@
+/*
+ * Design tokens — source: 3d-printing/mockup/design-system.html (v0.7).
+ *
+ * Tier 1 (raw palette) is private to this file: components never use it.
+ * Tier 2 (semantic tokens) is what Tailwind exposes, via @theme in globals.css.
+ * Dark mode swaps tier-2 values only, so no component needs a `dark:` class.
+ * Every text/background pair here is checked for WCAG AA by tests/e2e/a11y.
+ */
+:root {
+  /* Tier 1: raw palette */
+  --raw-orange-600: #b83c0b;
+  --raw-orange-100: #fde8dd;
+  --raw-green-700: #1f6f33;
+  --raw-green-100: #e3f4e6;
+  --raw-amber-700: #8a5300;
+  --raw-amber-100: #fff1d6;
+  --raw-red-700: #b3261e;
+  --raw-red-100: #fde2e2;
+  --raw-blue-700: #1c64c8;
+  --raw-blue-100: #e1ecfb;
+  --raw-stone-50: #fbfaf7;
+  --raw-stone-100: #f3f1ec;
+  --raw-stone-200: #e4e0d8;
+  --raw-stone-500: #5c5952;
+  --raw-stone-900: #1c1b19;
+
+  /* Tier 2: semantic */
+  --bg: var(--raw-stone-100);
+  --surface: #fff;
+  --ink: var(--raw-stone-900);
+  --ink-muted: var(--raw-stone-500);
+  --border: var(--raw-stone-200);
+  --action: var(--raw-orange-600);
+  --action-ink: #fff;
+  --action-soft: var(--raw-orange-100);
+  --on-tone: #fff;
+  --tone-success: var(--raw-green-700);
+  --tone-success-bg: var(--raw-green-100);
+  --tone-warning: var(--raw-amber-700);
+  --tone-warning-bg: var(--raw-amber-100);
+  --tone-danger: var(--raw-red-700);
+  --tone-danger-bg: var(--raw-red-100);
+  --tone-info: var(--raw-blue-700);
+  --tone-info-bg: var(--raw-blue-100);
+  --tone-neutral: var(--raw-stone-500);
+  --tone-neutral-bg: var(--raw-stone-200);
+  --ch-wa: #0b6b38;
+  --ch-wa-bg: #dcf5e4;
+  --ch-ig: #a3245f;
+  --ch-ig-bg: #fbe1ef;
+
+  color-scheme: light;
+}
+
+/* Dark values, applied by OS preference unless the user forced light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141311;
+    --surface: #1e1d1a;
+    --ink: #efece6;
+    --ink-muted: #a29e95;
+    --border: #2f2d29;
+    --action: #ff7a3d;
+    --action-ink: #1a0d05;
+    --action-soft: #3a2216;
+    --on-tone: #141311;
+    --tone-success: #58c26e;
+    --tone-success-bg: #1b2e1f;
+    --tone-warning: #f0b04a;
+    --tone-warning-bg: #33270f;
+    --tone-danger: #ff6b6b;
+    --tone-danger-bg: #3a1a1a;
+    --tone-info: #6aa5ff;
+    --tone-info-bg: #17253b;
+    --tone-neutral: #a29e95;
+    --tone-neutral-bg: #2f2d29;
+    --ch-wa: #5fd394;
+    --ch-wa-bg: #12301f;
+    --ch-ig: #f08cbc;
+    --ch-ig-bg: #3a1528;
+    color-scheme: dark;
+  }
+}
+
+/* Same dark values when forced with data-theme="dark". Keep in sync with the block above. */
+:root[data-theme="dark"] {
+  --bg: #141311;
+  --surface: #1e1d1a;
+  --ink: #efece6;
+  --ink-muted: #a29e95;
+  --border: #2f2d29;
+  --action: #ff7a3d;
+  --action-ink: #1a0d05;
+  --action-soft: #3a2216;
+  --on-tone: #141311;
+  --tone-success: #58c26e;
+  --tone-success-bg: #1b2e1f;
+  --tone-warning: #f0b04a;
+  --tone-warning-bg: #33270f;
+  --tone-danger: #ff6b6b;
+  --tone-danger-bg: #3a1a1a;
+  --tone-info: #6aa5ff;
+  --tone-info-bg: #17253b;
+  --tone-neutral: #a29e95;
+  --tone-neutral-bg: #2f2d29;
+  --ch-wa: #5fd394;
+  --ch-wa-bg: #12301f;
+  --ch-ig: #f08cbc;
+  --ch-ig-bg: #3a1528;
+  color-scheme: dark;
+}
