@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type FieldProps = {
@@ -31,7 +31,7 @@ export function Field({ id, label, hint, error, children }: FieldProps) {
   );
 }
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean };
+type InputProps = ComponentProps<"input"> & { invalid?: boolean };
 
 export function Input({ className, invalid, id, ...rest }: InputProps) {
   return (

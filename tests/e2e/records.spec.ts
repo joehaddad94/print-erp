@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { products } from "@/db/schema";
 import { addPart } from "@/server/assembly/service";
-import { checkPage, login } from "./helpers";
+import { checkPage, login, pickSupplier } from "./helpers";
 import { withDb } from "./db";
 import { setup } from "./seed";
 
@@ -82,7 +82,7 @@ test.describe("suppliers", () => {
     await page.goto("/expenses/new");
     await page.getByLabel("Category").selectOption("other");
     await page.getByLabel("Amount").fill("12.5");
-    await page.getByLabel("Supplier").selectOption({ label: name });
+    await pickSupplier(page, name);
     await page.getByRole("button", { name: "Save expense" }).click();
     await expect(page).toHaveURL(/\/expenses$/);
 

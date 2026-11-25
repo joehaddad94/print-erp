@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ActionForm, useFieldState } from "@/components/form/action-form";
-import { Button } from "@/components/ui";
+import { ActionForm } from "@/components/form/action-form";
 import {
   CurrencyFields,
   DateField,
@@ -11,7 +10,8 @@ import {
   TextField,
   TextareaField,
 } from "@/components/form/fields";
-import { CATEGORY_LABELS, EXPENSE_CATEGORIES, NEW_SUPPLIER } from "@/server/expenses/schema";
+import { CATEGORY_LABELS, EXPENSE_CATEGORIES } from "@/server/expenses/schema";
+import { SupplierPicker } from "./supplier-picker";
 import type { FormState } from "@/server/form";
 
 type Option = { value: string; label: string };
@@ -129,45 +129,5 @@ export function ExpenseForm({
       <SupplierPicker suppliers={suppliers} />
       <TextareaField name="notes" label="Notes" />
     </ActionForm>
-  );
-}
-
-/**
- * Pick a supplier, or choose "+ New supplier…" and type a name (and, if handy, a phone) right
- * here. The supplier is saved with the expense, so there is no second form and nothing to lose.
- */
-function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
-  const { defaultValue } = useFieldState("supplierId");
-  const [choice, setChoice] = useState(defaultValue);
-  const adding = choice === NEW_SUPPLIER;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <SelectField
-        name="supplierId"
-        label="Supplier"
-        placeholder="None"
-        options={[...suppliers, { value: NEW_SUPPLIER, label: "+ New supplier…" }]}
-        value={choice}
-        onValueChange={setChoice}
-        hint={adding ? undefined : "Not in the list? Choose “+ New supplier…” at the bottom."}
-      />
-      {adding ? (
-        <fieldset className="flex flex-col gap-4 rounded-md border border-border p-3">
-          <legend className="px-1 text-sm font-semibold">New supplier</legend>
-          <TextField
-            name="newSupplierName"
-            label="Supplier name"
-            autoComplete="off"
-            autoFocus
-            hint="Saved with this expense. Shows in Suppliers afterwards."
-          />
-          <TextField name="newSupplierContact" label="Phone or link (optional)" autoComplete="off" />
-          <Button variant="ghost" className="self-start" onClick={() => setChoice("")}>
-            Pick from the list instead
-          </Button>
-        </fieldset>
-      ) : null}
-    </div>
   );
 }
