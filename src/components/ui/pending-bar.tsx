@@ -4,7 +4,8 @@ import { useLinkStatus } from "next/link";
 
 /**
  * Thin progress bar across the top of the screen while the link it sits in is
- * loading. Must be rendered inside a <Link>. Always in the DOM (no layout shift).
+ * loading. Must be rendered inside a <Link>. Fixed-position, so no layout shift;
+ * the moving stripe only exists while pending (no idle animation, no overflow).
  */
 export function PendingBar() {
   const { pending } = useLinkStatus();
@@ -12,9 +13,9 @@ export function PendingBar() {
     <span
       aria-hidden="true"
       data-pending={pending || undefined}
-      className="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden opacity-0 transition-opacity delay-100 data-pending:opacity-100"
+      className="group pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden"
     >
-      <span className="block h-full w-2/5 animate-progress bg-action" />
+      <span className="hidden h-full w-2/5 bg-action group-data-pending:block group-data-pending:animate-progress" />
     </span>
   );
 }

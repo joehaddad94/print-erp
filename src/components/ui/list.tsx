@@ -39,7 +39,7 @@ export function ListRow({
   return (
     <li>
       {href ? (
-        <Link href={href} className="block transition-colors hover:bg-surface-muted">
+        <Link href={href} className="block hover:bg-surface-muted">
           {body}
         </Link>
       ) : (

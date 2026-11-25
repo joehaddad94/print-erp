@@ -8,7 +8,7 @@ import { Icon } from "./icons";
 import { NAV, START_PRINT, isActive, type NavItem } from "./nav";
 
 const sideLink =
-  "flex min-h-tap items-center gap-3 rounded-md px-3 text-md font-medium text-ink-soft transition-colors hover:bg-surface-muted hover:text-ink";
+  "flex min-h-tap items-center gap-3 rounded-md px-3 text-md font-medium text-ink-soft hover:bg-surface-muted hover:text-ink";
 const sideLinkOn = "bg-action-soft font-semibold text-action hover:bg-action-soft hover:text-action";
 
 /**
@@ -82,11 +82,11 @@ export function TabBarList({ pathname }: { pathname: string }) {
       ))}
       <Link
         href={START_PRINT.href}
-        aria-label={START_PRINT.label}
         aria-current={startActive ? "page" : undefined}
         className="mx-auto my-1 grid size-12 place-items-center rounded-lg bg-action text-action-ink shadow-raised"
       >
         <Icon name="plus" size={24} />
+        <span className="sr-only">{START_PRINT.label}</span>
       </Link>
       {tabs.slice(2).map((t) => (
         <Link

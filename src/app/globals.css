@@ -133,9 +133,6 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
   background-color: var(--surface);
-  transition:
-    border-color 120ms,
-    box-shadow 120ms;
   &:hover {
     border-color: var(--ink-muted);
   }

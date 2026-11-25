@@ -19,7 +19,7 @@ export default function MorePage() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="flex min-h-tap items-center gap-3 px-4 py-2.5 font-medium transition-colors hover:bg-surface-muted"
+                  className="flex min-h-tap items-center gap-3 px-4 py-2.5 font-medium hover:bg-surface-muted"
                 >
                   <Icon name={item.icon} size={20} className="shrink-0 text-ink-muted" />
                   <span className="flex-1">{item.label}</span>
@@ -33,7 +33,7 @@ export default function MorePage() {
       <form action={logoutAction}>
         <button
           type="submit"
-          className="flex min-h-tap w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-surface px-4 font-semibold text-danger transition-colors hover:bg-danger-bg"
+          className="flex min-h-tap w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-surface px-4 font-semibold text-danger hover:bg-danger-bg"
         >
           <Icon name="logout" size={20} />
           Sign out

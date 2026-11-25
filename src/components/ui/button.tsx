@@ -20,8 +20,8 @@ export type ButtonVariant = keyof typeof variants;
  */
 export const buttonClass = (variant: ButtonVariant = "primary", block = false) =>
   cn(
-    "inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center gap-2 rounded-md px-4 text-md font-semibold whitespace-nowrap",
-    "transition-colors disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
+    "inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center gap-2 rounded-md px-4 py-2 text-center text-md font-semibold",
+    "disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
     variants[variant],
     block && "w-full sm:w-auto sm:self-start",
   );

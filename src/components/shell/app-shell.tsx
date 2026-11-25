@@ -57,7 +57,7 @@ function StartPrintButton() {
   return (
     <Link
       href={START_PRINT.href}
-      className="mb-3 flex min-h-tap items-center justify-center gap-2 rounded-md bg-action px-4 font-semibold text-action-ink transition-colors hover:bg-action-hover"
+      className="mb-3 flex min-h-tap items-center justify-center gap-2 rounded-md bg-action px-4 font-semibold text-action-ink hover:bg-action-hover"
     >
       <Icon name="plus" size={18} />
       {START_PRINT.label}
@@ -84,7 +84,10 @@ async function UserBadge() {
       <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold text-ink-soft uppercase">
         {user.username.slice(0, 1)}
       </span>
-      <p className="min-w-0 flex-1 truncate text-sm font-semibold">{user.username}</p>
+      <p className="min-w-0 flex-1 truncate text-sm">
+        <span className="block text-xs text-ink-muted">Signed in as</span>
+        <span className="font-semibold">{user.username}</span>
+      </p>
       <form action={logoutAction}>
         <button
           type="submit"

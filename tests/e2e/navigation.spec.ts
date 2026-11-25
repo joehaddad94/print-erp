@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
-const PHONE_TABS = ["Today", "Start print", "Orders", "Stock", "More"];
+const PHONE_TABS = ["Today", "Orders", "Start print", "Stock", "More"];
 
 test("phone: bottom tabs reach their screens; the sidebar is hidden", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "phone layout only");
