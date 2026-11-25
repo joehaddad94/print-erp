@@ -1,11 +1,23 @@
-import { crealityPrintParser } from "./creality-print";
+import { bambuStudioParser, crealityPrintParser, orcaSlicerParser } from "./creality-print";
+import { prusaSlicerParser } from "./prusaslicer";
 import { GcodeFormatError, type GcodeChunks, type GcodeParser, type ParsedGcode } from "./types";
 
 export * from "./types";
-export { durationToSeconds, plateObjects } from "./creality-print";
+export { durationToSeconds, plateObjects, printerModelsMatch } from "./common";
 
-/** One parser per slicer format (D14). Add new formats here; no schema change needed. */
-export const PARSERS: readonly GcodeParser[] = [crealityPrintParser];
+/**
+ * One parser per slicer format (D14). Add new formats here; no schema change needed.
+ * PrusaSlicer goes first: its config can name a "Creality …" printer profile.
+ */
+export const PARSERS: readonly GcodeParser[] = [
+  prusaSlicerParser,
+  crealityPrintParser,
+  orcaSlicerParser,
+  bambuStudioParser,
+];
+
+/** Shown wherever a file is chosen, and in the "not supported" error. */
+export const SUPPORTED_SLICERS = "Creality Print, PrusaSlicer, OrcaSlicer or Bambu Studio";
 
 /** Bytes read from each end (D40.1): header + thumbnails at the start, totals + config at the end. */
 export const HEAD_BYTES = 64 * 1024;
@@ -16,10 +28,21 @@ const OBJECT_MARKER = "; printing object ";
 /** Pure: parse already-read chunks. Throws GcodeFormatError for files no parser recognises. */
 export function parseGcodeChunks(chunks: GcodeChunks): ParsedGcode {
   if (!chunks.head.trim()) throw new GcodeFormatError("The file is empty.");
+  // PrusaSlicer's binary G-code starts with the magic bytes "GCDE".
+  if (chunks.head.startsWith("GCDE")) {
+    throw new GcodeFormatError(
+      "This is binary G-code (.bgcode). In PrusaSlicer turn off Printer Settings › General › Binary G-code, then export again.",
+    );
+  }
   const parser = PARSERS.find((p) => p.detect(chunks.head, chunks.tail));
   if (!parser) {
+    if (/^;\s*Generated with Cura/im.test(chunks.head.slice(0, 4000))) {
+      throw new GcodeFormatError(
+        `Cura files don't record the filament grams, so the cost can't be worked out. Slice it in ${SUPPORTED_SLICERS} instead.`,
+      );
+    }
     throw new GcodeFormatError(
-      "This isn't a Creality Print .gcode file. Export plain .gcode from Creality Print and try again.",
+      `This file's slicer isn't supported. Export plain .gcode from ${SUPPORTED_SLICERS} and try again.`,
     );
   }
   return parser.parse(chunks);

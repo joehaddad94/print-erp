@@ -7,6 +7,7 @@ import { NumberField, SelectField } from "@/components/form/fields";
 import { Callout, Field } from "@/components/ui";
 import { jobCost, unitCost, type MissingInput } from "@/lib/cost";
 import { formatDuration } from "@/lib/format";
+import { printerModelsMatch } from "@/lib/gcode";
 import { formatMoney } from "@/lib/money";
 import { startPrintAction } from "@/server/printing/actions";
 import type { startOptions } from "@/server/printing/service";
@@ -17,8 +18,7 @@ const usd = (n: number) => formatMoney(n, "USD");
 /** D16: warn when the file was sliced for another printer or nozzle. */
 function mismatch(r: Options["recipes"][number], p: Options["printers"][number]): string[] {
   const out: string[] = [];
-  const model = p.model?.toLowerCase().trim();
-  if (r.printerModel && model && !r.printerModel.toLowerCase().includes(model))
+  if (r.printerModel && p.model && !printerModelsMatch(r.printerModel, p.model))
     out.push(`The file was sliced for ${r.printerModel}, not ${p.model}.`);
   if (r.nozzleMm != null && p.nozzleMm != null && Math.abs(r.nozzleMm - p.nozzleMm) > 1e-6)
     out.push(`The file uses a ${r.nozzleMm} mm nozzle; ${p.name} has ${p.nozzleMm} mm.`);

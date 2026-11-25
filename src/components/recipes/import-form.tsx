@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, Callout, Card, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { GcodeFormatError, gramsMatch, parseGcodeFile, type ParsedGcode } from "@/lib/gcode";
+import { GcodeFormatError, gramsMatch, parseGcodeFile, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
 import { findDuplicateAction, importRecipeAction } from "@/server/recipes/actions";
 import type { StorageMode } from "@/server/storage";
 import { formatDuration } from "@/lib/format";
@@ -146,7 +146,7 @@ export function ImportForm({
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-4">
-        <Field id={fileId} label="G-code file" hint="Plain .gcode exported from Creality Print.">
+        <Field id={fileId} label="G-code file" hint={`Plain .gcode exported from ${SUPPORTED_SLICERS}.`}>
           <input
             ref={fileInput}
             id={fileId}

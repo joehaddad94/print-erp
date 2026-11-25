@@ -19,7 +19,7 @@ export default async function RecipesPage() {
         }
       />
       {rows.length === 0 ? (
-        <EmptyState title="No recipes yet">Import a .gcode file from Creality Print to make the first one.</EmptyState>
+        <EmptyState title="No recipes yet">Import a .gcode file from your slicer to make the first one.</EmptyState>
       ) : (
         <List label="Recipes">
           {rows.map((r) => (
