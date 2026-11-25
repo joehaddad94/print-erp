@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page } from "./test";
 import { E2E_USER } from "../../playwright.config";
 
 export async function login(page: Page) {
@@ -44,4 +44,32 @@ export async function checkPage(page: Page) {
   await expectNoAxeViolations(page);
   await expectTapTargets(page);
   await expectNoHorizontalScroll(page);
+}
+
+/** Budget for a screen to load (production build). A hung query fails here, not after 300 s. */
+export const PAGE_BUDGET_MS = Number(process.env.E2E_PAGE_BUDGET_MS ?? 5_000);
+
+/** Collects uncaught page errors and console errors so a test can assert a screen ran cleanly. */
+export function watchErrors(page: Page) {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+  page.on("console", (m) => {
+    if (m.type() === "error") errors.push(`console: ${m.text()}`);
+  });
+  return errors;
+}
+
+/**
+ * Opens a screen and checks it really loaded: 2xx/3xx, inside the time budget, a heading,
+ * and not the "This screen couldn't load" error boundary.
+ */
+export async function openScreen(page: Page, path: string, budgetMs = PAGE_BUDGET_MS) {
+  const t = Date.now();
+  const res = await page.goto(path, { timeout: budgetMs * 3 });
+  const ms = Date.now() - t;
+  expect(res?.status() ?? 0, `${path} HTTP status`).toBeLessThan(400);
+  await expect(page.locator("h1").first(), `${path} has a heading`).toBeVisible();
+  await expect(page.getByText("This screen couldn't load"), `${path} error boundary`).toHaveCount(0);
+  expect(ms, `${path} loaded in ${ms} ms (budget ${budgetMs} ms)`).toBeLessThan(budgetMs);
+  return ms;
 }

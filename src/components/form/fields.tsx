@@ -1,11 +1,20 @@
 "use client";
 
-import type { InputHTMLAttributes, ReactNode } from "react";
+import { useId, type InputHTMLAttributes, type ReactNode } from "react";
 import { Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useFieldState } from "./action-form";
 
 type Base = { name: string; label: string; hint?: ReactNode };
+
+/**
+ * A DOM id unique to this field instance. Next keeps up to 3 visited routes mounted but hidden
+ * (React Activity), so two forms with the same field name (e.g. new + edit) would share an id and
+ * the visible label would point at the hidden input. The name stays as the prefix for readability.
+ */
+export function useFieldId(name: string) {
+  return `${name}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+}
 
 export function TextField({
   name,
@@ -14,9 +23,10 @@ export function TextField({
   ...rest
 }: Base & Omit<InputHTMLAttributes<HTMLInputElement>, "name" | "defaultValue">) {
   const { defaultValue, error, version } = useFieldState(name);
+  const id = useFieldId(name);
   return (
-    <Field id={name} label={label} hint={hint} error={error}>
-      <Input key={version} id={name} name={name} defaultValue={defaultValue} invalid={!!error} {...rest} />
+    <Field id={id} label={label} hint={hint} error={error}>
+      <Input key={version} id={id} name={name} defaultValue={defaultValue} invalid={!!error} {...rest} />
     </Field>
   );
 }
@@ -24,12 +34,13 @@ export function TextField({
 /** Numbers are typed as text with a decimal keyboard so "1,000" and "0.12" both work on phones. */
 export function NumberField({ name, label, hint, suffix }: Base & { suffix?: string }) {
   const { defaultValue, error, version } = useFieldState(name);
+  const id = useFieldId(name);
   return (
-    <Field id={name} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error}>
       <div className="flex items-center gap-2">
         <Input
           key={version}
-          id={name}
+          id={id}
           name={name}
           inputMode="decimal"
           autoComplete="off"
@@ -45,9 +56,10 @@ export function NumberField({ name, label, hint, suffix }: Base & { suffix?: str
 
 export function DateField({ name, label, hint }: Base) {
   const { defaultValue, error, version } = useFieldState(name);
+  const id = useFieldId(name);
   return (
-    <Field id={name} label={label} hint={hint} error={error}>
-      <Input key={version} id={name} name={name} type="date" defaultValue={defaultValue} invalid={!!error} />
+    <Field id={id} label={label} hint={hint} error={error}>
+      <Input key={version} id={id} name={name} type="date" defaultValue={defaultValue} invalid={!!error} />
     </Field>
   );
 }
@@ -65,15 +77,16 @@ export function SelectField({
   onValueChange?: (v: string) => void;
 }) {
   const { defaultValue, error, version } = useFieldState(name);
+  const id = useFieldId(name);
   return (
-    <Field id={name} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error}>
       <select
         key={version}
-        id={name}
+        id={id}
         name={name}
         defaultValue={defaultValue}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${name}-error` : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(e) => onValueChange?.(e.target.value)}
         className={cn("control px-3 text-md text-ink", error && "border-danger")}
       >
@@ -90,11 +103,12 @@ export function SelectField({
 
 export function TextareaField({ name, label, hint }: Base) {
   const { defaultValue, error, version } = useFieldState(name);
+  const id = useFieldId(name);
   return (
-    <Field id={name} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error}>
       <textarea
         key={version}
-        id={name}
+        id={id}
         name={name}
         rows={3}
         defaultValue={defaultValue}

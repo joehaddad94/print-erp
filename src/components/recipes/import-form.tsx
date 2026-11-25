@@ -187,12 +187,21 @@ export function ImportForm({
           </Card>
 
           <Card className="flex flex-col gap-4">
-            <Field id="recipe-name" label="Recipe name">
-              <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!!group} />
+            <Field id={`${fileId}-recipe-name`} label="Recipe name">
+              <Input
+                id={`${fileId}-recipe-name`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={!!group}
+              />
             </Field>
             {group ? (
-              <Field id="change-note" label="What changed" hint="Saved with this version.">
-                <Input id="change-note" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} />
+              <Field id={`${fileId}-change-note`} label="What changed" hint="Saved with this version.">
+                <Input
+                  id={`${fileId}-change-note`}
+                  value={changeNote}
+                  onChange={(e) => setChangeNote(e.target.value)}
+                />
               </Field>
             ) : null}
           </Card>
@@ -202,9 +211,9 @@ export function ImportForm({
             {rows.map((r, i) => (
               <fieldset key={i} className="flex flex-col gap-3 rounded-md border border-border p-3">
                 <legend className="px-1 text-sm font-semibold">{r.label}</legend>
-                <Field id={`item-${i}-product`} label="Product or part">
+                <Field id={`${fileId}-item-${i}-product`} label="Product or part">
                   <select
-                    id={`item-${i}-product`}
+                    id={`${fileId}-item-${i}-product`}
                     value={r.productId}
                     onChange={(e) => update(i, { productId: e.target.value })}
                     className="control px-3 text-md text-ink"
@@ -218,26 +227,26 @@ export function ImportForm({
                   </select>
                 </Field>
                 {r.productId ? null : (
-                  <Field id={`item-${i}-new`} label="New product name">
+                  <Field id={`${fileId}-item-${i}-new`} label="New product name">
                     <Input
-                      id={`item-${i}-new`}
+                      id={`${fileId}-item-${i}-new`}
                       value={r.newName}
                       onChange={(e) => update(i, { newName: e.target.value })}
                     />
                   </Field>
                 )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Field id={`item-${i}-qty`} label="Pieces on plate">
+                  <Field id={`${fileId}-item-${i}-qty`} label="Pieces on plate">
                     <Input
-                      id={`item-${i}-qty`}
+                      id={`${fileId}-item-${i}-qty`}
                       inputMode="numeric"
                       value={r.qty}
                       onChange={(e) => update(i, { qty: e.target.value })}
                     />
                   </Field>
-                  <Field id={`item-${i}-grams`} label="Grams per piece">
+                  <Field id={`${fileId}-item-${i}-grams`} label="Grams per piece">
                     <Input
-                      id={`item-${i}-grams`}
+                      id={`${fileId}-item-${i}-grams`}
                       inputMode="decimal"
                       value={r.grams}
                       onChange={(e) => update(i, { grams: e.target.value })}

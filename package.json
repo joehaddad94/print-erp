@@ -13,6 +13,8 @@
     "test": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "test:e2e": "playwright test",
+    "test:e2e:pooled": "tsx scripts/e2e-pooled.ts",
+    "test:e2e:live": "playwright test --grep @smoke",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "user:set-password": "tsx scripts/set-password.ts",

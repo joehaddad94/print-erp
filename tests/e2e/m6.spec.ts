@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { orders, products } from "@/db/schema";
 import { addPart, stockFor } from "@/server/assembly/service";
 import { recordMovement } from "@/server/stock/ledger";

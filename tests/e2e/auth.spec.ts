@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./test";
 import { E2E_USER } from "../../playwright.config";
 import { checkPage, login } from "./helpers";
 
