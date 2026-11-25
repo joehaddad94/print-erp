@@ -199,7 +199,7 @@ export function FinishForm({
         )}
       </div>
 
-      <Button type="submit" block disabled={pending}>
+      <Button type="submit" block pending={pending}>
         {pending ? "Saving…" : submitLabel}
       </Button>
     </form>

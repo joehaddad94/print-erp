@@ -19,8 +19,21 @@ const eslintConfig = defineConfig([
       ],
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "next/link",
+              importNames: ["default"],
+              message: "Use { Link } from @/components/ui/link: it adds the loading bar.",
+            },
+          ],
+        },
+      ],
     },
   },
+  { files: ["src/components/ui/link.tsx"], rules: { "no-restricted-imports": "off" } },
   globalIgnores([
     ".next/**",
     "out/**",

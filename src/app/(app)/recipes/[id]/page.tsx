@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ActionForm } from "@/components/form/action-form";
@@ -23,7 +23,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
   const history = await historyFor(db(), "recipes", id);
   const kb = Math.round(r.fileSizeBytes / 1024);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader
         title={`${r.name} · v${r.version}`}
         action={

@@ -1,53 +1,62 @@
 /*
- * Design tokens — source: 3d-printing/mockup/design-system.html (v0.7).
+ * Design tokens — v0.8 "calm" palette (Nov 25 2026 redesign): neutral greys,
+ * one blue accent for actions, tones only for status.
  *
  * Tier 1 (raw palette) is private to this file: components never use it.
  * Tier 2 (semantic tokens) is what Tailwind exposes, via @theme in globals.css.
  * Dark mode swaps tier-2 values only, so no component needs a `dark:` class.
- * Every text/background pair here is checked for WCAG AA by tests/e2e/a11y.
+ * Every text/background pair here is checked for WCAG AA by tests/unit/contrast.test.ts.
  */
 :root {
   /* Tier 1: raw palette */
-  --raw-orange-600: #b83c0b;
-  --raw-orange-100: #fde8dd;
-  --raw-green-700: #1f6f33;
-  --raw-green-100: #e3f4e6;
-  --raw-amber-700: #8a5300;
-  --raw-amber-100: #fff1d6;
-  --raw-red-700: #b3261e;
-  --raw-red-100: #fde2e2;
-  --raw-blue-700: #1c64c8;
-  --raw-blue-100: #e1ecfb;
-  --raw-stone-50: #fbfaf7;
-  --raw-stone-100: #f3f1ec;
-  --raw-stone-200: #e4e0d8;
-  --raw-stone-500: #5c5952;
-  --raw-stone-900: #1c1b19;
+  --raw-blue-600: #3b5bdb;
+  --raw-blue-700: #3249b8;
+  --raw-blue-50: #edf1fd;
+  --raw-green-700: #17744a;
+  --raw-green-50: #e7f6ee;
+  --raw-amber-700: #9a5b00;
+  --raw-amber-50: #fdf3e1;
+  --raw-red-700: #c0262d;
+  --raw-red-50: #fdecec;
+  --raw-gray-25: #f6f7f9;
+  --raw-gray-50: #f1f3f5;
+  --raw-gray-100: #eef0f3;
+  --raw-gray-200: #e3e6ea;
+  --raw-gray-400: #8d95a3;
+  --raw-gray-600: #4b5563;
+  --raw-gray-700: #374151;
+  --raw-gray-900: #111827;
 
   /* Tier 2: semantic */
-  --bg: var(--raw-stone-100);
+  --bg: var(--raw-gray-25);
   --surface: #fff;
-  --ink: var(--raw-stone-900);
-  --ink-muted: var(--raw-stone-500);
-  --border: var(--raw-stone-200);
-  --action: var(--raw-orange-600);
+  --surface-muted: var(--raw-gray-50);
+  --ink: var(--raw-gray-900);
+  --ink-soft: var(--raw-gray-700);
+  --ink-muted: var(--raw-gray-600);
+  --border: var(--raw-gray-200);
+  /* Input and secondary-button outlines: ≥3:1 against surface (WCAG 1.4.11). */
+  --border-strong: var(--raw-gray-400);
+  --action: var(--raw-blue-600);
+  --action-hover: var(--raw-blue-700);
   --action-ink: #fff;
-  --action-soft: var(--raw-orange-100);
+  --action-soft: var(--raw-blue-50);
   --on-tone: #fff;
   --tone-success: var(--raw-green-700);
-  --tone-success-bg: var(--raw-green-100);
+  --tone-success-bg: var(--raw-green-50);
   --tone-warning: var(--raw-amber-700);
-  --tone-warning-bg: var(--raw-amber-100);
+  --tone-warning-bg: var(--raw-amber-50);
   --tone-danger: var(--raw-red-700);
-  --tone-danger-bg: var(--raw-red-100);
-  --tone-info: var(--raw-blue-700);
-  --tone-info-bg: var(--raw-blue-100);
-  --tone-neutral: var(--raw-stone-500);
-  --tone-neutral-bg: var(--raw-stone-200);
+  --tone-danger-bg: var(--raw-red-50);
+  --tone-info: var(--raw-blue-600);
+  --tone-info-bg: var(--raw-blue-50);
+  --tone-neutral: var(--raw-gray-600);
+  --tone-neutral-bg: var(--raw-gray-100);
   --ch-wa: #0b6b38;
   --ch-wa-bg: #dcf5e4;
   --ch-ig: #a3245f;
   --ch-ig-bg: #fbe1ef;
+  --skeleton: var(--raw-gray-100);
 
   color-scheme: light;
 }
@@ -55,57 +64,67 @@
 /* Dark values, applied by OS preference unless the user forced light. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141311;
-    --surface: #1e1d1a;
-    --ink: #efece6;
-    --ink-muted: #a29e95;
-    --border: #2f2d29;
-    --action: #ff7a3d;
-    --action-ink: #1a0d05;
-    --action-soft: #3a2216;
-    --on-tone: #141311;
-    --tone-success: #58c26e;
-    --tone-success-bg: #1b2e1f;
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-muted: #1c2028;
+    --ink: #e8eaef;
+    --ink-soft: #c9ced8;
+    --ink-muted: #9aa3b2;
+    --border: #2a2f3a;
+    --border-strong: #6b7385;
+    --action: #7b93ff;
+    --action-hover: #9aacff;
+    --action-ink: #0b1020;
+    --action-soft: #1d2540;
+    --on-tone: #0f1115;
+    --tone-success: #5ccf8a;
+    --tone-success-bg: #14291e;
     --tone-warning: #f0b04a;
     --tone-warning-bg: #33270f;
     --tone-danger: #ff6b6b;
     --tone-danger-bg: #3a1a1a;
     --tone-info: #6aa5ff;
     --tone-info-bg: #17253b;
-    --tone-neutral: #a29e95;
-    --tone-neutral-bg: #2f2d29;
+    --tone-neutral: #a3abb8;
+    --tone-neutral-bg: #262b35;
     --ch-wa: #5fd394;
     --ch-wa-bg: #12301f;
     --ch-ig: #f08cbc;
     --ch-ig-bg: #3a1528;
+    --skeleton: #232833;
     color-scheme: dark;
   }
 }
 
 /* Same dark values when forced with data-theme="dark". Keep in sync with the block above. */
 :root[data-theme="dark"] {
-  --bg: #141311;
-  --surface: #1e1d1a;
-  --ink: #efece6;
-  --ink-muted: #a29e95;
-  --border: #2f2d29;
-  --action: #ff7a3d;
-  --action-ink: #1a0d05;
-  --action-soft: #3a2216;
-  --on-tone: #141311;
-  --tone-success: #58c26e;
-  --tone-success-bg: #1b2e1f;
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-muted: #1c2028;
+  --ink: #e8eaef;
+  --ink-soft: #c9ced8;
+  --ink-muted: #9aa3b2;
+  --border: #2a2f3a;
+  --border-strong: #6b7385;
+  --action: #7b93ff;
+  --action-hover: #9aacff;
+  --action-ink: #0b1020;
+  --action-soft: #1d2540;
+  --on-tone: #0f1115;
+  --tone-success: #5ccf8a;
+  --tone-success-bg: #14291e;
   --tone-warning: #f0b04a;
   --tone-warning-bg: #33270f;
   --tone-danger: #ff6b6b;
   --tone-danger-bg: #3a1a1a;
   --tone-info: #6aa5ff;
   --tone-info-bg: #17253b;
-  --tone-neutral: #a29e95;
-  --tone-neutral-bg: #2f2d29;
+  --tone-neutral: #a3abb8;
+  --tone-neutral-bg: #262b35;
   --ch-wa: #5fd394;
   --ch-wa-bg: #12301f;
   --ch-ig: #f08cbc;
   --ch-ig-bg: #3a1528;
+  --skeleton: #232833;
   color-scheme: dark;
 }

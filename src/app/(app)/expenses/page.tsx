@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { Badge, EditedMarker, EmptyState, List, ListRow, Money, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
@@ -9,7 +9,7 @@ export default async function ExpensesPage() {
   await requireUser();
   const rows = await listExpenses(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Expenses & purchases"
         action={

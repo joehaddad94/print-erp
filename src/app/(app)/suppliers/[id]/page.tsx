@@ -27,7 +27,7 @@ export default async function SupplierPage({ params }: PageProps<"/suppliers/[id
   const total = bought.reduce((sum, e) => sum + e.amount * e.rateToUsd, 0);
   const history = await historyFor(db(), "suppliers", id);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={s.name} />
       <Card>
         <ActionForm

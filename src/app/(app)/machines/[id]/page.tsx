@@ -17,7 +17,7 @@ export default async function MachinePage({ params }: PageProps<"/machines/[id]"
   if (!m) notFound();
   const history = await historyFor(db(), "machines", id);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={m.name} />
       <Card>
         <ActionForm

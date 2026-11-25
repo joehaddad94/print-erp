@@ -12,7 +12,7 @@ export default async function SectionPlaceholder({ params }: PageProps<"/[sectio
   const item = findSection(section);
   if (!item) notFound();
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <h1 className="text-xl font-bold">{item.label}</h1>
       <Card>
         <p className="text-ink-muted">This screen arrives in milestone {item.milestone}.</p>

@@ -31,7 +31,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
       .orderBy(asc(products.name)),
   ]);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={productLabel(p)} />
       <Card>
         <ActionForm

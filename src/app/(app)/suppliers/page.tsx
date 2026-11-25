@@ -10,7 +10,7 @@ export default async function SuppliersPage() {
   await requireUser();
   const rows = await listSuppliers(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Suppliers" />
       {rows.length === 0 ? (
         <EmptyState title="No suppliers yet">Add the shops you buy filament and packaging from.</EmptyState>

@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { AssembleForm } from "@/components/assembly/assemble-form";
 import { Card, EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
@@ -30,7 +30,7 @@ export default async function AssemblePage() {
   ).filter((p) => p.parts.length > 0);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Assemble" />
       {withParts.length === 0 ? (
         <EmptyState title="No product has a parts list yet">

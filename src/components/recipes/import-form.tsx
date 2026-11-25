@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, Callout, Card, Field, Input } from "@/components/ui";
@@ -153,7 +153,7 @@ export function ImportForm({
             type="file"
             accept=".gcode"
             onChange={(e) => void choose(e.target.files?.[0] ?? null)}
-            className="min-h-tap w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-ink"
+            className="control px-3 py-2.5 text-sm text-ink"
           />
         </Field>
         {busy === "reading" ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
@@ -207,7 +207,7 @@ export function ImportForm({
                     id={`item-${i}-product`}
                     value={r.productId}
                     onChange={(e) => update(i, { productId: e.target.value })}
-                    className="min-h-tap w-full rounded-md border border-border bg-surface px-3 text-md text-ink"
+                    className="control px-3 text-md text-ink"
                   >
                     <option value="">New product…</option>
                     {products.map((p) => (

@@ -14,7 +14,7 @@ export default async function ImportRecipePage({ searchParams }: PageProps<"/rec
   const opts = await importOptions();
   if (process.env.VERCEL && opts.mode === "local") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex max-w-content flex-col gap-6">
         <PageHeader title="Import G-code" />
         <Callout tone="warning" title="File storage isn't connected">
           Connect a Vercel Blob store to this project (Storage tab in Vercel), then redeploy. The cost calculator works

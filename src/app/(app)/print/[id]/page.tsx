@@ -46,7 +46,7 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
   const history = finished ? await historyFor(db(), "print_jobs", id) : [];
   const estimated = job.filaments.some((f) => f.line.gramsSource !== "weighed");
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={`${finished ? "Print" : "Finish print"}: ${job.recipe.name}`} />
       <Card className="flex flex-col gap-1 text-sm">
         <p>

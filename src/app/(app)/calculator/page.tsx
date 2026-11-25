@@ -8,7 +8,7 @@ export default async function CalculatorPage() {
   await requireUser();
   const inputs = await costInputs(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Cost calculator" />
       <CostCalculator inputs={inputs} />
     </div>

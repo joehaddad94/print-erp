@@ -15,7 +15,7 @@ export default async function MachinesPage() {
     rows.map((m) => m.id),
   );
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Machines" />
       {rows.length === 0 ? (
         <EmptyState title="No machines yet">Buy one through Add expense, category Machine.</EmptyState>

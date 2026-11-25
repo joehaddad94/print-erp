@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ActionForm } from "@/components/form/action-form";
@@ -53,7 +53,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
   const cur = o.currency as Currency;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={`Order #${o.id}`} />
       <Card className="flex flex-col gap-2 text-sm">
         <p className="flex flex-wrap items-center gap-2">

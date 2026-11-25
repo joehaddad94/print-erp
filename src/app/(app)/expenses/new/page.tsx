@@ -9,7 +9,7 @@ export default async function NewExpensePage() {
   const opts = await expenseFormOptions();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Add expense" />
       <Card>
         <ExpenseForm

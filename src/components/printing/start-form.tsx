@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { useState } from "react";
 import { ActionForm } from "@/components/form/action-form";
 import { NumberField, SelectField } from "@/components/form/fields";
@@ -103,7 +103,7 @@ export function StartForm({ options }: { options: Options }) {
               id="filament-pick"
               value={autoFilament}
               onChange={(e) => setFilamentId(e.target.value)}
-              className="min-h-tap w-full rounded-md border border-border bg-surface px-3 text-md text-ink"
+              className="control px-3 text-md text-ink"
             >
               {options.filaments.map((f) => (
                 <option key={f.id} value={f.id}>
