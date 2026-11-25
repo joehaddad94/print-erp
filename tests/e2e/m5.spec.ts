@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { machines, products } from "@/db/schema";
 import { setSetting } from "@/server/settings/service";
 import { syntheticGcode } from "../support/synthetic-gcode";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { Badge, Button, Callout, Field, Input } from "@/components/ui";
 import { formatDuration } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -60,6 +60,9 @@ export function FinishForm({
     Object.fromEntries(filaments.map((f) => [f.id, v(`weighed-${f.id}`, defaults.weighed[f.id] ?? "")])),
   );
   const err = (k: string) => state.fieldErrors?.[k];
+  /** Unique per instance: hidden, still-mounted routes (React Activity) may hold another finish form. */
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const fid = (k: string) => `${k}-${uid}`;
 
   const h = num(hours);
   const pct = num(stopped);
@@ -81,14 +84,14 @@ export function FinishForm({
       <input type="hidden" name="hoursSource" value={source} />
 
       <Field
-        id="hours"
+        id={fid("hours")}
         label="Print time (hours)"
         error={err("hours")}
         hint={`${HOURS_LABEL[source]} · ${formatDuration(h * 3600)}`}
       >
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            id="hours"
+            id={fid("hours")}
             name="hours"
             inputMode="decimal"
             autoComplete="off"
@@ -118,9 +121,14 @@ export function FinishForm({
       <fieldset className="flex flex-col gap-3 rounded-md border border-border p-3">
         <legend className="px-1 text-sm font-semibold">Good pieces</legend>
         {items.map((i) => (
-          <Field key={i.id} id={`good-${i.id}`} label={`${i.name} (of ${i.qtyPlanned})`} error={err(`good-${i.id}`)}>
+          <Field
+            key={i.id}
+            id={fid(`good-${i.id}`)}
+            label={`${i.name} (of ${i.qtyPlanned})`}
+            error={err(`good-${i.id}`)}
+          >
             <Input
-              id={`good-${i.id}`}
+              id={fid(`good-${i.id}`)}
               name={`good-${i.id}`}
               inputMode="numeric"
               value={good[i.id]}
@@ -132,13 +140,13 @@ export function FinishForm({
       </fieldset>
 
       <Field
-        id="stoppedAtPct"
+        id={fid("stoppedAtPct")}
         label="How far it got (%)"
         hint="100 unless it stopped early."
         error={err("stoppedAtPct")}
       >
         <Input
-          id="stoppedAtPct"
+          id={fid("stoppedAtPct")}
           name="stoppedAtPct"
           inputMode="decimal"
           value={stopped}
@@ -150,13 +158,13 @@ export function FinishForm({
       {filaments.map((f) => (
         <Field
           key={f.id}
-          id={`weighed-${f.id}`}
+          id={fid(`weighed-${f.id}`)}
           label={`${f.name} used, weighed (g)`}
           hint="Optional. Blank = the recipe's grams."
           error={err(`weighed-${f.id}`)}
         >
           <Input
-            id={`weighed-${f.id}`}
+            id={fid(`weighed-${f.id}`)}
             name={`weighed-${f.id}`}
             inputMode="decimal"
             value={weighed[f.id]}
@@ -175,8 +183,12 @@ export function FinishForm({
         />
         Power cut during the print
       </label>
-      <Field id="failureReason" label="What went wrong" hint="Optional.">
-        <Input id="failureReason" name="failureReason" defaultValue={v("failureReason", defaults.failureReason)} />
+      <Field id={fid("failureReason")} label="What went wrong" hint="Optional.">
+        <Input
+          id={fid("failureReason")}
+          name="failureReason"
+          defaultValue={v("failureReason", defaults.failureReason)}
+        />
       </Field>
 
       <div className="rounded-md bg-bg px-3 py-2.5 text-sm" aria-live="polite" data-testid="live-cost">

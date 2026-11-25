@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./test";
 import { sql } from "drizzle-orm";
 import { machines, recipes, settings } from "@/db/schema";
 import { expenseSchema } from "@/server/expenses/schema";
