@@ -86,42 +86,56 @@ test("E-05 a failed save keeps every typed value", async ({ page }) => {
   await expect(page.getByLabel("Notes")).toHaveValue("keep me");
 });
 
-test("S-03 purchase: search suppliers, or add a new one from the same field", async ({ page }, info) => {
+test("S-03 purchase: search picks a supplier; + New supplier adds one and picks it", async ({ page }, info) => {
   const name = `Spool corner ${info.project.name}`;
   const box = page.getByRole("combobox", { name: "Supplier" });
   await page.goto("/expenses/new");
   await page.getByLabel("Category").selectOption("other");
   await page.getByLabel("Amount").fill("7");
+
+  // The search never offers to add: a name that isn't listed is refused on save, not created.
   await box.fill(name);
-  await expect(box).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("listbox", { name: "Suppliers" }).getByRole("option")).toHaveCount(0);
+  await expect(page.getByRole("listbox", { name: "Suppliers" })).toContainText(/No suppliers? (matches|yet)/);
+  await page.getByLabel("Amount").click();
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByText(`“${name}” isn't a supplier yet.`)).toBeVisible();
+  await expect(box).toHaveValue(name);
+
+  // + New supplier opens a small form (name taken from the search), Cancel closes it.
+  await page.getByRole("button", { name: "+ New supplier" }).click();
+  await expect(page.getByLabel("Supplier name")).toBeFocused();
+  await expect(page.getByLabel("Supplier name")).toHaveValue(name);
   await checkPage(page);
-  // Keyboard: the "add" row is offered and Enter picks it (doesn't submit the form).
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByLabel("Supplier name")).toHaveCount(0);
+
+  // Empty name is refused inside the panel; Enter saves the supplier, not the expense.
+  await page.getByRole("button", { name: "+ New supplier" }).click();
+  await page.getByLabel("Supplier name").fill("");
+  await page.getByRole("button", { name: "Save supplier" }).click();
+  await expect(page.getByText("Enter a name")).toBeVisible();
+  await page.getByLabel("Supplier name").fill(name);
+  await page.getByLabel("Phone or link (optional)").fill("+961 71 000 000");
+  await page.getByLabel("Phone or link (optional)").press("Enter");
+  await expect(page.getByText(`Added “${name}” and picked it.`)).toBeVisible();
+  await expect(box).toHaveValue(name);
   await expect(page).toHaveURL(/\/expenses\/new$/);
-  await expect(page.getByText(`New supplier: “${name}”. It's added when you save.`)).toBeVisible();
-  // Clear goes back to no supplier.
-  await page.getByRole("button", { name: "Clear supplier" }).click();
-  await expect(box).toHaveValue("");
-  await expect(page.getByLabel("New supplier's phone or link (optional)")).toHaveCount(0);
-  // Tap the "add" row (phone path).
-  await box.fill(name);
-  await page.getByRole("option", { name: `+ Add “${name}” as a new supplier` }).click();
-  await page.getByLabel("New supplier's phone or link (optional)").fill("+961 71 000 000");
   await page.getByRole("button", { name: "Save expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
   await page.goto("/suppliers");
   await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$7");
 
-  // Next purchase: search finds it; typing the same name in other case reuses it, no duplicate.
+  // Next purchase: search finds it; adding the same name again reuses it, no duplicate.
   await page.goto("/expenses/new");
   await page.getByLabel("Category").selectOption("other");
   await page.getByLabel("Amount").fill("3");
-  await pickSupplier(page, name);
-  await box.fill(name.toUpperCase());
-  await expect(page.getByRole("option", { name: /as a new supplier/ })).toHaveCount(0);
-  await page.getByLabel("Amount").click(); // leave the field: exact name selects the existing one
+  await page.getByRole("button", { name: "+ New supplier" }).click();
+  await page.getByLabel("Supplier name").fill(name.toUpperCase());
+  await page.getByRole("button", { name: "Save supplier" }).click();
   await expect(box).toHaveValue(name);
+  await page.getByRole("button", { name: "Clear supplier" }).click();
+  await pickSupplier(page, name);
   await page.getByRole("button", { name: "Save expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
   await page.goto("/suppliers");
