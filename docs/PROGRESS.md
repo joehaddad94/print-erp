@@ -10,11 +10,11 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | M1 G-code parser + cost engine | Merged Nov 25 | #2 |
 | M2 Settings, machines, suppliers, expenses, edit engine | Done: verify all green (89 unit, 34 db, 32 e2e) | #3 |
 | M3 Recipes import, products, cost calculator | Done: verify all green (94 unit, 44 db, 42 e2e) | #4 |
-| M4 Start / Finish print, weigh filament | Not started | — |
+| M4 Start / Finish print, weigh filament | Done: verify all green (100 unit, 54 db, 50 e2e). `cost_per_good_unit` view deferred to M6: unit cost is stored per job line | #6 |
 
 ## Next step
 
-M4 (branch `m4-print`): Start print, Finish print, Weigh filament, cost_per_good_unit view, Today shows printing now. Tests J-01..J-11.
+M5 (branch `m5-orders`): customers, orders with reservations and shortfall, deliver, record payment (plan §M5).
 
 ## Open issues
 
