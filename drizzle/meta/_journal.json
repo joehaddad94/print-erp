@@ -15,6 +15,13 @@
       "when": 1795564325305,
       "tag": "0001_supabase_lockdown",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795571777074,
+      "tag": "0002_stock_average_cost",
+      "breakpoints": true
     }
   ]
 }

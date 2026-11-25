@@ -103,3 +103,21 @@ export const orderBalance = pgView("order_balance", {
   from lines l
   left join pays p on p.order_id = l.order_id
 `);
+
+/**
+ * Weighted average unit cost per item (D23, D38): the average recorded on the item's
+ * latest non-deleted movement that carries one (maintained by src/server/stock/ledger.ts).
+ */
+export const stockAverageCost = pgView("stock_average_cost", {
+  stockItemId: integer("stock_item_id").notNull(),
+  avgUnitCostUsd: n("avg_unit_cost_usd"),
+}).as(sql`
+  select si.id as stock_item_id,
+         (select m.avg_unit_cost_after_usd
+            from stock_movements m
+           where m.stock_item_id = si.id and m.deleted_at is null and m.avg_unit_cost_after_usd is not null
+           order by m.moved_at desc, m.id desc
+           limit 1) as avg_unit_cost_usd
+  from stock_items si
+  where si.deleted_at is null
+`);

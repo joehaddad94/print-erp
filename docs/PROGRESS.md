@@ -7,14 +7,14 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | Milestone | State | PR |
 | --- | --- | --- |
 | M0 Foundations (scaffold, theme, schema, login, tests) | Merged Nov 25 | #1 |
-| M1 G-code parser + cost engine | In progress on `m1-parser-cost` | — |
+| M1 G-code parser + cost engine | Verified, PR open | #2 |
 | M2 Settings, machines, suppliers, expenses, edit engine | Not started | — |
 | M3 Recipes import, products, cost calculator | Not started | — |
 | M4 Start / Finish print, weigh filament | Not started | — |
 
 ## Next step
 
-M1: parser done (tests P-01..P-14 green locally). Next: `src/lib/cost` with tests C-01..C-17, then `pnpm verify`, PR, merge.
+M2: settings (dated), machines, suppliers, Add expense with purchases (filament → stock + average), D13 edit engine (edit_log, Edited marker, history).
 
 ## Open issues
 
