@@ -1,0 +1,211 @@
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type * as schema from "@/db/schema";
+import { expenses, machines, stockItems, stockMovements, suppliers } from "@/db/schema";
+import { rateToUsdFromLbpRate } from "@/lib/money";
+import { lastEdited, softDeleteLogged, updateLogged } from "@/server/edits/engine";
+import { recordMovement, replayAverages } from "@/server/stock/ledger";
+import type { ExpenseInput } from "./schema";
+
+type Db = PostgresJsDatabase<typeof schema>;
+
+const rateFor = (i: ExpenseInput) => (i.currency === "USD" ? 1 : rateToUsdFromLbpRate(i.lbpRate!));
+
+/**
+ * D9: a purchase is entered once and creates the expense plus the stock (filament grams at
+ * price per gram, packaging pieces) or the machine, in one transaction.
+ */
+export async function createExpense(db: Db, i: ExpenseInput) {
+  return db.transaction(async (tx) => {
+    const rateToUsd = rateFor(i);
+    const usd = i.amount * rateToUsd;
+    const [expense] = await tx
+      .insert(expenses)
+      .values({
+        spentOn: i.spentOn,
+        category: i.category,
+        amount: i.amount,
+        currency: i.currency,
+        rateToUsd,
+        supplierId: i.supplierId,
+        notes: i.notes,
+      })
+      .returning();
+
+    if (i.category === "filament") {
+      let filamentId = i.filamentId;
+      if (filamentId == null) {
+        const [item] = await tx
+          .insert(stockItems)
+          .values({
+            name: `${i.newMaterial} ${i.newColor}`,
+            type: "filament",
+            unit: "grams",
+            material: i.newMaterial,
+            color: i.newColor,
+            emptySpoolWeightG: i.emptySpoolWeightG,
+          })
+          .returning();
+        filamentId = item!.id;
+      }
+      await tx.update(expenses).set({ stockItemId: filamentId }).where(eq(expenses.id, expense!.id));
+      await recordMovement(tx, {
+        stockItemId: filamentId,
+        amount: i.grams!,
+        reason: "purchase",
+        unitCostUsd: usd / i.grams!,
+        expenseId: expense!.id,
+        movedAt: new Date(`${i.spentOn}T12:00:00Z`),
+      });
+    }
+
+    if (i.category === "packaging") {
+      let itemId = i.packagingId;
+      if (itemId == null) {
+        const [item] = await tx
+          .insert(stockItems)
+          .values({ name: i.newPackagingName!, type: "consumable", unit: "pieces" })
+          .returning();
+        itemId = item!.id;
+      }
+      await tx.update(expenses).set({ stockItemId: itemId }).where(eq(expenses.id, expense!.id));
+      await recordMovement(tx, {
+        stockItemId: itemId,
+        amount: i.pieces!,
+        reason: "purchase",
+        unitCostUsd: usd / i.pieces!,
+        expenseId: expense!.id,
+        movedAt: new Date(`${i.spentOn}T12:00:00Z`),
+      });
+    }
+
+    if (i.category === "machine") {
+      const [machine] = await tx
+        .insert(machines)
+        .values({
+          name: i.machineName!,
+          type: i.machineType ?? "equipment",
+          model: i.machineModel,
+          boughtOn: i.spentOn,
+          purchaseAmount: i.amount,
+          purchaseCurrency: i.currency,
+          purchaseRateToUsd: rateToUsd,
+          expectedLifeHours: (i.machineType ?? "equipment") === "printer" ? 3000 : null,
+        })
+        .returning();
+      await tx.update(expenses).set({ machineId: machine!.id }).where(eq(expenses.id, expense!.id));
+    }
+    return expense!.id;
+  });
+}
+
+/**
+ * D13 edit: same form; changed fields are logged. A purchase's grams or price also updates
+ * its stock movement (logged) and replays the item's averages (plan §3.10).
+ * The category and what was bought can't change on edit: delete and re-enter instead.
+ */
+export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?: number) {
+  return db.transaction(async (tx) => {
+    const rateToUsd = rateFor(i);
+    const { row } = await updateLogged(
+      tx,
+      expenses,
+      id,
+      {
+        spentOn: i.spentOn,
+        amount: i.amount,
+        currency: i.currency,
+        rateToUsd,
+        supplierId: i.supplierId,
+        notes: i.notes,
+      },
+      { userId },
+    );
+    const [movement] = await tx
+      .select()
+      .from(stockMovements)
+      .where(and(eq(stockMovements.expenseId, id), isNull(stockMovements.deletedAt)));
+    if (movement) {
+      const qty = row.category === "filament" ? i.grams : row.category === "packaging" ? i.pieces : null;
+      if (qty != null) {
+        await updateLogged(
+          tx,
+          stockMovements,
+          movement.id,
+          { amount: qty, unitCostUsd: (i.amount * rateToUsd) / qty, movedAt: new Date(`${i.spentOn}T12:00:00Z`) },
+          { userId },
+        );
+        await replayAverages(tx, movement.stockItemId);
+      }
+    }
+    if (row.machineId) {
+      await updateLogged(
+        tx,
+        machines,
+        row.machineId,
+        { purchaseAmount: i.amount, purchaseCurrency: i.currency, purchaseRateToUsd: rateToUsd, boughtOn: i.spentOn },
+        { userId },
+      );
+    }
+  });
+}
+
+/** D13 delete: soft, logged; its stock movement goes too and averages are replayed. */
+export async function deleteExpense(db: Db, id: number, userId?: number) {
+  return db.transaction(async (tx) => {
+    await softDeleteLogged(tx, expenses, id, { userId });
+    const moves = await tx
+      .select()
+      .from(stockMovements)
+      .where(and(eq(stockMovements.expenseId, id), isNull(stockMovements.deletedAt)));
+    for (const m of moves) {
+      await softDeleteLogged(tx, stockMovements, m.id, { userId });
+      await replayAverages(tx, m.stockItemId);
+    }
+  });
+}
+
+export async function listExpenses(db: Db) {
+  const rows = await db
+    .select({ expense: expenses, supplierName: suppliers.name, itemName: stockItems.name, machineName: machines.name })
+    .from(expenses)
+    .leftJoin(suppliers, eq(suppliers.id, expenses.supplierId))
+    .leftJoin(stockItems, eq(stockItems.id, expenses.stockItemId))
+    .leftJoin(machines, eq(machines.id, expenses.machineId))
+    .where(isNull(expenses.deletedAt))
+    .orderBy(desc(expenses.spentOn), desc(expenses.id));
+  const edited = await lastEdited(
+    db,
+    "expenses",
+    rows.map((r) => r.expense.id),
+  );
+  return rows.map((r) => ({
+    ...r.expense,
+    supplierName: r.supplierName,
+    boughtName: r.itemName ?? r.machineName,
+    isPurchase: ["filament", "packaging", "machine"].includes(r.expense.category),
+    editedAt: edited.get(r.expense.id) ?? null,
+  }));
+}
+
+/** Expense plus its purchase quantity, for the edit form. */
+export async function getExpense(db: Db, id: number) {
+  const [e] = await db
+    .select()
+    .from(expenses)
+    .where(and(eq(expenses.id, id), isNull(expenses.deletedAt)));
+  if (!e) return null;
+  const [m] = await db
+    .select()
+    .from(stockMovements)
+    .where(and(eq(stockMovements.expenseId, id), isNull(stockMovements.deletedAt)));
+  return { ...e, purchaseQty: m?.amount ?? null };
+}
+
+export function filamentsAndPackaging(db: Db) {
+  return db
+    .select({ id: stockItems.id, name: stockItems.name, type: stockItems.type })
+    .from(stockItems)
+    .where(and(isNull(stockItems.deletedAt)))
+    .orderBy(asc(stockItems.name));
+}

@@ -7,14 +7,14 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | Milestone | State | PR |
 | --- | --- | --- |
 | M0 Foundations (scaffold, theme, schema, login, tests) | Merged Nov 25 | #1 |
-| M1 G-code parser + cost engine | Verified, PR open | #2 |
-| M2 Settings, machines, suppliers, expenses, edit engine | Not started | — |
+| M1 G-code parser + cost engine | Merged Nov 25 | #2 |
+| M2 Settings, machines, suppliers, expenses, edit engine | Done: verify all green (89 unit, 34 db, 32 e2e) | #3 |
 | M3 Recipes import, products, cost calculator | Not started | — |
 | M4 Start / Finish print, weigh filament | Not started | — |
 
 ## Next step
 
-M2: settings (dated), machines, suppliers, Add expense with purchases (filament → stock + average), D13 edit engine (edit_log, Edited marker, history).
+M3 (branch `m3-recipes`): recipe import (Vercel Blob client upload, Creality parser, items with grams, D17 grams check), products with parts list, cost calculator.
 
 ## Open issues
 
