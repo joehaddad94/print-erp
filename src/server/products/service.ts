@@ -2,7 +2,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { products, stockItems } from "@/db/schema";
-import { updateLogged } from "@/server/edits/engine";
+import { lastEdited, updateLogged } from "@/server/edits/engine";
 import type { ProductInput } from "./schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
@@ -12,7 +12,7 @@ export function productLabel(p: { name: string; variant: string | null }) {
 }
 
 export async function listProducts(db: Db) {
-  return db
+  const rows = await db
     .select({
       id: products.id,
       name: products.name,
@@ -20,8 +20,6 @@ export async function listProducts(db: Db) {
       kind: products.kind,
       salePriceUsd: products.salePriceUsd,
       packagingName: stockItems.name,
-      updatedAt: products.updatedAt,
-      createdAt: products.createdAt,
       recipeCount: sql<number>`(select count(*)::int from recipe_items ri join recipes r on r.id = ri.recipe_id
         where ri.product_id = "products"."id" and ri.deleted_at is null and r.is_current and r.deleted_at is null)`,
     })
@@ -29,6 +27,12 @@ export async function listProducts(db: Db) {
     .leftJoin(stockItems, eq(stockItems.id, products.packagingItemId))
     .where(isNull(products.deletedAt))
     .orderBy(asc(products.kind), asc(products.name), asc(products.variant));
+  const edited = await lastEdited(
+    db,
+    "products",
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => ({ ...r, editedAt: edited.get(r.id) ?? null }));
 }
 
 export async function getProduct(db: Db, id: number) {

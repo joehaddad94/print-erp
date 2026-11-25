@@ -22,18 +22,24 @@ export function blobAccess(): "private" | "public" {
 const LOCAL_PREFIX = "local:";
 
 function localDir() {
-  return path.resolve(process.env.LOCAL_UPLOAD_DIR || ".data/uploads");
+  // Dev/test only; the ignore hint stops the build from tracing the whole project into the bundle.
+  return path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.LOCAL_UPLOAD_DIR || ".data/uploads");
 }
 
 /** Keeps a readable, safe file name and adds a random part so names never collide. */
 export function storageName(fileName: string): string {
-  const base = path.basename(fileName).replace(/[^\w.-]+/g, "-").slice(-120) || "file";
+  const base =
+    path
+      .basename(fileName)
+      .replace(/[^\w.-]+/g, "-")
+      .slice(-120) || "file";
   return `${randomBytes(8).toString("hex")}-${base}`;
 }
 
 function localPath(url: string): string {
   const name = url.slice(LOCAL_PREFIX.length);
-  if (!name || name.includes("/") || name.includes("\\") || name.startsWith(".")) throw new Error("Bad local file name");
+  if (!name || name.includes("/") || name.includes("\\") || name.startsWith("."))
+    throw new Error("Bad local file name");
   return path.join(localDir(), name);
 }
 

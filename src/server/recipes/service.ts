@@ -170,7 +170,12 @@ export async function listRecipes(db: Db) {
     .from(recipes)
     .where(and(eq(recipes.isCurrent, true), isNull(recipes.deletedAt)))
     .orderBy(asc(recipes.name));
-  const items = rows.length ? await itemsFor(db, rows.map((r) => r.id)) : [];
+  const items = rows.length
+    ? await itemsFor(
+        db,
+        rows.map((r) => r.id),
+      )
+    : [];
   return rows.map((r) => ({ ...r, items: items.filter((i) => i.recipeId === r.id) }));
 }
 
