@@ -48,3 +48,4 @@ next-env.d.ts
 
 # Joe's real G-code files: kept out of the public repo (plan §M1). Tests skip when absent.
 /tests/fixtures/*.gcode.gz
+.data/

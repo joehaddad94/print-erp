@@ -9,7 +9,12 @@ const schema = z.object({
   /** First-run only: creates the user if the users table is empty (D42). Remove after first login. */
   ADMIN_USERNAME: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
+  /** Vercel Blob store token. Without it, files are kept on local disk (dev and tests only). */
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  /** Must match the Blob store's access setting. Private keeps G-code files behind the login. */
+  BLOB_ACCESS: z.enum(["private", "public"]).default("private"),
+  /** Local-disk storage folder when there is no Blob token. */
+  LOCAL_UPLOAD_DIR: z.string().default(".data/uploads"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
