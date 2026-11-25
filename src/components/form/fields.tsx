@@ -70,10 +70,13 @@ export function SelectField({
   hint,
   options,
   placeholder,
+  value,
   onValueChange,
 }: Base & {
   options: { value: string; label: string }[];
   placeholder?: string;
+  /** Makes the select controlled (pair with onValueChange); otherwise it starts at the saved or typed value. */
+  value?: string;
   onValueChange?: (v: string) => void;
 }) {
   const { defaultValue, error, version } = useFieldState(name);
@@ -84,7 +87,7 @@ export function SelectField({
         key={version}
         id={id}
         name={name}
-        defaultValue={defaultValue}
+        {...(value === undefined ? { defaultValue } : { value })}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
         onChange={(e) => onValueChange?.(e.target.value)}

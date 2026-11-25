@@ -86,6 +86,32 @@ test("E-05 a failed save keeps every typed value", async ({ page }) => {
   await expect(page.getByLabel("Notes")).toHaveValue("keep me");
 });
 
+test("S-03 purchase: add a new supplier from the supplier picker, without leaving the form", async ({ page }, info) => {
+  const name = `Spool corner ${info.project.name}`;
+  await page.goto("/expenses/new");
+  await page.getByLabel("Category").selectOption("other");
+  await page.getByLabel("Amount").fill("7");
+  await page.getByLabel("Supplier", { exact: true }).selectOption("new");
+  await expect(page.getByLabel("Supplier name")).toBeFocused();
+  await checkPage(page);
+  // Forgetting the name is caught, and the choice stays open.
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page.getByText("Enter the new supplier's name")).toBeVisible();
+  // Back to the list hides the new-supplier fields.
+  await page.getByRole("button", { name: "Pick from the list instead" }).click();
+  await expect(page.getByLabel("Supplier name")).toHaveCount(0);
+  await page.getByLabel("Supplier", { exact: true }).selectOption("new");
+  await page.getByLabel("Supplier name").fill(name);
+  await page.getByLabel("Phone or link (optional)").fill("+961 71 000 000");
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page).toHaveURL(/\/expenses$/);
+  await page.goto("/suppliers");
+  await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$7");
+  // Next purchase: it's in the picker.
+  await page.goto("/expenses/new");
+  await expect(page.getByLabel("Supplier", { exact: true }).locator("option", { hasText: name })).toHaveCount(1);
+});
+
 test("S-02 machine: edit power, history shows the change, list shows hours of life", async ({ page }, info) => {
   await page.goto("/machines");
   await checkPage(page);
