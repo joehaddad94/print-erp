@@ -14,7 +14,8 @@ const globalForDb = globalThis as unknown as { __db?: Db };
  */
 export function db(): Db {
   if (!globalForDb.__db) {
-    const client = postgres(env().DATABASE_URL, { prepare: false, max: 5 });
+    // Fail fast instead of hanging: an unreachable or misconfigured database errors within 10 s.
+    const client = postgres(env().DATABASE_URL, { prepare: false, max: 5, connect_timeout: 10, idle_timeout: 20 });
     globalForDb.__db = drizzle(client, { schema, casing: undefined });
   }
   return globalForDb.__db;

@@ -25,7 +25,17 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { fieldErrors, username: raw.username };
   }
 
-  const result = await attemptLogin(db(), parsed.data.username, parsed.data.password);
+  let result: Awaited<ReturnType<typeof attemptLogin>>;
+  try {
+    result = await withTimeout(attemptLogin(db(), parsed.data.username, parsed.data.password), 15_000);
+  } catch (e) {
+    const code = errorCode(e);
+    console.error(`login failed: ${code}`, e instanceof Error ? e.message : e);
+    return {
+      username: parsed.data.username,
+      error: `Can't reach the database right now (${code}). Nothing was changed. Try again in a minute.`,
+    };
+  }
   if (!result.ok) {
     return {
       username: parsed.data.username,
@@ -37,6 +47,20 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   }
   await startSession(result.userId, result.passwordHash);
   redirect("/");
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(Object.assign(new Error("timed out"), { code: "TIMEOUT" })), ms);
+    p.then(resolve, reject).finally(() => clearTimeout(t));
+  });
+}
+
+/** A short, secret-free code to show and log: Postgres SQLSTATE (28P01 = wrong password), ENOTFOUND, TIMEOUT… */
+function errorCode(e: unknown): string {
+  const c =
+    (e as { code?: unknown; cause?: { code?: unknown } })?.code ?? (e as { cause?: { code?: unknown } })?.cause?.code;
+  return typeof c === "string" && /^[A-Z0-9_]{2,30}$/.test(c) ? c : "UNKNOWN";
 }
 
 export async function logoutAction() {
