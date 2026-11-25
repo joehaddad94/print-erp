@@ -10,7 +10,7 @@ export default async function CustomersPage() {
   await requireUser();
   const rows = await listCustomers(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Customers" />
       {rows.length === 0 ? (
         <EmptyState title="No customers yet">Add one here or from a new order.</EmptyState>

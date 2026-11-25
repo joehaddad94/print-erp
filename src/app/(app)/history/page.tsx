@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { Button, Card, EmptyState, PageHeader, formatWhen } from "@/components/ui";
 import { db } from "@/db";
 import { changeHistory, HISTORY_TABLES } from "@/server/assembly/service";
@@ -15,9 +15,9 @@ export default async function HistoryPage({ searchParams }: PageProps<"/history"
   const from = one(q.from)?.match(/^\d{4}-\d{2}-\d{2}$/) ? one(q.from) : undefined;
   const to = one(q.to)?.match(/^\d{4}-\d{2}-\d{2}$/) ? one(q.to) : undefined;
   const rows = await changeHistory(db(), { table, from, to });
-  const control = "min-h-tap w-full rounded-md border border-border bg-surface px-3 text-md text-ink";
+  const control = "control px-3 text-md text-ink";
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Change history" />
       <Card>
         <form className="grid grid-cols-2 gap-3 md:grid-cols-4">

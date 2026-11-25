@@ -50,6 +50,11 @@ export function ratio(a: string, b: string): number {
 const PAIRS: [string, string][] = [
   ["ink", "bg"],
   ["ink", "surface"],
+  ["ink-soft", "surface"],
+  ["ink-muted", "surface-muted"],
+  ["ink", "surface-muted"],
+  ["action", "action-soft"],
+  ["action-ink", "action-hover"],
   ["ink-muted", "bg"],
   ["ink-muted", "surface"],
   ["action-ink", "action"],
@@ -69,6 +74,22 @@ const PAIRS: [string, string][] = [
   ["ch-wa", "ch-wa-bg"],
   ["ch-ig", "ch-ig-bg"],
 ];
+
+/** Non-text UI (input and secondary-button outlines): WCAG 1.4.11 needs 3:1. */
+const UI_PAIRS: [string, string][] = [["border-strong", "surface"]];
+
+describe("U-02 control outline contrast ≥ 3:1", () => {
+  for (const [theme, vars] of [
+    ["light", light],
+    ["dark", dark],
+  ] as const) {
+    for (const [fg, bg] of UI_PAIRS) {
+      it(`${theme}: ${fg} on ${bg}`, () => {
+        expect(ratio(resolve(vars, fg), resolve(vars, bg))).toBeGreaterThanOrEqual(3);
+      });
+    }
+  }
+});
 
 describe("U-02 token contrast ≥ 4.5:1", () => {
   for (const [theme, vars] of [

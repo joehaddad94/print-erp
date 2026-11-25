@@ -10,7 +10,7 @@ export default async function NewProductPage() {
   await requireUser();
   const packaging = await packagingOptions(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Add product" />
       <Card>
         <ActionForm

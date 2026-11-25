@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { OrderRows } from "@/components/orders/order-rows";
 import { EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
@@ -9,7 +9,7 @@ export default async function OrdersPage() {
   await requireUser();
   const rows = await listOrders(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Orders"
         action={

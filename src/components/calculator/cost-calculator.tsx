@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { handOffFile } from "@/components/recipes/gcode-client";
@@ -94,7 +94,7 @@ export function CostCalculator({ inputs }: { inputs: CostInputs }) {
             type="file"
             accept=".gcode"
             onChange={(e) => void choose(e.target.files?.[0] ?? null)}
-            className="min-h-tap w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-ink"
+            className="control px-3 py-2.5 text-sm text-ink"
           />
         </Field>
         {error ? <Callout tone="danger">{error}</Callout> : null}
@@ -228,7 +228,7 @@ function Select({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-tap w-full rounded-md border border-border bg-surface px-3 text-md text-ink"
+        className="control px-3 text-md text-ink"
       >
         {children}
       </select>

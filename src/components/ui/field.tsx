@@ -40,7 +40,7 @@ export function Input({ className, invalid, id, ...rest }: InputProps) {
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? `${id}-error` : undefined}
       className={cn(
-        "min-h-tap w-full rounded-md border border-border bg-surface px-3 text-md text-ink",
+        "control px-3 text-md text-ink",
         "placeholder:text-ink-muted",
         invalid && "border-danger",
         className,

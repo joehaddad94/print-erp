@@ -9,7 +9,7 @@ export default async function NewOrderPage() {
   await requireUser();
   const opts = await orderFormOptions();
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="New order" />
       <Card>
         <ActionForm

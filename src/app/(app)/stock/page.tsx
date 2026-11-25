@@ -18,7 +18,7 @@ export default async function StockPage() {
   await requireUser();
   const rows = await stockList(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Stock" />
       {rows.length === 0 ? (
         <EmptyState title="Nothing in stock yet">Purchases and finished prints add stock.</EmptyState>

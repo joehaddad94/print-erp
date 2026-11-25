@@ -28,3 +28,20 @@ describe("A-05 Server Actions are guarded", () => {
     }
   }
 });
+
+/**
+ * A-05b: the app layout no longer checks the session (so the shell can render
+ * instantly). Every signed-in page that touches the database must therefore
+ * call requireUser() itself.
+ */
+const pageFiles = files("src/app/(app)").filter((f) => f.endsWith("page.tsx"));
+
+describe("A-05b signed-in pages are guarded", () => {
+  it("finds pages", () => expect(pageFiles.length).toBeGreaterThan(0));
+  for (const file of pageFiles) {
+    const src = readFileSync(file, "utf8");
+    // Reads data = imports the db or a server service (actions are guarded by A-05 above).
+    if (!/from "@\/db"|from "@\/server\/[\w/]+\/service"/.test(src)) continue;
+    it(`${file} calls requireUser()`, () => expect(src).toMatch(/await requireUser\(\)/));
+  }
+});

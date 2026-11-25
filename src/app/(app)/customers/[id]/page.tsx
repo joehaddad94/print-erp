@@ -16,7 +16,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
   if (!c) notFound();
   const history = await historyFor(db(), "customers", id);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title={c.name} />
       <Card className="flex items-center justify-between gap-3">
         <span className="text-sm">Balance owed</span>

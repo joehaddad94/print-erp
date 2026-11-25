@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const tones = {
-  info: "bg-info-bg text-ink",
-  warning: "bg-warning-bg text-ink",
-  danger: "bg-danger-bg text-ink",
-  success: "bg-success-bg text-ink",
+  info: "border-info bg-info-bg text-ink",
+  warning: "border-warning bg-warning-bg text-ink",
+  danger: "border-danger bg-danger-bg text-ink",
+  success: "border-success bg-success-bg text-ink",
 } as const;
 
 export function Callout({
@@ -18,7 +18,10 @@ export function Callout({
   children: ReactNode;
 }) {
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={cn("rounded-md px-3 py-2.5 text-sm", tones[tone])}>
+    <div
+      role={tone === "danger" ? "alert" : "status"}
+      className={cn("rounded-md border-l-4 px-4 py-3 text-sm", tones[tone])}
+    >
       {title ? <p className="font-bold">{title}</p> : null}
       <div>{children}</div>
     </div>

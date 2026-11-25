@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { WeighForm } from "@/components/printing/weigh-form";
 import { Card, EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
@@ -16,7 +16,7 @@ export default async function WeighPage() {
     .orderBy(asc(stockItems.name));
   const filaments = await Promise.all(rows.map(async (r) => ({ ...r, onHand: await onHand(db(), r.id) })));
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Weigh filament" />
       {filaments.length === 0 ? (
         <EmptyState title="No filament yet">

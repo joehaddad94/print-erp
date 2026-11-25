@@ -31,7 +31,7 @@ export function LoginForm() {
           required
         />
       </Field>
-      <Button type="submit" block disabled={pending}>
+      <Button type="submit" block pending={pending} className="sm:w-full sm:self-stretch">
         {pending ? "Signing in…" : "Sign in"}
       </Button>
     </form>

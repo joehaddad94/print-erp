@@ -1,10 +1,13 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { Link } from "./link";
 
-/** Ledger-list pattern from the mockup: tappable rows, title + subline left, value right. */
+/** Ledger-list pattern: tappable rows, title + subline left, value right. */
 export function List({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <ul aria-label={label} className="divide-y divide-border rounded-md border border-border bg-surface">
+    <ul
+      aria-label={label}
+      className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface"
+    >
       {children}
     </ul>
   );
@@ -24,32 +27,63 @@ export function ListRow({
   badge?: ReactNode;
 }) {
   const body = (
-    <div className="flex min-h-tap items-center gap-3 px-3 py-2.5">
+    <div className="flex min-h-tap items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{title}</p>
-        {subtitle ? <p className="text-xs text-ink-muted">{subtitle}</p> : null}
+        {subtitle ? <p className="text-sm text-ink-muted">{subtitle}</p> : null}
         {badge ? <div className="pt-1">{badge}</div> : null}
       </div>
-      {trailing ? <div className="shrink-0 text-right">{trailing}</div> : null}
+      {trailing ? <div className="shrink-0 text-right tabular-nums">{trailing}</div> : null}
     </div>
   );
-  return <li>{href ? <Link href={href}>{body}</Link> : body}</li>;
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className="block hover:bg-surface-muted">
+          {body}
+        </Link>
+      ) : (
+        body
+      )}
+    </li>
+  );
 }
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed border-border bg-surface px-4 py-8 text-center">
+    <div className="rounded-lg border border-dashed border-border-strong bg-surface px-4 py-6">
       <p className="font-semibold">{title}</p>
       {children ? <div className="pt-1 text-sm text-ink-muted">{children}</div> : null}
     </div>
   );
 }
 
-export function PageHeader({ title, action }: { title: string; action?: ReactNode }) {
+/** Screen title (left) with an optional one-line description and actions (right on desktop, below on phone). */
+export function PageHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: ReactNode;
+  action?: ReactNode;
+}) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h1 className="text-xl font-bold">{title}</h1>
-      {action}
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+        {description ? <p className="pt-1 text-ink-muted">{description}</p> : null}
+      </div>
+      {action ? <div className="flex flex-wrap gap-2">{action}</div> : null}
     </div>
+  );
+}
+
+/** Section heading inside a screen. */
+export function SectionTitle({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <h2 id={id} className="text-lg font-semibold">
+      {children}
+    </h2>
   );
 }

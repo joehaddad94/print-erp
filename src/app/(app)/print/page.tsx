@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { StartForm } from "@/components/printing/start-form";
 import { Card, EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
@@ -9,7 +9,7 @@ export default async function StartPrintPage() {
   await requireUser();
   const options = await startOptions(db());
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Start print" />
       {options.recipes.length === 0 ? (
         <EmptyState title="No recipes yet">

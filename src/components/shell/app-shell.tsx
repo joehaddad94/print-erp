@@ -1,60 +1,111 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+import { Link } from "@/components/ui/link";
 import { logoutAction } from "@/server/auth/actions";
-import { NAV } from "./nav";
+import { currentUser } from "@/server/auth/session";
+import { Icon } from "./icons";
+import { START_PRINT } from "./nav";
+import { SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
 
-const linkClass = "flex min-h-tap items-center rounded-md px-3 text-sm font-semibold text-ink hover:bg-action-soft";
-
-/** Phone: bottom tabs + "More". Desktop (≥1024px): sidebar with groups. Layout only; screens are the same. */
-export function AppShell({ username, children }: { username: string; children: ReactNode }) {
-  const phoneTabs = NAV.flatMap((g) => g.items).filter((i) => i.phone);
+/**
+ * App shell. Desktop (≥1024px): fixed left sidebar. Phone: top bar + bottom tabs.
+ *
+ * The shell is static: it renders before any database call, so it is part of
+ * the prefetched App Shell and every click shows the next screen's skeleton
+ * at once. Only the user's name streams in (UserBadge, in its own Suspense).
+ * Content is left-aligned; each screen picks its own max width.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh lg:flex">
-      <aside className="hidden w-60 shrink-0 border-r border-border bg-surface p-3 lg:block" aria-label="Sidebar">
-        <p className="px-3 py-2 text-lg font-bold">Print Shop</p>
-        <nav aria-label="Main">
-          {NAV.map((group) => (
-            <div key={group.label} className="mt-3">
-              <p className="px-3 py-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">{group.label}</p>
-              <ul>
-                {group.items.map((item) => (
-                  <li key={item.href}>
-                    <Link href={item.href} className={linkClass}>
-                      {item.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
-        <form action={logoutAction} className="mt-6 border-t border-border pt-3">
-          <p className="px-3 pb-1 text-xs text-ink-muted">Signed in as {username}</p>
-          <button type="submit" className={`${linkClass} w-full cursor-pointer`}>
-            Sign out
-          </button>
-        </form>
+    <div className="min-h-dvh lg:pl-sidebar">
+      <aside
+        aria-label="Sidebar"
+        className="fixed inset-y-0 left-0 hidden w-sidebar flex-col border-r border-border bg-surface lg:flex"
+      >
+        <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
+          <Brand />
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          <Suspense fallback={<SidebarNavList primary={<StartPrintButton />} pathname="" />}>
+            <SidebarNav primary={<StartPrintButton />} />
+          </Suspense>
+        </div>
+        <div className="border-t border-border p-3">
+          <Suspense fallback={<UserBadgeSkeleton />}>
+            <UserBadge />
+          </Suspense>
+        </div>
       </aside>
 
-      <main className="mx-auto w-full max-w-content min-w-0 flex-1 px-4 pt-4 pb-24 lg:pb-8">{children}</main>
-
-      <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t border-border bg-surface lg:hidden"
-      >
-        {phoneTabs.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex min-h-tap items-center justify-center px-1 text-xs font-semibold text-ink"
-          >
-            {item.label}
-          </Link>
-        ))}
-        <Link href="/more" className="flex min-h-tap items-center justify-center px-1 text-xs font-semibold text-ink">
-          More
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
+        <Link href="/" className="flex min-h-tap items-center gap-2.5">
+          <Brand />
         </Link>
-      </nav>
+      </header>
+
+      <main id="content" className="w-full max-w-page min-w-0 px-4 pt-5 pb-28 sm:px-6 lg:px-10 lg:pt-8 lg:pb-12">
+        {children}
+      </main>
+
+      <Suspense fallback={<TabBarList pathname="" />}>
+        <TabBar />
+      </Suspense>
+    </div>
+  );
+}
+
+function StartPrintButton() {
+  return (
+    <Link
+      href={START_PRINT.href}
+      className="mb-3 flex min-h-tap items-center justify-center gap-2 rounded-md bg-action px-4 font-semibold text-action-ink hover:bg-action-hover"
+    >
+      <Icon name="plus" size={18} />
+      {START_PRINT.label}
+    </Link>
+  );
+}
+
+function Brand() {
+  return (
+    <>
+      <span className="grid size-7 place-items-center rounded-md bg-action text-action-ink">
+        <Icon name="machines" size={16} />
+      </span>
+      <span className="text-md font-bold text-ink">Print Shop</span>
+    </>
+  );
+}
+
+async function UserBadge() {
+  const user = await currentUser();
+  if (!user) return null;
+  return (
+    <div className="flex items-center gap-3 px-2">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold text-ink-soft uppercase">
+        {user.username.slice(0, 1)}
+      </span>
+      <p className="min-w-0 flex-1 truncate text-sm">
+        <span className="block text-xs text-ink-muted">Signed in as</span>
+        <span className="font-semibold">{user.username}</span>
+      </p>
+      <form action={logoutAction}>
+        <button
+          type="submit"
+          className="flex min-h-tap cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
+        >
+          <Icon name="logout" size={16} />
+          Sign out
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function UserBadgeSkeleton() {
+  return (
+    <div className="flex min-h-tap items-center gap-3 px-2" aria-hidden="true">
+      <span className="size-8 animate-shimmer rounded-full bg-skeleton" />
+      <span className="h-3 w-20 animate-shimmer rounded-sm bg-skeleton" />
     </div>
   );
 }

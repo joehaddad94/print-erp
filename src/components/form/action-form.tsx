@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { createContext, useActionState, useContext, type ReactNode } from "react";
 import { Button, Callout } from "@/components/ui";
 import type { FormState } from "@/server/form";
@@ -54,7 +54,7 @@ export function ActionForm({
         ) : null}
         {state.ok && state.message ? <Callout tone="success">{state.message}</Callout> : null}
         {children}
-        <Button type="submit" block disabled={pending}>
+        <Button type="submit" block pending={pending}>
           {pending ? "Saving…" : submitLabel}
         </Button>
       </form>

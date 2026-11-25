@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/components/ui/link";
 import { EmptyState, List, ListRow, Money, PageHeader, buttonClass, formatWhen } from "@/components/ui";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
@@ -19,7 +19,7 @@ export default async function TodayPage() {
   const soon = daysFromToday(3);
   const due = orders.filter((o) => !["delivered", "cancelled"].includes(o.status) && o.dueOn && o.dueOn <= soon);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Today"
         action={

@@ -16,7 +16,7 @@ export default async function EditExpensePage({ params }: PageProps<"/expenses/[
   const [opts, history] = await Promise.all([expenseFormOptions(), historyFor(db(), "expenses", id)]);
   const qty = e.purchaseQty == null ? "" : String(e.purchaseQty);
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-content flex-col gap-6">
       <PageHeader title="Edit expense" />
       <Card>
         <ExpenseForm
