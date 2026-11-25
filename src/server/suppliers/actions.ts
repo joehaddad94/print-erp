@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { suppliers } from "@/db/schema";
 import { requireUser } from "@/server/auth/session";
 import { updateLogged } from "@/server/edits/engine";
+import { findOrCreateSupplier } from "./service";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
 
 const schema = z.object({
@@ -30,4 +31,24 @@ export async function saveSupplierAction(id: number | null, _prev: FormState, fd
   revalidatePath("/suppliers");
   if (id != null) redirect("/suppliers");
   return { ok: true, message: `Added ${v.data.name}.`, values: {}, version: Date.now() };
+}
+
+export type QuickSupplierResult =
+  { ok: true; id: number; name: string; existed: boolean } | { ok: false; error: string; field?: "name" | "contact" };
+
+/** "+ New supplier" on the expense form: saves straight away so the form can pick it. */
+export async function quickAddSupplierAction(name: string, contact: string): Promise<QuickSupplierResult> {
+  await requireUser();
+  const v = schema.pick({ name: true, contact: true }).safeParse({ name, contact });
+  if (!v.success) {
+    const issue = v.error.issues[0]!;
+    return { ok: false, error: issue.message, field: issue.path[0] === "contact" ? "contact" : "name" };
+  }
+  try {
+    const s = await findOrCreateSupplier(db(), v.data);
+    revalidatePath("/suppliers");
+    return { ok: true, ...s };
+  } catch {
+    return { ok: false, error: "Couldn't save the supplier. Check your connection and try again." };
+  }
 }

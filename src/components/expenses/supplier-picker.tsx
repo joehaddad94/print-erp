@@ -1,89 +1,51 @@
 "use client";
 
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useId, useMemo, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { useFieldState } from "@/components/form/action-form";
 import { useFieldId } from "@/components/form/fields";
-import { Field, Input } from "@/components/ui";
+import { Button, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { NEW_SUPPLIER } from "@/server/expenses/schema";
+import { quickAddSupplierAction } from "@/server/suppliers/actions";
 
 type Option = { value: string; label: string };
-type Choice = { kind: "none" } | { kind: "existing"; id: string; label: string } | { kind: "new"; name: string };
-type Row = { key: string; label: string; choice: Choice };
 
 const clean = (s: string) => s.replace(/\s+/g, " ").trim();
 const same = (a: string, b: string) => clean(a).toLowerCase() === clean(b).toLowerCase();
 
 /**
- * Supplier search (ARIA combobox): type to filter, pick one, or keep a new name and it is created
- * with the expense. Leaving the field with a name that isn't in the list counts as a new supplier,
- * and says so under the field, so a hurried entry is never silently dropped.
+ * Supplier on the expense form. The search box only picks suppliers you already have; a new one
+ * is added with the "+ New supplier" button beside it (saved at once, then picked). Text typed in
+ * the search but never picked is refused on save, so a typo never becomes a supplier or vanishes.
  */
 export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
   const saved = useFieldState("supplierId");
-  const savedName = useFieldState("newSupplierName");
-  const contact = useFieldState("newSupplierContact");
+  const savedSearch = useFieldState("supplierSearch");
   const id = useFieldId("supplier");
-  const contactId = useFieldId("newSupplierContact");
-  const listId = `${useId().replace(/[^a-zA-Z0-9_-]/g, "")}-list`;
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const listId = `${uid}-list`;
   const inputRef = useRef<HTMLInputElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
 
-  const initial: Choice =
-    saved.defaultValue === NEW_SUPPLIER && savedName.defaultValue
-      ? { kind: "new", name: savedName.defaultValue }
-      : (() => {
-          const s = suppliers.find((o) => o.value === saved.defaultValue);
-          return s ? { kind: "existing", id: s.value, label: s.label } : { kind: "none" };
-        })();
-  const [choice, setChoice] = useState<Choice>(initial);
-  const [query, setQuery] = useState(
-    initial.kind === "existing" ? initial.label : initial.kind === "new" ? initial.name : "",
-  );
+  const [options, setOptions] = useState(suppliers);
+  const initial = options.find((o) => o.value === saved.defaultValue) ?? null;
+  const [picked, setPicked] = useState<Option | null>(initial);
+  const [query, setQuery] = useState(initial?.label ?? savedSearch.defaultValue);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [dismissedFor, setDismissedFor] = useState<number | null>(null);
 
-  const rows = useMemo<Row[]>(() => {
+  const rows = useMemo(() => {
     const q = clean(query).toLowerCase();
-    const matches = suppliers
-      .filter((s) => !q || s.label.toLowerCase().includes(q))
-      .map((s) => ({
-        key: s.value,
-        label: s.label,
-        choice: { kind: "existing", id: s.value, label: s.label } as Choice,
-      }));
-    const exact = suppliers.some((s) => same(s.label, query));
-    if (q && !exact)
-      matches.push({
-        key: NEW_SUPPLIER,
-        label: `Add “${clean(query)}” as a new supplier`,
-        choice: { kind: "new", name: clean(query) },
-      });
-    return matches;
-  }, [query, suppliers]);
+    return options.filter((s) => !q || s.label.toLowerCase().includes(q));
+  }, [query, options]);
 
-  function pick(c: Choice) {
-    setChoice(c);
-    setQuery(c.kind === "existing" ? c.label : c.kind === "new" ? c.name : "");
+  function pick(o: Option | null) {
+    setDismissedFor(saved.version);
+    setPicked(o);
+    setQuery(o?.label ?? "");
     setOpen(false);
-  }
-
-  /**
-   * What the typed text means, kept current on every keystroke so pressing Enter to save never
-   * sends a stale pick: an existing name (any capitals or spacing) is that supplier, other text
-   * is a new one, empty is none.
-   */
-  function fromText(text: string): Choice {
-    const t = clean(text);
-    if (!t) return { kind: "none" };
-    const hit = suppliers.find((s) => same(s.label, t));
-    return hit ? { kind: "existing", id: hit.value, label: hit.label } : { kind: "new", name: t };
-  }
-
-  /** Leaving the field tidies the text to the supplier's saved spelling. */
-  function settle() {
-    setOpen(false);
-    if (choice.kind === "existing") setQuery(choice.label);
-    else if (choice.kind === "new") setQuery(choice.name);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -94,41 +56,61 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
       setActive((a) => (rows.length ? (a + step + rows.length) % rows.length : 0));
     } else if (e.key === "Enter" && open && rows[active]) {
       e.preventDefault(); // pick, don't submit the form
-      pick(rows[active].choice);
+      pick(rows[active]);
     } else if (e.key === "Escape" && open) {
       e.preventDefault();
       setOpen(false);
     }
   }
 
-  const error = savedName.error ?? saved.error;
-  const showList = open && (rows.length > 0 || !query);
-  const hint =
-    choice.kind === "new"
-      ? `New supplier: “${choice.name}”. It's added when you save.`
-      : suppliers.length
-        ? "Type to search. A name that isn't listed is added as a new supplier."
-        : "Type a name to add your first supplier.";
+  const unmatched = !picked && clean(query) !== "";
+  // A save error about the supplier goes away as soon as the supplier is changed.
+  const error = dismissedFor === saved.version ? undefined : saved.error;
+  const showList = open && !adding;
+  const hint = justAdded
+    ? `Added “${justAdded}” and picked it.`
+    : unmatched
+      ? "Not in your list. Pick a supplier, or add it with + New supplier."
+      : options.length
+        ? "Type to search your suppliers."
+        : "No suppliers yet. Use + New supplier to add one.";
 
   return (
-    <div className="flex flex-col gap-4">
-      <input
-        type="hidden"
-        name="supplierId"
-        value={choice.kind === "existing" ? choice.id : choice.kind === "new" ? NEW_SUPPLIER : ""}
-      />
-      {choice.kind === "new" ? <input type="hidden" name="newSupplierName" value={choice.name} /> : null}
-      <Field id={id} label="Supplier" hint={<span aria-live="polite">{hint}</span>} error={error}>
+    <div className="flex flex-col gap-3">
+      <input type="hidden" name="supplierId" value={picked?.value ?? ""} />
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-end justify-between gap-2">
+          <label htmlFor={id} className="pb-1 text-sm font-semibold">
+            Supplier
+          </label>
+          {!adding ? (
+            <Button
+              ref={addButtonRef}
+              variant="ghost"
+              className="-mr-2 px-2"
+              onClick={() => {
+                setOpen(false);
+                setJustAdded(null);
+                setAdding(true);
+              }}
+            >
+              + New supplier
+            </Button>
+          ) : null}
+        </div>
         <div className="relative">
           <Input
             ref={inputRef}
             id={id}
+            name="supplierSearch"
             type="text"
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={showList}
             aria-controls={listId}
             aria-activedescendant={showList && rows[active] ? `${listId}-${active}` : undefined}
+            aria-describedby={error ? `${id}-error` : `${id}-hint`}
+            aria-invalid={error ? true : undefined}
             autoComplete="off"
             enterKeyHint="done"
             placeholder="None"
@@ -136,14 +118,21 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
             invalid={!!error}
             className={cn(query && "pr-12")}
             onChange={(e) => {
-              setQuery(e.target.value);
-              setChoice(fromText(e.target.value));
+              const text = e.target.value;
+              setQuery(text);
+              setDismissedFor(saved.version);
+              // An exact name (any capitals or spacing) counts as picked, even without tapping it.
+              setPicked(options.find((o) => same(o.label, text)) ?? null);
+              setJustAdded(null);
               setActive(0);
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
             onClick={() => setOpen(true)}
-            onBlur={settle}
+            onBlur={() => {
+              setOpen(false);
+              if (picked) setQuery(picked.label);
+            }}
             onKeyDown={onKeyDown}
           />
           {query ? (
@@ -153,7 +142,8 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
               className="absolute inset-y-0 right-0 inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center text-ink-muted hover:text-ink"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
-                pick({ kind: "none" });
+                pick(null);
+                setJustAdded(null);
                 inputRef.current?.focus();
               }}
             >
@@ -178,41 +168,146 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
           >
             {rows.map((r, i) => (
               <li
-                key={r.key}
+                key={r.value}
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={i === active}
                 className={cn(
-                  "flex min-h-tap cursor-pointer items-center rounded-sm px-3 text-md",
-                  r.key === NEW_SUPPLIER ? "font-semibold text-action" : "text-ink",
+                  "flex min-h-tap cursor-pointer items-center rounded-sm px-3 text-md text-ink",
                   i === active && "bg-action-soft",
                 )}
-                onMouseDown={(e) => e.preventDefault()} // keep focus so blur doesn't settle first
+                onMouseDown={(e) => e.preventDefault()} // keep focus so blur doesn't run first
                 onMouseEnter={() => setActive(i)}
-                onClick={() => pick(r.choice)}
+                onClick={() => pick(r)}
               >
-                {r.key === NEW_SUPPLIER ? `+ ${r.label}` : r.label}
+                {r.label}
               </li>
             ))}
-            {!rows.length && !query ? (
+            {!rows.length ? (
               <li role="presentation" className="px-3 py-2 text-sm text-ink-muted">
-                No suppliers yet. Type a name to add one.
+                {options.length ? "No supplier matches." : "No suppliers yet."} Use + New supplier above.
               </li>
             ) : null}
           </ul>
         </div>
-      </Field>
-      {choice.kind === "new" ? (
-        <Field id={contactId} label="New supplier's phone or link (optional)">
-          <Input
-            key={contact.version}
-            id={contactId}
-            name="newSupplierContact"
-            autoComplete="off"
-            defaultValue={contact.defaultValue}
-          />
-        </Field>
+        {error ? (
+          <p id={`${id}-error`} role="alert" className="text-sm font-semibold text-danger">
+            {error}
+          </p>
+        ) : (
+          <p id={`${id}-hint`} aria-live="polite" className="text-xs text-ink-muted">
+            {hint}
+          </p>
+        )}
+      </div>
+
+      {adding ? (
+        <NewSupplierPanel
+          initialName={unmatched ? clean(query) : ""}
+          onCancel={() => {
+            setAdding(false);
+            requestAnimationFrame(() => addButtonRef.current?.focus());
+          }}
+          onAdded={(s) => {
+            const opt = { value: String(s.id), label: s.name };
+            setOptions((prev) =>
+              prev.some((o) => o.value === opt.value)
+                ? prev
+                : [...prev, opt].sort((a, b) => a.label.localeCompare(b.label)),
+            );
+            pick(opt);
+            setJustAdded(s.name);
+            setAdding(false);
+            requestAnimationFrame(() => addButtonRef.current?.focus());
+          }}
+        />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Small inline form for a new supplier. Its fields have no `name`, so they never post with the
+ * expense; "Save supplier" saves it on its own, straight away.
+ */
+function NewSupplierPanel({
+  initialName,
+  onCancel,
+  onAdded,
+}: {
+  initialName: string;
+  onCancel: () => void;
+  onAdded: (s: { id: number; name: string }) => void;
+}) {
+  const nameId = useFieldId("newSupplierName");
+  const contactId = useFieldId("newSupplierContact");
+  const [name, setName] = useState(initialName);
+  const [contact, setContact] = useState("");
+  const [error, setError] = useState<{ field?: "name" | "contact"; message: string } | null>(null);
+  const [pending, start] = useTransition();
+
+  function save() {
+    start(async () => {
+      const r = await quickAddSupplierAction(name, contact);
+      if (r.ok) onAdded(r);
+      else setError({ field: r.field, message: r.error });
+    });
+  }
+
+  /** Enter saves the supplier (not the expense); Escape closes the panel. */
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!pending) save();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    }
+  }
+
+  return (
+    <fieldset className="flex flex-col gap-4 rounded-md border border-border bg-surface-muted p-3">
+      <legend className="px-1 text-sm font-semibold">New supplier</legend>
+      <Field id={nameId} label="Supplier name" error={error?.field === "name" ? error.message : undefined}>
+        <Input
+          id={nameId}
+          value={name}
+          autoComplete="off"
+          enterKeyHint="done"
+          autoFocus
+          invalid={error?.field === "name"}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+      </Field>
+      <Field
+        id={contactId}
+        label="Phone or link (optional)"
+        error={error?.field === "contact" ? error.message : undefined}
+      >
+        <Input
+          id={contactId}
+          value={contact}
+          autoComplete="off"
+          enterKeyHint="done"
+          invalid={error?.field === "contact"}
+          onChange={(e) => setContact(e.target.value)}
+          onKeyDown={onKeyDown}
+        />
+      </Field>
+      {error && !error.field ? (
+        <p role="alert" className="text-sm font-semibold text-danger">
+          {error.message}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" pending={pending} onClick={save}>
+          {pending ? "Saving…" : "Save supplier"}
+        </Button>
+        <Button variant="ghost" onClick={onCancel} disabled={pending}>
+          Cancel
+        </Button>
+      </div>
+    </fieldset>
   );
 }
