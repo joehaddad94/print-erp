@@ -7,8 +7,8 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | Milestone | State | PR |
 | --- | --- | --- |
 | M0 Foundations (scaffold, theme, schema, login, tests) | Merged Nov 25 | #1 |
-| M1 G-code parser + cost engine | Verified, PR open | #2 |
-| M2 Settings, machines, suppliers, expenses, edit engine | Not started | — |
+| M1 G-code parser + cost engine | Merged Nov 25 | #2 |
+| M2 Settings, machines, suppliers, expenses, edit engine | Services + db tests done; screens next (`m2-settings-expenses`) | — |
 | M3 Recipes import, products, cost calculator | Not started | — |
 | M4 Start / Finish print, weigh filament | Not started | — |
 
