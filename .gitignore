@@ -45,3 +45,6 @@ next-env.d.ts
 # test output
 /test-results/
 /playwright-report/
+
+# Joe's real G-code files: kept out of the public repo (plan §M1). Tests skip when absent.
+/tests/fixtures/*.gcode.gz

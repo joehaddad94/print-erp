@@ -91,7 +91,7 @@ describe("F-01/F-02 migrations and tables", () => {
     const views = await client<{ relname: string; reloptions: string[] | null }[]>`
       select c.relname, c.reloptions from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'v'`;
-    expect(views.length).toBe(4);
+    expect(views.length).toBe(5);
     for (const v of views) expect(v.reloptions, v.relname).toContain("security_invoker=true");
   });
 });
