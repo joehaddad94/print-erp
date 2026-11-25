@@ -17,7 +17,9 @@
     "db:migrate": "drizzle-kit migrate",
     "user:set-password": "tsx scripts/set-password.ts",
     "verify": "tsx scripts/verify.ts",
-    "db:bootstrap": "tsx scripts/bootstrap.ts --force"
+    "db:bootstrap": "tsx scripts/bootstrap.ts --force",
+    "db:restore": "tsx scripts/restore.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
