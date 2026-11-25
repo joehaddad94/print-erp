@@ -29,6 +29,13 @@ export const importSchema = z.object({
     .nullable()
     .transform((v) => v || null),
   items: z.array(importItemSchema).min(1, "Add at least one item"),
+  /** Joe's values for what the file didn't state. Ignored for values the file does state. */
+  confirmed: z
+    .object({
+      totalGrams: z.number().positive("Enter the grams per plate").nullable(),
+      estimatedSeconds: z.number().positive("Enter the print time").nullable(),
+    })
+    .optional(),
 });
 
 export type ImportInput = z.infer<typeof importSchema>;

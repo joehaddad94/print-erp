@@ -61,11 +61,15 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
         <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <Spec label="Filament per plate">
             {n(r.totalGrams, "g")}
+            <ValueNote note={r.estimatedValues?.totalGrams} />
             {r.gramsOverride != null ? (
               <small className="block text-ink-muted">Using {n(r.gramsOverride, "g")}</small>
             ) : null}
           </Spec>
-          <Spec label="Estimated time">{formatDuration(r.estimatedSeconds)}</Spec>
+          <Spec label="Estimated time">
+            {formatDuration(r.estimatedSeconds)}
+            <ValueNote note={r.estimatedValues?.estimatedSeconds} />
+          </Spec>
           <Spec label="Material">{r.material ?? "—"}</Spec>
           <Spec label="Printer">{r.printerModel ?? "—"}</Spec>
           <Spec label="Nozzle">{n(r.nozzleMm, "mm")}</Spec>
@@ -175,5 +179,13 @@ function Spec({ label, children }: { label: string; children: ReactNode }) {
       <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="font-semibold">{children}</dd>
     </div>
+  );
+}
+
+/** Says when a value wasn't in the file: worked out by the app, or typed at import (D14). */
+function ValueNote({ note }: { note?: string }) {
+  if (!note) return null;
+  return (
+    <small className="block font-normal text-ink-muted">{note.startsWith("Typed") ? note : `Estimated. ${note}`}</small>
   );
 }

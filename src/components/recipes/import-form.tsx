@@ -3,7 +3,7 @@
 import { Link } from "@/components/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { Button, Callout, Card, Field, Input } from "@/components/ui";
+import { Badge, Button, Callout, Card, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { GcodeFormatError, gramsMatch, parseGcodeFile, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
 import { findDuplicateAction, importRecipeAction } from "@/server/recipes/actions";
@@ -16,7 +16,7 @@ type Row = { objectName: string | null; label: string; productId: string; newNam
 type Duplicate = { id: number; name: string; version: number };
 
 const num = (s: string) => Number(s.replace(/,/g, ""));
-const round = (n: number, dp = 3) => Number(n.toFixed(dp)).toString();
+const round = (n: number | null, dp = 3) => (n == null ? "" : Number(n.toFixed(dp)).toString());
 
 /** Plate rows pre-filled from the file's object lines (D40.2); one object type → grams typed for you. */
 function rowsFor(parsed: ParsedGcode, previous: { objectName: string | null; productId: number }[]): Row[] {
@@ -63,6 +63,9 @@ export function ImportForm({
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<Duplicate | null>(null);
   const [busy, setBusy] = useState<null | "reading" | "uploading" | "saving">(null);
+  // Values the file didn't state (worked out by the app): Joe confirms or types over them.
+  const [totalGrams, setTotalGrams] = useState("");
+  const [minutes, setMinutes] = useState("");
 
   async function choose(f: File | null) {
     setError(null);
@@ -75,6 +78,8 @@ export function ImportForm({
       const [p, sha] = await Promise.all([parseGcodeFile(f), sha256OfFile(f)]);
       if (p.totalGrams == null) throw new GcodeFormatError("The file has no total grams. Export it again.");
       setParsed(p);
+      setTotalGrams(round(p.totalGrams, 2));
+      setMinutes(p.estimatedSeconds != null ? String(Math.round(p.estimatedSeconds / 60)) : "");
       setRows(rowsFor(p, group?.items ?? []));
       if (!group && !name) setName(p.objects[0]?.displayName ?? f.name.replace(/\.gcode$/i, ""));
       setDuplicate(await findDuplicateAction(sha));
@@ -97,16 +102,28 @@ export function ImportForm({
   const update = (i: number, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
+  const gramsEstimated = !!parsed?.estimated.totalGrams;
+  const timeEstimated = !!parsed?.estimated.estimatedSeconds;
+  const plateGrams = gramsEstimated ? num(totalGrams) : (parsed?.totalGrams ?? NaN);
+  const confirmedOk = (!gramsEstimated || num(totalGrams) > 0) && (!timeEstimated || num(minutes) > 0);
+
+  /** Typing a new total moves a single item's grams with it, as on first read. */
+  function changeTotal(v: string) {
+    setTotalGrams(v);
+    if (rows.length === 1 && num(v) > 0 && num(rows[0]!.qty) > 0)
+      setRows([{ ...rows[0]!, grams: round(num(v) / num(rows[0]!.qty)) }]);
+  }
+
   const filled = rows.every((r) => num(r.qty) > 0 && num(r.grams) > 0 && (r.productId || r.newName.trim()));
   const check =
-    parsed?.totalGrams != null
+    plateGrams > 0
       ? gramsMatch(
           rows.map((r) => ({ qty: num(r.qty) || 0, gramsPerPiece: num(r.grams) || 0 })),
-          parsed.totalGrams,
+          plateGrams,
           tolerance,
         )
       : null;
-  const canSave = !!file && !!parsed && !duplicate && filled && !!check?.ok && !!name.trim() && !busy;
+  const canSave = !!file && !!parsed && !duplicate && filled && !!check?.ok && confirmedOk && !!name.trim() && !busy;
 
   async function save() {
     if (!file || !parsed || !canSave) return;
@@ -121,6 +138,10 @@ export function ImportForm({
         name: name.trim(),
         recipeGroup: group?.recipeGroup ?? null,
         changeNote: changeNote.trim() || null,
+        confirmed: {
+          totalGrams: gramsEstimated ? num(totalGrams) : null,
+          estimatedSeconds: timeEstimated ? num(minutes) * 60 : null,
+        },
         items: rows.map((r) => ({
           productId: r.productId ? Number(r.productId) : null,
           newProductName: r.productId ? null : r.newName.trim(),
@@ -177,14 +198,55 @@ export function ImportForm({
           <Card className="flex flex-col gap-3">
             <h2 className="text-lg font-bold">From the file</h2>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Spec label="Filament">{round(parsed.totalGrams ?? 0, 2)} g</Spec>
-              <Spec label="Estimated time">{formatDuration(parsed.estimatedSeconds)}</Spec>
+              <Spec label="Filament">
+                {round(parsed.totalGrams ?? 0, 2)} g{gramsEstimated ? <EstimatedTag /> : null}
+              </Spec>
+              <Spec label="Estimated time">
+                {formatDuration(parsed.estimatedSeconds)}
+                {timeEstimated ? <EstimatedTag /> : null}
+              </Spec>
               <Spec label="Material">{parsed.material ?? "—"}</Spec>
               <Spec label="Printer">{parsed.printerModel ?? "—"}</Spec>
               <Spec label="Nozzle">{parsed.nozzleMm != null ? `${parsed.nozzleMm} mm` : "—"}</Spec>
               <Spec label="Layer height">{parsed.layerHeightMm != null ? `${parsed.layerHeightMm} mm` : "—"}</Spec>
+              <Spec label="Slicer">
+                {[parsed.slicerName, parsed.slicerVersion].filter(Boolean).join(" ") || "Unknown"}
+              </Spec>
             </dl>
           </Card>
+
+          {gramsEstimated || timeEstimated ? (
+            <Card className="flex flex-col gap-4">
+              <Callout tone="warning" title="Check the estimated values">
+                This file doesn&apos;t state{" "}
+                {gramsEstimated && timeEstimated ? "the grams or the time" : gramsEstimated ? "the grams" : "the time"},
+                so the app worked {gramsEstimated && timeEstimated ? "them" : "it"} out. Type the slicer&apos;s number
+                if you have it.
+              </Callout>
+              <div className="grid grid-cols-2 gap-3">
+                {gramsEstimated ? (
+                  <Field id={`${fileId}-total-grams`} label="Filament per plate (g)" hint={parsed.estimated.totalGrams}>
+                    <Input
+                      id={`${fileId}-total-grams`}
+                      inputMode="decimal"
+                      value={totalGrams}
+                      onChange={(e) => changeTotal(e.target.value)}
+                    />
+                  </Field>
+                ) : null}
+                {timeEstimated ? (
+                  <Field id={`${fileId}-minutes`} label="Print time (minutes)" hint={parsed.estimated.estimatedSeconds}>
+                    <Input
+                      id={`${fileId}-minutes`}
+                      inputMode="numeric"
+                      value={minutes}
+                      onChange={(e) => setMinutes(e.target.value)}
+                    />
+                  </Field>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
 
           <Card className="flex flex-col gap-4">
             <Field id={`${fileId}-recipe-name`} label="Recipe name">
@@ -262,8 +324,8 @@ export function ImportForm({
                 data-testid="grams-check"
               >
                 {check.ok
-                  ? `Items add up to ${round(check.sum, 2)} g of ${round(parsed.totalGrams ?? 0, 2)} g.`
-                  : `Items add up to ${round(check.sum, 2)} g but the file uses ${round(parsed.totalGrams ?? 0, 2)} g: ` +
+                  ? `Items add up to ${round(check.sum, 2)} g of ${round(plateGrams, 2)} g.`
+                  : `Items add up to ${round(check.sum, 2)} g but the ${gramsEstimated ? "plate" : "file"} uses ${round(plateGrams, 2)} g: ` +
                     `${check.gap > 0 ? "+" : ""}${round(check.gap, 2)} g (allowed ±${round(check.allowed, 2)} g).`}
               </p>
             ) : null}
@@ -281,6 +343,14 @@ export function ImportForm({
         </>
       ) : null}
     </div>
+  );
+}
+
+function EstimatedTag() {
+  return (
+    <span className="ms-2">
+      <Badge tone="warning">Estimated</Badge>
+    </span>
   );
 }
 

@@ -8,7 +8,7 @@ import { expenseSchema } from "@/server/expenses/schema";
 import { createExpense } from "@/server/expenses/service";
 import { setSetting } from "@/server/settings/service";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
-import { syntheticGcode } from "../support/synthetic-gcode";
+import { syntheticGcode, syntheticMovesOnly } from "../support/synthetic-gcode";
 import { rowCounts, uploadedFileCount, withDb } from "./db";
 import { checkPage, login } from "./helpers";
 
@@ -164,4 +164,30 @@ test("products: add a product; a part has no price field; pages pass a11y", asyn
   await checkPage(page);
   await page.goto("/recipes");
   await checkPage(page);
+});
+
+test("D14 an unknown slicer's file: estimates are labelled, typed values are saved as typed", async ({
+  page,
+}, info) => {
+  const t = `${info.project.name}-${Date.now()}`;
+  const buffer = Buffer.from(syntheticMovesOnly({ header: `; made by HandRolledSlicer ${t}` }));
+
+  await page.goto("/calculator");
+  await page.getByLabel("G-code file").setInputFiles({ name: "unknown.gcode", mimeType: "text/x-gcode", buffer });
+  await expect(page.getByText("Estimated values")).toBeVisible();
+  await checkPage(page);
+
+  await page.goto("/recipes/import");
+  await page.getByLabel("G-code file").setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer });
+  await expect(page.getByText("Check the estimated values")).toBeVisible();
+  await page.getByLabel("Filament per plate (g)").fill("12");
+  await page.getByLabel("Print time (minutes)").fill("90");
+  await expect(page.getByLabel("Grams per piece")).toHaveValue("12");
+  await checkPage(page);
+  await page.getByLabel("Recipe name").fill(`Tag ${t}`);
+  await page.getByLabel("New product name").fill(`Tag ${t}`);
+  await page.getByRole("button", { name: "Save recipe" }).click();
+  await expect(page.getByRole("heading", { name: `Tag ${t} · v1` })).toBeVisible();
+  await expect(page.getByText("Typed at import (the app's estimate was 0.01 g).")).toBeVisible();
+  await expect(page.getByText("1 h 30 min")).toBeVisible();
 });

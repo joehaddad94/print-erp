@@ -68,6 +68,19 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
   } catch (e) {
     throw new ImportError(e instanceof GcodeFormatError ? e.message : "This file couldn't be read as G-code.");
   }
+  // Values the file didn't state: Joe's confirmed number wins over the app's estimate.
+  const estimatedValues = { ...parsed.estimated };
+  const typed = input.confirmed;
+  if (parsed.estimated.totalGrams && typed?.totalGrams != null) {
+    if (Math.abs(typed.totalGrams - (parsed.totalGrams ?? 0)) > 0.005)
+      estimatedValues.totalGrams = `Typed at import (the app's estimate was ${fmt(parsed.totalGrams ?? 0)} g).`;
+    parsed = { ...parsed, totalGrams: typed.totalGrams };
+  }
+  if (parsed.estimated.estimatedSeconds && typed?.estimatedSeconds != null) {
+    if (Math.abs(typed.estimatedSeconds - (parsed.estimatedSeconds ?? 0)) >= 60)
+      estimatedValues.estimatedSeconds = `Typed at import (the app's estimate was ${Math.round((parsed.estimatedSeconds ?? 0) / 60)} min).`;
+    parsed = { ...parsed, estimatedSeconds: typed.estimatedSeconds };
+  }
   if (parsed.totalGrams == null) throw new ImportError("The file has no total grams. Export it again from the slicer.");
 
   const tol = await gramsTolerance(db);
@@ -146,6 +159,7 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
         bedTempC: parsed.bedTempC == null ? null : Math.round(parsed.bedTempC),
         thumbnailBlobUrl,
         rawHeader: parsed.rawHeader,
+        estimatedValues,
       })
       .returning({ id: recipes.id, version: recipes.version });
 

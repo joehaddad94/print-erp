@@ -107,6 +107,24 @@ export function CostCalculator({ inputs }: { inputs: CostInputs }) {
               {parsed.material ?? "Unknown material"} · {formatDuration(parsed.estimatedSeconds)} ·{" "}
               {parsed.printerModel ?? "unknown printer"}
             </p>
+            {parsed.estimated.totalGrams || parsed.estimated.estimatedSeconds ? (
+              <Callout tone="warning" title="Estimated values">
+                This file doesn&apos;t state{" "}
+                {parsed.estimated.totalGrams && parsed.estimated.estimatedSeconds
+                  ? "the grams or the time"
+                  : parsed.estimated.totalGrams
+                    ? "the grams"
+                    : "the time"}
+                , so the app worked {parsed.estimated.totalGrams && parsed.estimated.estimatedSeconds ? "them" : "it"}{" "}
+                out below. Type the slicer&apos;s numbers if you have them.
+                {parsed.estimated.totalGrams ? (
+                  <span className="mt-1 block">Grams: {parsed.estimated.totalGrams}</span>
+                ) : null}
+                {parsed.estimated.estimatedSeconds ? (
+                  <span className="mt-1 block">Time: {parsed.estimated.estimatedSeconds}</span>
+                ) : null}
+              </Callout>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <Select id="calc-filament" label="Filament" value={filamentId} onChange={setFilamentId}>
                 {inputs.filaments.length === 0 ? <option value="">No filament bought yet</option> : null}

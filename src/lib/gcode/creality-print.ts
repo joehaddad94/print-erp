@@ -70,6 +70,7 @@ function parseOrcaFamily(this: GcodeParser, { head, tail, objectLines }: GcodeCh
     objects: plateObjects(objectLines),
     thumbnails: thumbnails(head),
     rawHeader: raw,
+    estimated: {},
   };
 }
 

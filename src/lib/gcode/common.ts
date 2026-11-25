@@ -85,3 +85,32 @@ export function printerModelsMatch(fromFile: string, machine: string): boolean {
   if (!a || !b) return true;
   return a.includes(b) || b.includes(a);
 }
+
+/** Typical densities (g/cm³) used only when a file gives grams in no form (estimates, D14). */
+const DENSITY: Record<string, number> = {
+  PLA: 1.24,
+  PETG: 1.27,
+  PET: 1.27,
+  ABS: 1.04,
+  ASA: 1.07,
+  TPU: 1.21,
+  FLEX: 1.21,
+  PA: 1.14,
+  NYLON: 1.14,
+  PC: 1.2,
+  HIPS: 1.04,
+  PVA: 1.23,
+};
+export const DEFAULT_DIAMETER_MM = 1.75;
+
+export function densityFor(material: string | null | undefined): { density: number; known: boolean } {
+  const key = (material ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+  const hit = Object.keys(DENSITY).find((k) => key.startsWith(k));
+  return hit ? { density: DENSITY[hit]!, known: true } : { density: DENSITY.PLA!, known: false };
+}
+
+/** Grams of filament for a length, from diameter and density. */
+export function gramsFromMm(mm: number, diameterMm: number, density: number): number {
+  const cm3 = (Math.PI * (diameterMm / 2) ** 2 * mm) / 1000;
+  return Number((cm3 * density).toFixed(2));
+}
