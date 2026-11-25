@@ -1,0 +1,524 @@
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import type * as schema from "@/db/schema";
+import {
+  customers,
+  orderBalance,
+  orderItems,
+  orders,
+  payments,
+  products,
+  stockAvailable,
+  stockItems,
+  stockMovements,
+} from "@/db/schema";
+import { lastEdited, softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
+import { currentAverage, recordMovement } from "@/server/stock/ledger";
+
+type Db = PostgresJsDatabase<typeof schema>;
+
+export class OrderError extends Error {
+  constructor(
+    message: string,
+    readonly link?: string,
+  ) {
+    super(message);
+    this.name = "OrderError";
+  }
+}
+
+export const ORDER_STATUSES = ["quoted", "confirmed", "printing", "ready", "delivered", "cancelled"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export const OPEN_STATUSES: OrderStatus[] = ["quoted", "confirmed", "printing", "ready"];
+export const STATUS_LABELS: Record<OrderStatus, string> = {
+  quoted: "Quoted",
+  confirmed: "Confirmed",
+  printing: "Printing",
+  ready: "Ready",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+export const PAYMENT_STATE_LABELS = { unpaid: "Unpaid", partly_paid: "Partly paid", paid: "Paid" } as const;
+
+// ───────────── Customers (D30) ─────────────
+
+export type CustomerInput = { name: string; phone: string | null; handle: string | null; notes: string | null };
+
+export async function createCustomer(db: Db | Tx, i: CustomerInput) {
+  const [c] = await db.insert(customers).values(i).returning({ id: customers.id });
+  return c!.id;
+}
+
+export async function updateCustomer(db: Db, id: number, i: CustomerInput, userId?: number) {
+  return db.transaction((tx) => updateLogged(tx, customers, id, i, { userId }));
+}
+
+/** Y-04: balance owed = sum of the balance due on their open and delivered orders. */
+export async function listCustomers(db: Db) {
+  const rows = await db
+    .select({
+      id: customers.id,
+      name: customers.name,
+      phone: customers.phone,
+      handle: customers.handle,
+      orderCount: sql<number>`count(distinct ${orders.id})::int`,
+      balanceOwedUsd: sql<string>`coalesce(sum(${orderBalance.balanceDueUsd}) filter (where ${orders.status} <> 'cancelled'), 0)`,
+    })
+    .from(customers)
+    .leftJoin(orders, and(eq(orders.customerId, customers.id), isNull(orders.deletedAt)))
+    .leftJoin(orderBalance, eq(orderBalance.orderId, orders.id))
+    .where(isNull(customers.deletedAt))
+    .groupBy(customers.id)
+    .orderBy(asc(customers.name));
+  return rows.map((r) => ({ ...r, balanceOwedUsd: Number(r.balanceOwedUsd) }));
+}
+
+export async function getCustomer(db: Db, id: number) {
+  const [c] = await db
+    .select()
+    .from(customers)
+    .where(and(eq(customers.id, id), isNull(customers.deletedAt)));
+  if (!c) return null;
+  const list = await listOrders(db, { customerId: id });
+  const owed = list.filter((o) => o.status !== "cancelled").reduce((s, o) => s + o.balanceDueUsd, 0);
+  return { ...c, orders: list, balanceOwedUsd: owed };
+}
+
+// ───────────── Orders (D18, D21, D28, D35, D37, D45) ─────────────
+
+export type OrderInput = {
+  channel: "whatsapp" | "instagram" | "in_person" | "other";
+  customerId: number | null;
+  newCustomerName: string | null;
+  dueOn: string | null;
+  currency: "USD" | "LBP";
+  rateToUsd: number;
+  deliveryCharge: number | null;
+  deliveredBy: string | null;
+  notes: string | null;
+};
+
+export async function createOrder(db: Db, i: OrderInput) {
+  return db.transaction(async (tx) => {
+    const customerId =
+      i.customerId ??
+      (i.newCustomerName
+        ? await createCustomer(tx, { name: i.newCustomerName, phone: null, handle: null, notes: null })
+        : null);
+    const [o] = await tx
+      .insert(orders)
+      .values({
+        channel: i.channel,
+        customerId,
+        dueOn: i.dueOn,
+        currency: i.currency,
+        rateToUsd: i.rateToUsd,
+        deliveryCharge: i.deliveryCharge,
+        deliveredBy: i.deliveredBy,
+        notes: i.notes,
+      })
+      .returning({ id: orders.id });
+    return o!.id;
+  });
+}
+
+export async function updateOrder(db: Db, id: number, i: OrderInput, userId?: number) {
+  return db.transaction(async (tx) => {
+    const customerId =
+      i.customerId ??
+      (i.newCustomerName
+        ? await createCustomer(tx, { name: i.newCustomerName, phone: null, handle: null, notes: null })
+        : null);
+    return updateLogged(
+      tx,
+      orders,
+      id,
+      {
+        channel: i.channel,
+        customerId,
+        dueOn: i.dueOn,
+        currency: i.currency,
+        rateToUsd: i.rateToUsd,
+        deliveryCharge: i.deliveryCharge,
+        deliveredBy: i.deliveredBy,
+        notes: i.notes,
+      },
+      { userId },
+    );
+  });
+}
+
+export async function listOrders(db: Db, filter: { customerId?: number } = {}) {
+  const rows = await db
+    .select({
+      id: orders.id,
+      status: orders.status,
+      channel: orders.channel,
+      dueOn: orders.dueOn,
+      createdAt: orders.createdAt,
+      customerName: customers.name,
+      totalUsd: orderBalance.totalUsd,
+      balanceDueUsd: orderBalance.balanceDueUsd,
+      paymentState: orderBalance.paymentState,
+      needToPrint: sql<number>`(select coalesce(sum(oi.quantity - oi.qty_reserved), 0)::int from order_items oi
+        where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
+    })
+    .from(orders)
+    .leftJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(orderBalance, eq(orderBalance.orderId, orders.id))
+    .where(and(isNull(orders.deletedAt), filter.customerId ? eq(orders.customerId, filter.customerId) : undefined))
+    .orderBy(
+      sql`case when ${orders.status} in ('delivered','cancelled') then 1 else 0 end`,
+      asc(orders.dueOn),
+      desc(orders.id),
+    );
+  const edited = await lastEdited(
+    db,
+    "orders",
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => ({ ...r, editedAt: edited.get(r.id) ?? null }));
+}
+
+async function lockOrder(tx: Tx, id: number) {
+  const [o] = await tx
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, id), isNull(orders.deletedAt)))
+    .for("update");
+  if (!o) throw new OrderError("That order no longer exists.");
+  return o;
+}
+
+function assertOpen(o: { status: OrderStatus }) {
+  if (o.status === "delivered") throw new OrderError("This order is delivered. Its lines can't change.");
+  if (o.status === "cancelled") throw new OrderError("This order is cancelled.");
+}
+
+export type LineInput = { productId: number; quantity: number; unitPrice: number | null; customization: string | null };
+
+/** O-01/D31: only products with a sale price; the price is pre-filled and may be changed, even to $0 (D45). */
+export async function addLine(db: Db, orderId: number, i: LineInput) {
+  return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    assertOpen(o);
+    const [p] = await tx
+      .select()
+      .from(products)
+      .where(and(eq(products.id, i.productId), isNull(products.deletedAt)));
+    if (!p) throw new OrderError("Choose a product.");
+    if (p.kind === "part") throw new OrderError("A part can't be sold on its own.");
+    if (p.salePriceUsd == null) throw new OrderError("Set a sale price for this product first", `/products/${p.id}`);
+    const unitPrice = i.unitPrice ?? p.salePriceUsd / o.rateToUsd;
+    const [line] = await tx
+      .insert(orderItems)
+      .values({ orderId, productId: p.id, quantity: i.quantity, unitPrice, customization: i.customization })
+      .returning({ id: orderItems.id });
+    return line!.id;
+  });
+}
+
+export async function updateLine(db: Db, lineId: number, i: Omit<LineInput, "productId">, userId?: number) {
+  return db.transaction(async (tx) => {
+    const [line] = await tx.select().from(orderItems).where(eq(orderItems.id, lineId));
+    if (!line || line.deletedAt) throw new OrderError("That line no longer exists.");
+    assertOpen(await lockOrder(tx, line.orderId));
+    return updateLogged(
+      tx,
+      orderItems,
+      lineId,
+      {
+        quantity: i.quantity,
+        unitPrice: i.unitPrice ?? line.unitPrice,
+        customization: i.customization,
+        qtyReserved: Math.min(line.qtyReserved, i.quantity),
+      },
+      { userId },
+    );
+  });
+}
+
+export async function deleteLine(db: Db, lineId: number, userId?: number) {
+  return db.transaction(async (tx) => {
+    const [line] = await tx.select().from(orderItems).where(eq(orderItems.id, lineId));
+    if (!line || line.deletedAt) return;
+    assertOpen(await lockOrder(tx, line.orderId));
+    await softDeleteLogged(tx, orderItems, lineId, { userId });
+  });
+}
+
+async function productStockId(tx: Tx | Db, productId: number) {
+  const [s] = await tx
+    .select({ id: stockItems.id })
+    .from(stockItems)
+    .where(and(eq(stockItems.productId, productId), isNull(stockItems.deletedAt)));
+  return s?.id ?? null;
+}
+
+/**
+ * O-03/D21: reserve what's available for each line, up to what it still needs.
+ * On hand is unchanged; available drops; the rest shows as "need to print N".
+ */
+export async function reserve(db: Db, orderId: number, userId?: number) {
+  return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    assertOpen(o);
+    const lines = await tx
+      .select()
+      .from(orderItems)
+      .where(and(eq(orderItems.orderId, orderId), isNull(orderItems.deletedAt)))
+      .orderBy(asc(orderItems.id));
+    let reserved = 0;
+    for (const line of lines) {
+      const need = line.quantity - line.qtyReserved;
+      if (need <= 0) continue;
+      const stockId = await productStockId(tx, line.productId);
+      if (stockId == null) continue;
+      // Lock the item's movements so two reservations can't take the same pieces.
+      await tx.execute(sql`select pg_advisory_xact_lock(${stockId})`);
+      const [a] = await tx.select().from(stockAvailable).where(eq(stockAvailable.stockItemId, stockId));
+      const take = Math.max(0, Math.min(need, Math.floor(a?.available ?? 0)));
+      if (take > 0) {
+        await updateLogged(
+          tx,
+          orderItems,
+          line.id,
+          { qtyReserved: line.qtyReserved + take },
+          { userId, reason: "reserve" },
+        );
+        reserved += take;
+      }
+    }
+    return reserved;
+  });
+}
+
+/** Quoted → Confirmed → Printing → Ready (by hand). Cancel releases reservations (O-06). */
+export async function setStatus(db: Db, orderId: number, status: Exclude<OrderStatus, "delivered">, userId?: number) {
+  return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    if (o.status === "delivered") throw new OrderError("A delivered order can't change status.");
+    if (status === "cancelled") await releaseAll(tx, orderId, userId);
+    await updateLogged(tx, orders, orderId, { status }, { userId });
+  });
+}
+
+async function releaseAll(tx: Tx, orderId: number, userId?: number) {
+  const lines = await tx
+    .select()
+    .from(orderItems)
+    .where(and(eq(orderItems.orderId, orderId), isNull(orderItems.deletedAt)));
+  for (const l of lines)
+    if (l.qtyReserved > 0) await updateLogged(tx, orderItems, l.id, { qtyReserved: 0 }, { userId, reason: "release" });
+}
+
+export async function deleteOrder(db: Db, orderId: number, userId?: number) {
+  return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    if (o.status === "delivered") throw new OrderError("A delivered order can't be deleted. Its stock has left.");
+    await releaseAll(tx, orderId, userId);
+    await softDeleteLogged(tx, orders, orderId, { userId });
+  });
+}
+
+/** Latest hands-on minutes per unit that came in with this stock (D24). */
+async function labourMinutes(tx: Tx, stockId: number) {
+  const [m] = await tx
+    .select({ v: stockMovements.labourMinutesPerUnit })
+    .from(stockMovements)
+    .where(
+      and(
+        eq(stockMovements.stockItemId, stockId),
+        isNull(stockMovements.deletedAt),
+        sql`${stockMovements.amount} > 0`,
+        sql`${stockMovements.labourMinutesPerUnit} is not null`,
+      ),
+    )
+    .orderBy(desc(stockMovements.movedAt), desc(stockMovements.id))
+    .limit(1);
+  return m?.v ?? null;
+}
+
+/**
+ * Deliver whole order (D35, D36, D38, O-05): only when every line is fully reserved. In one
+ * transaction: −stock per line at the weighted average, −1 packaging per unit, and each line
+ * snapshots unit cost, packaging cost and labour minutes.
+ */
+export async function deliver(
+  db: Db,
+  orderId: number,
+  i: { deliveredBy: string | null; deliveryCharge: number | null },
+  now = new Date(),
+) {
+  return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, orderId);
+    assertOpen(o);
+    const lines = await tx
+      .select({ line: orderItems, product: products })
+      .from(orderItems)
+      .innerJoin(products, eq(products.id, orderItems.productId))
+      .where(and(eq(orderItems.orderId, orderId), isNull(orderItems.deletedAt)));
+    if (lines.length === 0) throw new OrderError("Add at least one line first.");
+    const short = lines.filter((l) => l.line.qtyReserved < l.line.quantity);
+    if (short.length)
+      throw new OrderError("Every line must be fully reserved before delivery. Print or reserve the rest.");
+
+    for (const { line, product } of lines) {
+      const stockId = (await productStockId(tx, product.id))!;
+      const unitCostUsd = (await currentAverage(tx, stockId)) ?? 0;
+      let packagingCost: number | null = null;
+      if (product.packagingItemId != null) {
+        packagingCost = (await currentAverage(tx, product.packagingItemId)) ?? 0;
+        await recordMovement(tx, {
+          stockItemId: product.packagingItemId,
+          amount: -line.quantity,
+          reason: "sale",
+          movedAt: now,
+          orderItemId: line.id,
+        });
+      }
+      const minutes = await labourMinutes(tx, stockId);
+      await recordMovement(tx, {
+        stockItemId: stockId,
+        amount: -line.quantity,
+        reason: "sale",
+        movedAt: now,
+        orderItemId: line.id,
+        unitCostUsd,
+      });
+      await tx
+        .update(orderItems)
+        .set({ unitCostUsd, packagingCostPerUnitUsd: packagingCost, labourMinutesPerUnit: minutes, updatedAt: now })
+        .where(eq(orderItems.id, line.id));
+    }
+    await tx
+      .update(orders)
+      .set({
+        status: "delivered",
+        deliveredAt: now,
+        deliveredBy: i.deliveredBy ?? o.deliveredBy,
+        deliveryCharge: i.deliveryCharge ?? o.deliveryCharge,
+        updatedAt: now,
+      })
+      .where(eq(orders.id, orderId));
+  });
+}
+
+// ───────────── Payments (D28, D43) ─────────────
+
+export type PaymentInput = {
+  paidOn: string;
+  amount: number;
+  currency: "USD" | "LBP";
+  rateToUsd: number;
+  method: (typeof payments.$inferInsert)["method"] & string;
+  collectedBy: string | null;
+  reference: string | null;
+  notes: string | null;
+};
+
+/** A refund is a negative amount. Courier COD stays "held by courier" until Mark received (Y-02). */
+export async function recordPayment(db: Db, orderId: number, i: PaymentInput, now = new Date()) {
+  const [o] = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.id, orderId), isNull(orders.deletedAt)));
+  if (!o) throw new OrderError("That order no longer exists.");
+  const [p] = await db
+    .insert(payments)
+    .values({ orderId, ...i, receivedAt: i.method === "courier_cod" ? null : now })
+    .returning({ id: payments.id });
+  return p!.id;
+}
+
+export async function markReceived(db: Db, paymentId: number, userId?: number, now = new Date()) {
+  return db.transaction((tx) =>
+    updateLogged(tx, payments, paymentId, { receivedAt: now }, { userId, reason: "received" }),
+  );
+}
+
+export async function deletePayment(db: Db, paymentId: number, userId?: number) {
+  return db.transaction((tx) => softDeleteLogged(tx, payments, paymentId, { userId }));
+}
+
+// ───────────── Order page ─────────────
+
+export async function getOrder(db: Db, id: number) {
+  const [row] = await db
+    .select({
+      order: orders,
+      customer: customers,
+      balance: {
+        totalUsd: orderBalance.totalUsd,
+        receivedUsd: orderBalance.receivedUsd,
+        heldByCourierUsd: orderBalance.heldByCourierUsd,
+        balanceDueUsd: orderBalance.balanceDueUsd,
+        paymentState: orderBalance.paymentState,
+      },
+    })
+    .from(orders)
+    .leftJoin(customers, eq(customers.id, orders.customerId))
+    .innerJoin(orderBalance, eq(orderBalance.orderId, orders.id))
+    .where(and(eq(orders.id, id), isNull(orders.deletedAt)));
+  if (!row) return null;
+  const [lines, pays] = await Promise.all([
+    db
+      .select({ line: orderItems, productName: products.name, productVariant: products.variant })
+      .from(orderItems)
+      .innerJoin(products, eq(products.id, orderItems.productId))
+      .where(and(eq(orderItems.orderId, id), isNull(orderItems.deletedAt)))
+      .orderBy(asc(orderItems.id)),
+    db
+      .select()
+      .from(payments)
+      .where(and(eq(payments.orderId, id), isNull(payments.deletedAt)))
+      .orderBy(asc(payments.paidOn), asc(payments.id)),
+  ]);
+  const stockIds = new Map<number, number | null>();
+  for (const l of lines) stockIds.set(l.line.productId, await productStockId(db, l.line.productId));
+  const ids = [...stockIds.values()].filter((v): v is number => v != null);
+  const avail = ids.length
+    ? await db.select().from(stockAvailable).where(inArray(stockAvailable.stockItemId, ids))
+    : [];
+  const availFor = (productId: number) => avail.find((a) => a.stockItemId === stockIds.get(productId))?.available ?? 0;
+
+  const delivered = row.order.status === "delivered";
+  const r = row.order.rateToUsd;
+  const profitLines = lines.map(({ line }) => {
+    if (!delivered || line.unitCostUsd == null) return null;
+    const profit = line.quantity * (line.unitPrice * r - line.unitCostUsd - (line.packagingCostPerUnitUsd ?? 0));
+    const minutes = line.labourMinutesPerUnit == null ? null : line.labourMinutesPerUnit * line.quantity;
+    return { profit, minutes };
+  });
+  const profitUsd = delivered ? profitLines.reduce((s, p) => s + (p?.profit ?? 0), 0) : null;
+  const minutes = profitLines.every((p) => p?.minutes != null)
+    ? profitLines.reduce((s, p) => s + (p?.minutes ?? 0), 0)
+    : null;
+  return {
+    ...row.order,
+    customer: row.customer,
+    balance: row.balance,
+    lines: lines.map((l) => ({
+      ...l.line,
+      productName: l.productName,
+      productVariant: l.productVariant,
+      available: availFor(l.line.productId),
+      needToPrint: l.line.quantity - l.line.qtyReserved,
+    })),
+    payments: pays,
+    fullyReserved: lines.length > 0 && lines.every((l) => l.line.qtyReserved >= l.line.quantity),
+    profitUsd,
+    /** D24: profit per hour of your time; null ("—") when any line has no minutes. */
+    profitPerHourUsd: profitUsd != null && minutes ? profitUsd / (minutes / 60) : null,
+  };
+}
+
+export type Order = NonNullable<Awaited<ReturnType<typeof getOrder>>>;
+
+export function sellableProducts(db: Db) {
+  return db
+    .select({ id: products.id, name: products.name, variant: products.variant, salePriceUsd: products.salePriceUsd })
+    .from(products)
+    .where(and(eq(products.kind, "product"), isNull(products.deletedAt)))
+    .orderBy(asc(products.name));
+}
