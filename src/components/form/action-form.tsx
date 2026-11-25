@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { createContext, useActionState, useContext, type ReactNode } from "react";
 import { Button, Callout } from "@/components/ui";
 import type { FormState } from "@/server/form";
@@ -38,7 +39,19 @@ export function ActionForm({
   return (
     <FormCtx.Provider value={{ state, defaults }}>
       <form action={formAction} noValidate className={className ?? "flex flex-col gap-4"}>
-        {state.error ? <Callout tone="danger">{state.error}</Callout> : null}
+        {state.error ? (
+          <Callout tone="danger">
+            {state.error}
+            {state.link ? (
+              <>
+                {" "}
+                <Link className="inline-flex min-h-tap items-center font-semibold underline" href={state.link}>
+                  Fix it
+                </Link>
+              </>
+            ) : null}
+          </Callout>
+        ) : null}
         {state.ok && state.message ? <Callout tone="success">{state.message}</Callout> : null}
         {children}
         <Button type="submit" block disabled={pending}>

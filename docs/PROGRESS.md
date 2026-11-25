@@ -14,7 +14,7 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 
 ## Next step
 
-M5 (branch `m5-orders`): customers, orders with reservations and shortfall, deliver, record payment (plan §M5).
+M6 (branch `m6-assemble`): parts lists and Assemble, Change history screen, Stock screen, `cost_per_good_unit` view (plan §M6).
 
 ## Open issues
 

@@ -9,6 +9,8 @@ export type FormState = {
   values?: Record<string, string>;
   /** Bumped on every response so the form remounts its inputs with the returned values. */
   version?: number;
+  /** Where to fix the problem, shown as a link under the error (e.g. set a sale price, D31). */
+  link?: string;
 };
 
 export function formValues(fd: FormData): Record<string, string> {
