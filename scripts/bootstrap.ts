@@ -21,8 +21,10 @@ async function main() {
     );
     return;
   }
+  const source = process.env.DIRECT_URL ? "DIRECT_URL" : "DATABASE_URL";
   const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
-  if (!url) throw new Error("DIRECT_URL or DATABASE_URL must be set");
+  if (!url) throw new Error("DIRECT_URL or DATABASE_URL must be set for Production in Vercel");
+  console.log(`bootstrap: connecting with ${source} → ${describeUrl(url)}`);
   const client = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
   const db = drizzle(client, { schema });
   try {
@@ -46,7 +48,40 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+/** host, port, user and database of a Postgres URL, never the password. Exported for tests. */
+export function describeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.username || "?"}@${u.hostname}:${u.port || "5432"}${u.pathname}`;
+  } catch {
+    return "(not a valid URL: check for unencoded special characters in the password)";
+  }
+}
+
+/** One-line cause for the most common Supabase setup mistakes. */
+export function hint(err: unknown): string {
+  const e = err as { code?: string; message?: string; cause?: { code?: string } };
+  const code = e?.code ?? e?.cause?.code ?? "";
+  const msg = String(e?.message ?? err);
+  if (code === "28P01" || /password authentication failed/i.test(msg))
+    return "Wrong database password: if it was reset in Supabase, update DATABASE_URL and DIRECT_URL in Vercel.";
+  if (/Tenant or user not found/i.test(msg))
+    return "The pooler user must be postgres.<project-ref>: copy the URL again from Supabase → Connect.";
+  if (code === "ENOTFOUND" || code === "ENETUNREACH" || code === "EAI_AGAIN")
+    return "Host unreachable: use the Session pooler URL (port 5432), not the direct db.<ref>.supabase.co host (IPv6 only).";
+  if (code === "ECONNREFUSED" || code === "ETIMEDOUT")
+    return "Connection refused or timed out: check the host and port, and that the Supabase project isn't paused.";
+  return "";
+}
+
+if (process.argv[1]?.endsWith("bootstrap.ts")) {
+  main().catch((err) => {
+    const e = err as { code?: string; cause?: { code?: string } };
+    console.error(`bootstrap FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    const code = e?.code ?? e?.cause?.code;
+    if (code) console.error(`bootstrap: error code ${code}`);
+    const h = hint(err);
+    if (h) console.error(`bootstrap: likely fix → ${h}`);
+    process.exit(1);
+  });
+}
