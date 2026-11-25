@@ -1,5 +1,6 @@
 /**
- * Runs before `next build` on Vercel (VERCEL=1), or when called with --force:
+ * Runs before `next build` on Vercel production builds only (VERCEL_ENV=production), or with --force.
+ * Preview builds of unmerged branches never touch the live database (D44: one live env):
  *  1. applies pending migrations from ./drizzle,
  *  2. seeds defaults (idempotent),
  *  3. creates the first user from ADMIN_USERNAME / ADMIN_PASSWORD if the users table is empty.
@@ -14,8 +15,10 @@ import { seed } from "../src/db/seed";
 import { ensureInitialUser } from "../src/server/auth/service";
 
 async function main() {
-  if (process.env.VERCEL !== "1" && !process.argv.includes("--force")) {
-    console.log("bootstrap: skipped (not a Vercel build; use --force to run)");
+  if (process.env.VERCEL_ENV !== "production" && !process.argv.includes("--force")) {
+    console.log(
+      `bootstrap: skipped (VERCEL_ENV=${process.env.VERCEL_ENV ?? "unset"}; runs on production builds or --force)`,
+    );
     return;
   }
   const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
