@@ -33,7 +33,8 @@ Only token utilities exist: `bg-surface`, `text-ink-muted`, `bg-danger-bg text-d
 | `DIRECT_URL` | Supabase → Connect → Session pooler (port 5432), used for migrations at deploy |
 | `AUTH_SECRET` | 32+ random characters |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | first user, created on deploy if none exists; remove after first login |
-| `BLOB_READ_WRITE_TOKEN` | set by Vercel when a Blob store is connected |
+| `BLOB_STORE_ID` | set by Vercel when a Blob store is connected (OIDC, the default). Turns Blob on |
+| `BLOB_READ_WRITE_TOKEN` | optional; only if you ticked "Add a read-write token env var" when connecting. Also turns Blob on |
 | `BLOB_ACCESS` | `private` (default); must match the Blob store. Backups refuse a public store |
 | `CRON_SECRET` | 16+ random characters; Vercel sends it to the weekly backup job |
 

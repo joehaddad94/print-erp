@@ -5,14 +5,27 @@ import { get, put } from "@vercel/blob";
 
 /**
  * File storage for original G-code files and thumbnails (D14, rule 7).
- * Production: Vercel Blob. Without a Blob token (local dev, tests): a folder on disk,
+ * Production: Vercel Blob. Without Blob credentials (local dev, tests): a folder on disk,
  * addressed as `local:<name>`. Files are never changed or deleted once stored.
  * Reads process.env directly so tests can point it at a temp folder.
  */
 export type StorageMode = "blob" | "local";
 
+/**
+ * A connected Blob store gives either BLOB_STORE_ID (OIDC, Vercel's default since June 2026)
+ * or BLOB_READ_WRITE_TOKEN (the older opt-in token). Either one means Blob is on.
+ */
 export function storageMode(): StorageMode {
-  return process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "local";
+  return process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID ? "blob" : "local";
+}
+
+/**
+ * How the browser gets permission to upload. A read-write token can sign client tokens
+ * (`upload`); OIDC-only stores need presigned URLs (`uploadPresigned`).
+ */
+export type BlobUploadFlavor = "token" | "presigned";
+export function blobUploadFlavor(): BlobUploadFlavor {
+  return process.env.BLOB_READ_WRITE_TOKEN ? "token" : "presigned";
 }
 
 export function blobAccess(): "private" | "public" {

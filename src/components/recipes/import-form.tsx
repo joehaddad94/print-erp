@@ -7,7 +7,7 @@ import { Badge, Button, Callout, Card, Field, Input } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { GcodeFormatError, gramsMatch, parseGcodeFile, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
 import { findDuplicateAction, importRecipeAction } from "@/server/recipes/actions";
-import type { StorageMode } from "@/server/storage";
+import type { BlobUploadFlavor, StorageMode } from "@/server/storage";
 import { formatDuration } from "@/lib/format";
 import { sha256OfFile, takeHandedOffFile, uploadGcode } from "./gcode-client";
 
@@ -42,12 +42,14 @@ function rowsFor(parsed: ParsedGcode, previous: { objectName: string | null; pro
 export function ImportForm({
   mode,
   access,
+  flavor,
   products,
   tolerance,
   group,
 }: {
   mode: StorageMode;
   access: "private" | "public";
+  flavor: BlobUploadFlavor;
   products: ProductOption[];
   tolerance: { grams: number; pct: number };
   group?: { recipeGroup: string; name: string; items: { objectName: string | null; productId: number }[] };
@@ -130,7 +132,7 @@ export function ImportForm({
     setError(null);
     try {
       setBusy("uploading");
-      const fileUrl = await uploadGcode(file, mode, access);
+      const fileUrl = await uploadGcode(file, mode, access, flavor);
       setBusy("saving");
       const res = await importRecipeAction({
         fileUrl,
