@@ -9,14 +9,17 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | M0 Foundations (scaffold, theme, schema, login, tests) | Merged Nov 25 | #1 |
 | M1 G-code parser + cost engine | Merged Nov 25 | #2 |
 | M2 Settings, machines, suppliers, expenses, edit engine | Done: verify all green (89 unit, 34 db, 32 e2e) | #3 |
-| M3 Recipes import, products, cost calculator | Not started | — |
+| M3 Recipes import, products, cost calculator | Done: verify all green (94 unit, 44 db, 42 e2e) | #4 |
 | M4 Start / Finish print, weigh filament | Not started | — |
 
 ## Next step
 
-M3 (branch `m3-recipes`): recipe import (Vercel Blob client upload, Creality parser, items with grams, D17 grams check), products with parts list, cost calculator.
+M4 (branch `m4-print`): Start print, Finish print, Weigh filament, cost_per_good_unit view, Today shows printing now. Tests J-01..J-11.
 
 ## Open issues
+
+- Vercel: a **Blob store** must be connected (Storage tab) for recipe import on the live site; set `BLOB_ACCESS` to match the store (default `private`). Without it the import page says so; the calculator still works.
+- Vercel: scope `DATABASE_URL` / `DIRECT_URL` to Production only so PR previews can't touch live data. Bootstrap (migrations) already runs only on production builds.
 
 - GitHub Actions doesn't start on this account ("account is locked due to a billing issue", Nov 25). Per the plan, the local `pnpm verify` run is the gate. Nothing paid will be added.
 - Repo is public: Joe's real `.gcode` fixtures are gitignored (`tests/fixtures/*.gcode.gz`); tests that need them skip when absent. Decision pending: make the repo private and commit them.
