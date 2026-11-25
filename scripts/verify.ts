@@ -23,7 +23,7 @@ const started = Date.now();
 for (const step of steps.filter((s) => !only.length || only.includes(s.name))) {
   const t = Date.now();
   const run = spawnSync(step.cmd, { shell: true, encoding: "utf8", env: { ...process.env, FORCE_COLOR: "0" } });
-   
+
   const out = `${run.stdout}\n${run.stderr}`.replace(/\x1b\[[0-9;]*m/g, "");
   const secs = ((Date.now() - t) / 1000).toFixed(0);
   const counts =
