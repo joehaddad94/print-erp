@@ -17,7 +17,8 @@ export default async function ImportRecipePage({ searchParams }: PageProps<"/rec
       <div className="flex max-w-content flex-col gap-6">
         <PageHeader title="Import G-code" />
         <Callout tone="warning" title="File storage isn't connected">
-          Connect a Vercel Blob store to this project (Storage tab in Vercel), then redeploy. The cost calculator works
+          Connect a Vercel Blob store to this project (Storage tab in Vercel), then redeploy. The app looks for
+          BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN in the project&apos;s environment variables. The cost calculator works
           without it.
         </Callout>
       </div>
