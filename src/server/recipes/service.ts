@@ -68,8 +68,7 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
   } catch (e) {
     throw new ImportError(e instanceof GcodeFormatError ? e.message : "This file couldn't be read as G-code.");
   }
-  if (parsed.totalGrams == null)
-    throw new ImportError("The file has no total grams. Export it again from Creality Print.");
+  if (parsed.totalGrams == null) throw new ImportError("The file has no total grams. Export it again from the slicer.");
 
   const tol = await gramsTolerance(db);
   const check = gramsMatch(
