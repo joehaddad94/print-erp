@@ -89,7 +89,7 @@ test("E-05 a failed save keeps every typed value", async ({ page }) => {
 test("S-02 machine: edit power, history shows the change, list shows hours of life", async ({ page }, info) => {
   await page.goto("/machines");
   await checkPage(page);
-  await expect(page.getByText(/0 of 3,000 h/)).toBeVisible();
+  await expect(page.getByRole("link").filter({ hasText: "Ender-3 V3 SE" })).toContainText(/0 of 3,000 h/);
   await page.getByRole("link").filter({ hasText: "Ender-3 V3 SE" }).click();
   await checkPage(page);
   const power = info.project.name === "phone" ? "0.13" : "0.12";
@@ -97,7 +97,7 @@ test("S-02 machine: edit power, history shows the change, list shows hours of li
   await page.getByLabel("Purchase cost").fill("200");
   await page.getByRole("button", { name: "Save machine" }).click();
   await expect(page).toHaveURL(/\/machines$/);
-  await expect(page.getByText("$0.067/h")).toBeVisible();
+  await expect(page.getByRole("link").filter({ hasText: "Ender-3 V3 SE" })).toContainText("$0.067/h");
 });
 
 test("suppliers: add one and open its page", async ({ page }, info) => {
