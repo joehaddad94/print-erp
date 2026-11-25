@@ -50,8 +50,12 @@ export const orderItems = pgTable(
   "order_items",
   {
     ...baseColumns(),
-    orderId: integer("order_id").notNull().references(() => orders.id),
-    productId: integer("product_id").notNull().references(() => products.id),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
     quantity: integer("quantity").notNull(),
     customization: text("customization"),
     unitPrice: amount("unit_price").notNull(),
@@ -73,7 +77,9 @@ export const payments = pgTable(
   "payments",
   {
     ...baseColumns(),
-    orderId: integer("order_id").notNull().references(() => orders.id),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id),
     paidOn: date("paid_on").notNull().defaultNow(),
     amount: amount("amount").notNull(),
     currency: currencyEnum("currency").notNull().default("USD"),

@@ -24,7 +24,10 @@ export default function MorePage() {
         </section>
       ))}
       <form action={logoutAction}>
-        <button type="submit" className="flex min-h-tap w-full cursor-pointer items-center rounded-md border border-border bg-surface px-3 font-semibold text-danger">
+        <button
+          type="submit"
+          className="flex min-h-tap w-full cursor-pointer items-center rounded-md border border-border bg-surface px-3 font-semibold text-danger"
+        >
           Sign out
         </button>
       </form>

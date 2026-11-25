@@ -36,14 +36,18 @@ export function AppShell({ username, children }: { username: string; children: R
         </form>
       </aside>
 
-      <main className="mx-auto w-full min-w-0 flex-1 max-w-content px-4 pt-4 pb-24 lg:pb-8">{children}</main>
+      <main className="mx-auto w-full max-w-content min-w-0 flex-1 px-4 pt-4 pb-24 lg:pb-8">{children}</main>
 
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 grid grid-cols-5 border-t border-border bg-surface lg:hidden"
       >
         {phoneTabs.map((item) => (
-          <Link key={item.href} href={item.href} className="flex min-h-tap items-center justify-center px-1 text-xs font-semibold text-ink">
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex min-h-tap items-center justify-center px-1 text-xs font-semibold text-ink"
+          >
             {item.label}
           </Link>
         ))}

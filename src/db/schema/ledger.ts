@@ -22,7 +22,9 @@ export const stockMovements = pgTable(
   "stock_movements",
   {
     ...baseColumns(),
-    stockItemId: integer("stock_item_id").notNull().references(() => stockItems.id),
+    stockItemId: integer("stock_item_id")
+      .notNull()
+      .references(() => stockItems.id),
     amount: qty("amount").notNull(),
     reason: movementReasonEnum("reason").notNull(),
     movedAt: timestamp("moved_at", { withTimezone: true }).notNull().defaultNow(),
@@ -42,6 +44,9 @@ export const stockMovements = pgTable(
   (t) => [
     index("stock_movements_item_time_idx").on(t.stockItemId, t.movedAt),
     check("stock_movements_amount_not_zero", sql`${t.amount} <> 0`),
-    check("stock_movements_in_has_cost", sql`${t.amount} < 0 or ${t.reason} in ('weigh_in','count') or ${t.unitCostUsd} is not null`),
+    check(
+      "stock_movements_in_has_cost",
+      sql`${t.amount} < 0 or ${t.reason} in ('weigh_in','count') or ${t.unitCostUsd} is not null`,
+    ),
   ],
 );

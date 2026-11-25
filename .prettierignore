@@ -1,0 +1,6 @@
+drizzle/
+pnpm-lock.yaml
+.next/
+playwright-report/
+test-results/
+*.md

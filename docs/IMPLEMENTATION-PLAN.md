@@ -2,6 +2,8 @@
 
 Nov 24, 2026 · for Joe · built from spec v0.7 (D1–D46) and `mockup/` v0.7
 
+> **Nov 24 updates:** database is **Supabase** (transaction pooler for the app, session pooler for migrations; every table locked down against Supabase's public Data API with RLS). The repo is **public**, so secrets live only in Vercel env vars and `.env.local`, and G-code fixtures stay out of git until Joe decides. M0 is on `main`.
+
 > **Read this first.** The spec's D8 time box says real prints must be recorded within 2 weeks of starting. All 15 screens with full test coverage will not fit in 2 weeks. This plan meets D8 with milestones M0–M4: login, settings, filament purchases, G-code import, Start and Finish. Orders, payments, Assemble and the rest come after that, M5–M7. If something has to slip, it slips in that order, which is the spec's own cut line.
 
 ---
@@ -22,7 +24,7 @@ You never test by hand. Each milestone is one pull request. **Nothing paid (Joe,
 | **End-to-end tests** (Playwright, Chromium already installed in my session) | Each screen works in a real browser at **phone (390×844)** and **desktop (1280×800)** sizes | My session |
 | **Accessibility** (axe-core in Playwright + our own checks) | Zero axe violations; text contrast ≥ 4.5:1; every control ≥ 44×44 px; every input has a label | My session |
 | **Build** (`next build`) | Production build succeeds | My session |
-| **Migration rehearsal** (Neon preview branch, §5) | The new migration applies to a copy of **live data** without error | Vercel preview build, included in your plan |
+| **Migration rehearsal** (latest backup restored into a local Postgres, §5) | The new migration applies to a copy of **live data** without error | My session |
 | **Smoke test after deploy** | Live site is up: login page loads, health check reaches the database | I run it after each merge |
 
 **Merging.** You chose (Nov 24) that I merge each milestone PR once the full `pnpm verify` run passes. You get a short summary per milestone, and every PR stays revertible.
@@ -38,7 +40,7 @@ You never test by hand. Each milestone is one pull request. **Nothing paid (Joe,
 - Runs only on PRs and on pushes to `main`. No scheduled workflows.
 - [Likely] A full run is 6 to 9 minutes, so that's about 200 runs a month, far more than this project needs.
 
-Database tests never touch your Neon database, locally or on GitHub: both use a throwaway local Postgres.
+Database tests never touch your Supabase database, locally or on GitHub: both use a throwaway local Postgres.
 
 ---
 
@@ -46,10 +48,10 @@ Database tests never touch your Neon database, locally or on GitHub: both use a 
 
 | # | When | What | Why I can't |
 | --- | --- | --- | --- |
-| J1 | **Now** | Create an **empty private** repo `print-erp` at [github.com/new](https://github.com/new): no README, no licence. If the Claude app has access to selected repos only, add this one at [Claude GitHub App](https://github.com/apps/claude/installations/select_target). | [Certain] GitHub refused my create call ("403 Resource not accessible by integration"). |
-| J2 | **End of M0** (I'll ask) | In Vercel: **Add New → Project →** import `print-erp`. Then **Storage → Create → Neon** (Marketplace) and **Storage → Create → Blob**, both connected to the project. This sets `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` for you. | Needs your Vercel login and billing. |
-| J3 | Same sitting as J2 | Paste three env vars I'll give you in Vercel → Settings → Environment Variables: `SESSION_SECRET` (I generate it), `INITIAL_USERNAME`, `INITIAL_PASSWORD` (you choose). On first start the app creates your user from them if no user exists. Delete the two `INITIAL_*` vars after your first login. | Your password must never pass through me or git. |
-| J4 | Same sitting | When you create the Neon store in Vercel, tick **Preview** under "create a database branch for deployments" (I'll point at the exact switch then). | Every PR's preview deploy then gets its own throwaway copy of live data and rehearses the migration on it (D44, §5). [Likely] Free on Neon; it uses 1 of the 10 free branches per project ([Neon plans](https://neon.com/docs/introduction/plans)). |
+| J1 | ✓ Done Nov 24 | Repo `joehaddad94/print-erp` created (public) and Claude GitHub App installed. | GitHub refused my create call ("403 Resource not accessible by integration"). |
+| J2 | ✓ In progress Nov 24 | Vercel: import `print-erp`; **Storage → Blob** connected to the project (sets `BLOB_READ_WRITE_TOKEN`). Database is **Supabase** (Joe's choice, Nov 24), not Neon. | Needs your Vercel and Supabase logins. |
+| J3 | Same sitting | Vercel → Settings → Environment Variables: `DATABASE_URL` = Supabase **Transaction pooler** string (port 6543); `DIRECT_URL` = Supabase **Session pooler** string (port 5432; not "Direct connection", which is IPv6-only); `AUTH_SECRET` = 32+ random characters; `ADMIN_USERNAME` and `ADMIN_PASSWORD` (≥ 10 characters). Each deploy applies migrations and, if no user exists, creates yours. Remove the two `ADMIN_*` values after your first login. | Your password must never pass through me or git. |
+| J4 | Dropped | Neon preview branches don't apply on Supabase, and [Likely] Supabase branching is a paid feature. The migration rehearsal uses the latest backup instead (§5). | |
 | J5 | Before real use (M4) | Upgrade Vercel to **Pro** (about $20/month, D7). | [Likely] Hobby is non-commercial only. |
 | J6 | Whenever you can | Data entry in the app, not setup: the printer's purchase price, the electricity price per kWh in Settings, your filament purchases. Printer power stays at 0.12 kW (final, Joe, Nov 24), still editable on the machine. | Real numbers only you know. |
 | J7 | When you have one | One real `.gcode` with **two different products** on one plate. | The open question in the spec: the grams-per-item check (D17) is untested on a real file. |
@@ -279,7 +281,7 @@ Note: the spec's cut line lists reservations last, but D35 makes Deliver depend 
 | K-B2 | Restore drill: a backup restores into an empty local Postgres and every row count and checksum matches | db |
 | K-S1 | Smoke after deploy: `/login` 200, `/api/health` 200 with database reachable; I run it after each merge | script |
 
-[Certain] Neon's Free plan keeps only **6 hours** of restore history ([Neon plans](https://neon.com/docs/introduction/plans)), so the weekly backup is not optional: after 6 hours, a bad write can only be undone from our own backup.
+[Likely] Supabase's Free plan has no backups you can download or restore to a point in time, and it pauses a project after a week with no activity ([Supabase pricing](https://supabase.com/pricing), [project pausing](https://supabase.com/docs/guides/platform/free-project-pausing)). So the weekly backup is not optional: it's the only way back from a bad write.
 
 ---
 
@@ -288,7 +290,7 @@ Note: the spec's cut line lists reservations last, but D35 makes Deliver depend 
 Every PR that adds a migration goes through these steps, with no paid CI:
 
 1. **Local run on empty Postgres:** in my session, all migrations apply from zero (F-01) and the full suite runs on the result.
-2. **Rehearsal on live data:** the Vercel build runs `drizzle-kit migrate` before `next build`. For a PR, Vercel builds a preview, and with J4 the Neon integration gives that preview its own branch copied from production. So the new migration is applied to a copy of live data. If it fails, the preview build fails and I don't merge. Your live database is untouched until merge. [Certain] Free allows 10 branches per project ([Neon plans](https://neon.com/docs/introduction/plans)). [Likely] The integration deletes preview branches when they're no longer needed. I check that it does.
+2. **Rehearsal on live data:** I restore the latest backup (M7) into a throwaway local Postgres in my session, apply the new migration there, and run the database tests plus row-count checks. If it fails, I don't merge. Your live database is untouched until merge, and then the Vercel build applies the migration before `next build` (`scripts/bootstrap.ts`). A failing migration stops that deploy, and the previous version keeps serving.
 3. **Backup before apply:** before merging a PR with a migration, I trigger the backup route (M7; until M7 exists, there's no live data to lose) and confirm it finished. Merging then deploys to production, and the production build applies the migration.
 4. **Expand, then contract (rule 2):** a migration only adds. Anything removed goes in a later migration, after the new shape has been in use. A check in `pnpm verify` fails any migration containing `DROP` or `ALTER … TYPE` unless its file name contains `contract`.
 5. **Merged migrations are never edited.** `pnpm verify` compares migration files with `main` and fails if a merged one changed.
@@ -321,7 +323,7 @@ Playwright runs with traces off and retries a failure once. Screenshots of failu
 
 ## 8. Order of work from here
 
-1. You: J1 (create the repo).
+1. ✓ You: J1 (repo created, app installed).
 2. Me: push the M0 scaffold as PR #1 against `main`, with its `pnpm verify` summary.
 3. Me, without stopping: M0 → M1 → M2 → M3 → M4, one PR each, each verified and merged before the next starts on top of it.
-4. You, once, at the end of M0: J2–J4 (about 15 minutes in Vercel and Neon). Before real use: J5.
+4. You, now: J2–J3 (Vercel + Supabase env vars, about 10 minutes). Before real use: J5.

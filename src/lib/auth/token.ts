@@ -25,13 +25,22 @@ export function createToken(
   secret: string,
   now = Math.floor(Date.now() / 1000),
 ): string {
-  const payload: SessionPayload = { sub: userId, pwv: passwordFingerprint(passwordHash), iat: now, exp: now + SESSION_TTL_SECONDS };
+  const payload: SessionPayload = {
+    sub: userId,
+    pwv: passwordFingerprint(passwordHash),
+    iat: now,
+    exp: now + SESSION_TTL_SECONDS,
+  };
   const body = b64(JSON.stringify(payload));
   return `${body}.${sign(body, secret)}`;
 }
 
 /** Returns the payload if the signature is valid and not expired; otherwise null. Never throws. */
-export function readToken(token: string | undefined, secret: string, now = Math.floor(Date.now() / 1000)): SessionPayload | null {
+export function readToken(
+  token: string | undefined,
+  secret: string,
+  now = Math.floor(Date.now() / 1000),
+): SessionPayload | null {
   if (!token) return null;
   const [body, sig, ...rest] = token.split(".");
   if (!body || !sig || rest.length) return null;

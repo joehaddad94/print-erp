@@ -15,7 +15,8 @@ export type LoginResult =
 
 const findUser = (db: Db, username: string) =>
   db.query.users.findFirst({
-    where: (u, { and, isNull }) => and(eq(sql`lower(${u.username})`, username.trim().toLowerCase()), isNull(u.deletedAt)),
+    where: (u, { and, isNull }) =>
+      and(eq(sql`lower(${u.username})`, username.trim().toLowerCase()), isNull(u.deletedAt)),
   });
 
 /** Checks a username/password with throttling. Unknown users cost the same time as wrong passwords. */
@@ -35,7 +36,10 @@ export async function attemptLogin(db: Db, username: string, password: string, n
       .where(eq(users.id, user.id));
     return { ok: false, reason: "invalid" };
   }
-  await db.update(users).set({ failedLogins: 0, lastFailedLoginAt: null, lastLoginAt: now }).where(eq(users.id, user.id));
+  await db
+    .update(users)
+    .set({ failedLogins: 0, lastFailedLoginAt: null, lastLoginAt: now })
+    .where(eq(users.id, user.id));
   return { ok: true, userId: user.id, passwordHash: user.passwordHash };
 }
 
@@ -54,7 +58,10 @@ export async function setPassword(db: Db, username: string, password: string) {
   const passwordHash = await hashPassword(password);
   const existing = await findUser(db, username);
   if (existing) {
-    await db.update(users).set({ passwordHash, failedLogins: 0, lastFailedLoginAt: null }).where(eq(users.id, existing.id));
+    await db
+      .update(users)
+      .set({ passwordHash, failedLogins: 0, lastFailedLoginAt: null })
+      .where(eq(users.id, existing.id));
     return existing.id;
   }
   const [row] = await db.insert(users).values({ username: username.trim(), passwordHash }).returning({ id: users.id });

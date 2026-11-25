@@ -32,7 +32,9 @@ async function main() {
     if (username && password) {
       if (password.length < 10) throw new Error("ADMIN_PASSWORD must be at least 10 characters");
       const created = await ensureInitialUser(db, username, password);
-      console.log(created ? `bootstrap: created user "${username}"` : "bootstrap: a user already exists, ADMIN_* ignored");
+      console.log(
+        created ? `bootstrap: created user "${username}"` : "bootstrap: a user already exists, ADMIN_* ignored",
+      );
     } else {
       console.log("bootstrap: ADMIN_USERNAME/ADMIN_PASSWORD not set, no user created");
     }

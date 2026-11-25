@@ -1,5 +1,16 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { baseColumns, qty, rate, usd } from "./_common";
 import { products, recipes, stockItems } from "./inventory";
 import { machines } from "./machines";
@@ -13,8 +24,12 @@ export const printJobs = pgTable(
   "print_jobs",
   {
     ...baseColumns(),
-    recipeId: integer("recipe_id").notNull().references(() => recipes.id),
-    machineId: integer("machine_id").notNull().references(() => machines.id),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    machineId: integer("machine_id")
+      .notNull()
+      .references(() => machines.id),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     failureReason: text("failure_reason"),
@@ -41,7 +56,10 @@ export const printJobs = pgTable(
     index("print_jobs_recipe_idx").on(t.recipeId),
     check("print_jobs_stopped_pct_range", sql`${t.stoppedAtPct} > 0 and ${t.stoppedAtPct} <= 100`),
     check("print_jobs_hours_positive", sql`${t.hours} is null or ${t.hours} > 0`),
-    check("print_jobs_finished_has_hours", sql`${t.finishedAt} is null or (${t.hours} is not null and ${t.hoursSource} is not null)`),
+    check(
+      "print_jobs_finished_has_hours",
+      sql`${t.finishedAt} is null or (${t.hours} is not null and ${t.hoursSource} is not null)`,
+    ),
   ],
 );
 
@@ -50,8 +68,12 @@ export const printJobItems = pgTable(
   "print_job_items",
   {
     ...baseColumns(),
-    printJobId: integer("print_job_id").notNull().references(() => printJobs.id),
-    productId: integer("product_id").notNull().references(() => products.id),
+    printJobId: integer("print_job_id")
+      .notNull()
+      .references(() => printJobs.id),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
     qtyPlanned: integer("qty_planned").notNull(),
     qtyGood: integer("qty_good"),
     qtyFailed: integer("qty_failed").generatedAlwaysAs(sql`qty_planned - qty_good`),
@@ -64,7 +86,10 @@ export const printJobItems = pgTable(
   },
   (t) => [
     check("print_job_items_planned_positive", sql`${t.qtyPlanned} > 0`),
-    check("print_job_items_good_range", sql`${t.qtyGood} is null or (${t.qtyGood} >= 0 and ${t.qtyGood} <= ${t.qtyPlanned})`),
+    check(
+      "print_job_items_good_range",
+      sql`${t.qtyGood} is null or (${t.qtyGood} >= 0 and ${t.qtyGood} <= ${t.qtyPlanned})`,
+    ),
   ],
 );
 
@@ -73,8 +98,12 @@ export const printJobFilaments = pgTable(
   "print_job_filaments",
   {
     ...baseColumns(),
-    printJobId: integer("print_job_id").notNull().references(() => printJobs.id),
-    filamentId: integer("filament_id").notNull().references(() => stockItems.id),
+    printJobId: integer("print_job_id")
+      .notNull()
+      .references(() => printJobs.id),
+    filamentId: integer("filament_id")
+      .notNull()
+      .references(() => stockItems.id),
     gramsUsed: qty("grams_used").notNull(),
     gramsSource: gramsSourceEnum("grams_source").notNull(),
     weighedGrams: qty("weighed_grams"),
