@@ -10,5 +10,16 @@ import { AppShell } from "@/components/shell/app-shell";
  * calls requireUser() itself (enforced by tests/unit/actions-guarded.test.ts).
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <>
+      {/*
+        Persistent fallback title. Page metadata streams in after the static
+        shell, so during a navigation the metadata <title> can be briefly
+        absent; this one lives in the layout and never unmounts (axe
+        document-title). React hoists it into <head>.
+      */}
+      <title>Print Shop</title>
+      <AppShell>{children}</AppShell>
+    </>
+  );
 }
