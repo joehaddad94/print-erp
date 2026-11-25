@@ -11,7 +11,10 @@ export const baseColumns = () => ({
     .$onUpdate(() => new Date()),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   notes: text("notes"),
-  extra: jsonb("extra").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+  extra: jsonb("extra")
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
 });
 
 export const currencyEnum = pgEnum("currency", ["USD", "LBP"]);
@@ -24,4 +27,3 @@ export const usd = (name: string) => numeric(name, { precision: 16, scale: 8, mo
 export const rate = (name: string) => numeric(name, { precision: 24, scale: 14, mode: "number" });
 /** Grams, kW, hours, percentages. */
 export const qty = (name: string) => numeric(name, { precision: 14, scale: 4, mode: "number" });
-

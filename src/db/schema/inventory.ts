@@ -17,7 +17,12 @@ import {
 import { baseColumns, qty, usd } from "./_common";
 
 export const productKindEnum = pgEnum("product_kind", ["product", "part"]);
-export const stockItemTypeEnum = pgEnum("stock_item_type", ["filament", "consumable", "finished_product", "printed_part"]);
+export const stockItemTypeEnum = pgEnum("stock_item_type", [
+  "filament",
+  "consumable",
+  "finished_product",
+  "printed_part",
+]);
 export const stockUnitEnum = pgEnum("stock_unit", ["grams", "pieces"]);
 export const adjustmentTypeEnum = pgEnum("adjustment_type", ["weigh_in", "count"]);
 
@@ -36,7 +41,10 @@ export const products = pgTable(
     packagingItemId: integer("packaging_item_id").references((): AnyPgColumn => stockItems.id),
   },
   (t) => [
-    check("products_part_not_sold", sql`${t.kind} = 'product' or (${t.salePriceUsd} is null and ${t.packagingItemId} is null)`),
+    check(
+      "products_part_not_sold",
+      sql`${t.kind} = 'product' or (${t.salePriceUsd} is null and ${t.packagingItemId} is null)`,
+    ),
     check("products_price_not_negative", sql`${t.salePriceUsd} is null or ${t.salePriceUsd} >= 0`),
   ],
 );
@@ -46,12 +54,18 @@ export const productParts = pgTable(
   "product_parts",
   {
     ...baseColumns(),
-    productId: integer("product_id").notNull().references(() => products.id),
-    partId: integer("part_id").notNull().references(() => products.id),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+    partId: integer("part_id")
+      .notNull()
+      .references(() => products.id),
     qtyPerProduct: qty("qty_per_product").notNull(),
   },
   (t) => [
-    uniqueIndex("product_parts_uq").on(t.productId, t.partId).where(sql`${t.deletedAt} is null`),
+    uniqueIndex("product_parts_uq")
+      .on(t.productId, t.partId)
+      .where(sql`${t.deletedAt} is null`),
     check("product_parts_qty_positive", sql`${t.qtyPerProduct} > 0`),
     check("product_parts_not_self", sql`${t.productId} <> ${t.partId}`),
   ],
@@ -72,7 +86,9 @@ export const stockItems = pgTable(
     reorderLevel: qty("reorder_level"),
   },
   (t) => [
-    uniqueIndex("stock_items_product_uq").on(t.productId).where(sql`${t.productId} is not null and ${t.deletedAt} is null`),
+    uniqueIndex("stock_items_product_uq")
+      .on(t.productId)
+      .where(sql`${t.productId} is not null and ${t.deletedAt} is null`),
     check(
       "stock_items_unit_matches_type",
       sql`(${t.type} = 'filament' and ${t.unit} = 'grams') or (${t.type} in ('finished_product','printed_part') and ${t.unit} = 'pieces') or ${t.type} = 'consumable'`,
@@ -115,7 +131,10 @@ export const recipes = pgTable(
     nozzleTempC: integer("nozzle_temp_c"),
     bedTempC: integer("bed_temp_c"),
     thumbnailBlobUrl: text("thumbnail_blob_url"),
-    rawHeader: jsonb("raw_header").$type<Record<string, string>>().notNull().default(sql`'{}'::jsonb`),
+    rawHeader: jsonb("raw_header")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     // Overrides (D15): edited in place, logged, future jobs only
     gramsOverride: qty("grams_override"),
     wasteAllowancePctOverride: qty("waste_allowance_pct_override"),
@@ -124,10 +143,15 @@ export const recipes = pgTable(
   },
   (t) => [
     uniqueIndex("recipes_group_version_uq").on(t.recipeGroup, t.version),
-    uniqueIndex("recipes_one_current_uq").on(t.recipeGroup).where(sql`${t.isCurrent} and ${t.deletedAt} is null`),
+    uniqueIndex("recipes_one_current_uq")
+      .on(t.recipeGroup)
+      .where(sql`${t.isCurrent} and ${t.deletedAt} is null`),
     index("recipes_sha256_idx").on(t.fileSha256),
     check("recipes_sha256_format", sql`${t.fileSha256} ~ '^[0-9a-f]{64}$'`),
-    check("recipes_overrides_valid", sql`(${t.gramsOverride} is null or ${t.gramsOverride} > 0) and (${t.wasteAllowancePctOverride} is null or (${t.wasteAllowancePctOverride} >= 0 and ${t.wasteAllowancePctOverride} < 100)) and (${t.labourMinutes} is null or ${t.labourMinutes} >= 0)`),
+    check(
+      "recipes_overrides_valid",
+      sql`(${t.gramsOverride} is null or ${t.gramsOverride} > 0) and (${t.wasteAllowancePctOverride} is null or (${t.wasteAllowancePctOverride} >= 0 and ${t.wasteAllowancePctOverride} < 100)) and (${t.labourMinutes} is null or ${t.labourMinutes} >= 0)`,
+    ),
   ],
 );
 
@@ -136,8 +160,12 @@ export const recipeItems = pgTable(
   "recipe_items",
   {
     ...baseColumns(),
-    recipeId: integer("recipe_id").notNull().references(() => recipes.id),
-    productId: integer("product_id").notNull().references(() => products.id),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
     /** Object name from the file, kept so the importer can match it on re-import. */
     objectName: text("object_name"),
     qtyOnPlate: integer("qty_on_plate").notNull(),
@@ -154,7 +182,9 @@ export const assemblies = pgTable(
   "assemblies",
   {
     ...baseColumns(),
-    productId: integer("product_id").notNull().references(() => products.id),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
     qtyMade: integer("qty_made").notNull(),
     assembledOn: date("assembled_on").notNull().defaultNow(),
     unitCostUsd: usd("unit_cost_usd"),
@@ -167,7 +197,9 @@ export const assemblies = pgTable(
 export const adjustments = pgTable("adjustments", {
   ...baseColumns(),
   type: adjustmentTypeEnum("type").notNull(),
-  stockItemId: integer("stock_item_id").notNull().references(() => stockItems.id),
+  stockItemId: integer("stock_item_id")
+    .notNull()
+    .references(() => stockItems.id),
   expected: qty("expected").notNull(),
   measured: qty("measured").notNull(),
   spoolsWeighed: integer("spools_weighed"),

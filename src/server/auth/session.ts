@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
 import { db } from "@/db";
 import { env } from "@/lib/env";
@@ -26,6 +27,7 @@ export async function endSession() {
 
 /** The signed-in user or null. Cached per request. */
 export const currentUser = cache(async () => {
+  await connection();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const payload = readToken(token, env().AUTH_SECRET);
   if (!payload) return null;

@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# print-erp
 
-## Getting Started
+Costs, stock and orders for a one-printer 3D printing business. Spec: v0.7 (D1–D47). Plan: [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md).
 
-First, run the development server:
+Stack: Next.js 16 (App Router, Server Actions, TypeScript strict) · Tailwind CSS 4 (design tokens only) · Zod · Drizzle ORM + SQL migrations · Supabase Postgres · Vercel Blob · argon2id + signed cookie sessions.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Layout
+
+```text
+src/app/(auth)/login        public sign-in
+src/app/(app)/…             signed-in screens (layout checks the session)
+src/components/ui/          design-system components (Button, Field, Badge, …)
+src/components/shell/       navigation (phone tabs, desktop sidebar)
+src/styles/tokens.css       design tokens, light + dark (source: mockup/design-system.html)
+src/app/globals.css         Tailwind @theme: maps semantic tokens to utilities, clears defaults
+src/lib/                    pure logic: auth, money (later: gcode, cost)
+src/server/<feature>/       Server Actions, Zod schemas, database services
+src/db/schema/              Drizzle tables (21) and views
+drizzle/                    SQL migrations (never edit one after merge)
+scripts/                    bootstrap (deploy), verify, set-password, check-migrations
+tests/{unit,db,e2e}/        Vitest, Vitest + Postgres, Playwright (phone + desktop, axe)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tailwind rules
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Only token utilities exist: `bg-surface`, `text-ink-muted`, `bg-danger-bg text-danger`, `rounded-md`, `text-sm`, `min-h-tap`. Tailwind's default palette, radii and font sizes are cleared, and ESLint rejects arbitrary values (`w-[37px]`). New token: add it in `tokens.css` (light and dark) and map it in `globals.css`; the contrast test checks it.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment (Vercel → Settings → Environment Variables)
 
-## Learn More
+| Name | Value |
+| --- | --- |
+| `DATABASE_URL` | Supabase → Connect → Transaction pooler (port 6543) |
+| `DIRECT_URL` | Supabase → Connect → Session pooler (port 5432), used for migrations at deploy |
+| `AUTH_SECRET` | 32+ random characters |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | first user, created on deploy if none exists; remove after first login |
+| `BLOB_READ_WRITE_TOKEN` | set by Vercel when a Blob store is connected |
 
-To learn more about Next.js, take a look at the following resources:
+Every Vercel build runs `scripts/bootstrap.ts` first: migrations, then seed, then first user. A failing migration stops the deploy.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Local development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cp .env.example .env.local      # local Postgres on :5432
+pnpm install
+pnpm db:bootstrap               # migrate + seed (+ ADMIN_* user if set)
+pnpm dev
+```
 
-## Deploy on Vercel
+## Verify (the merge gate)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm verify   # typecheck, lint, format, migration checks, unit, db, build, e2e
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Database tests create throwaway databases on `TEST_PG_ADMIN_URL` (default `postgres://postgres:postgres@localhost:5432/postgres`). Never point it at Supabase.
+
+## Reset a password (D42, no email)
+
+```bash
+NEW_PASSWORD='…' DIRECT_URL='…' pnpm user:set-password joe
+```
