@@ -73,3 +73,11 @@ export async function openScreen(page: Page, path: string, budgetMs = PAGE_BUDGE
   expect(ms, `${path} loaded in ${ms} ms (budget ${budgetMs} ms)`).toBeLessThan(budgetMs);
   return ms;
 }
+
+/** Supplier search on the expense form: type part of the name, pick it from the list. */
+export async function pickSupplier(page: Page, name: string) {
+  const box = page.getByRole("combobox", { name: "Supplier" });
+  await box.fill(name.slice(0, Math.max(3, name.length - 2)));
+  await page.getByRole("option", { name, exact: true }).click();
+  await expect(box).toHaveValue(name);
+}

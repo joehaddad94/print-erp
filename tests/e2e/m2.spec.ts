@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { checkPage, login } from "./helpers";
+import { checkPage, login, pickSupplier } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -86,30 +86,47 @@ test("E-05 a failed save keeps every typed value", async ({ page }) => {
   await expect(page.getByLabel("Notes")).toHaveValue("keep me");
 });
 
-test("S-03 purchase: add a new supplier from the supplier picker, without leaving the form", async ({ page }, info) => {
+test("S-03 purchase: search suppliers, or add a new one from the same field", async ({ page }, info) => {
   const name = `Spool corner ${info.project.name}`;
+  const box = page.getByRole("combobox", { name: "Supplier" });
   await page.goto("/expenses/new");
   await page.getByLabel("Category").selectOption("other");
   await page.getByLabel("Amount").fill("7");
-  await page.getByLabel("Supplier", { exact: true }).selectOption("new");
-  await expect(page.getByLabel("Supplier name")).toBeFocused();
+  await box.fill(name);
+  await expect(box).toHaveAttribute("aria-expanded", "true");
   await checkPage(page);
-  // Forgetting the name is caught, and the choice stays open.
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page.getByText("Enter the new supplier's name")).toBeVisible();
-  // Back to the list hides the new-supplier fields.
-  await page.getByRole("button", { name: "Pick from the list instead" }).click();
-  await expect(page.getByLabel("Supplier name")).toHaveCount(0);
-  await page.getByLabel("Supplier", { exact: true }).selectOption("new");
-  await page.getByLabel("Supplier name").fill(name);
-  await page.getByLabel("Phone or link (optional)").fill("+961 71 000 000");
+  // Keyboard: the "add" row is offered and Enter picks it (doesn't submit the form).
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/expenses\/new$/);
+  await expect(page.getByText(`New supplier: “${name}”. It's added when you save.`)).toBeVisible();
+  // Clear goes back to no supplier.
+  await page.getByRole("button", { name: "Clear supplier" }).click();
+  await expect(box).toHaveValue("");
+  await expect(page.getByLabel("New supplier's phone or link (optional)")).toHaveCount(0);
+  // Tap the "add" row (phone path).
+  await box.fill(name);
+  await page.getByRole("option", { name: `+ Add “${name}” as a new supplier` }).click();
+  await page.getByLabel("New supplier's phone or link (optional)").fill("+961 71 000 000");
   await page.getByRole("button", { name: "Save expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
   await page.goto("/suppliers");
   await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$7");
-  // Next purchase: it's in the picker.
+
+  // Next purchase: search finds it; typing the same name in other case reuses it, no duplicate.
   await page.goto("/expenses/new");
-  await expect(page.getByLabel("Supplier", { exact: true }).locator("option", { hasText: name })).toHaveCount(1);
+  await page.getByLabel("Category").selectOption("other");
+  await page.getByLabel("Amount").fill("3");
+  await pickSupplier(page, name);
+  await box.fill(name.toUpperCase());
+  await expect(page.getByRole("option", { name: /as a new supplier/ })).toHaveCount(0);
+  await page.getByLabel("Amount").click(); // leave the field: exact name selects the existing one
+  await expect(box).toHaveValue(name);
+  await page.getByRole("button", { name: "Save expense" }).click();
+  await expect(page).toHaveURL(/\/expenses$/);
+  await page.goto("/suppliers");
+  await expect(page.getByRole("link").filter({ hasText: name })).toHaveCount(1);
+  await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$10");
 });
 
 test("S-02 machine: edit power, history shows the change, list shows hours of life", async ({ page }, info) => {

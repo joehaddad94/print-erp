@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode } from "../support/synthetic-gcode";
-import { checkPage, login } from "./helpers";
+import { checkPage, login, pickSupplier } from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -68,7 +68,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByLabel("Name").fill(printer);
   await page.getByLabel("Type").selectOption("printer");
   await page.getByLabel("Model").fill("Creality Ender-3 V3 SE");
-  await page.getByLabel("Supplier").selectOption({ label: supplier });
+  await pickSupplier(page, supplier);
   await page.getByRole("button", { name: "Save expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
   await page.goto("/machines");
@@ -86,7 +86,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(colour);
   await page.getByLabel("Grams bought").fill("1000");
-  await page.getByLabel("Supplier").selectOption({ label: supplier });
+  await pickSupplier(page, supplier);
   await page.getByRole("button", { name: "Save expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
   await page.goto("/expenses/new");
