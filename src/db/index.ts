@@ -16,11 +16,14 @@ export function db(): Db {
   if (!globalForDb.__db) {
     const url = env().DATABASE_URL;
     const supabase = /\.supabase\.(com|co)$/.test(new URL(url).hostname);
-    // Supabase's serverless settings: one connection per function (its transaction pooler can't
-    // take postgres.js pipelining across connections), TLS required. Fail fast instead of hanging.
+    // Supabase's serverless settings: one connection per function, TLS required, and NO pipelining.
+    // postgres.js otherwise sends up to 100 queries down one connection without waiting (max_pipeline),
+    // which Supabase's transaction pooler doesn't support: parallel page queries (Promise.all,
+    // layout + page) hang forever while a single login query works. Fail fast instead of hanging.
     const client = postgres(url, {
       prepare: false,
       max: supabase ? 1 : 5,
+      max_pipeline: supabase ? 1 : 100,
       ssl: supabase ? "require" : undefined,
       connect_timeout: 10,
       idle_timeout: 20,
