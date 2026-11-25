@@ -11,10 +11,12 @@ Updated after every meaningful step so work can resume after an interruption. Pl
 | M2 Settings, machines, suppliers, expenses, edit engine | Done: verify all green (89 unit, 34 db, 32 e2e) | #3 |
 | M3 Recipes import, products, cost calculator | Done: verify all green (94 unit, 44 db, 42 e2e) | #4 |
 | M4 Start / Finish print, weigh filament | Done: verify all green (100 unit, 54 db, 50 e2e). `cost_per_good_unit` view deferred to M6: unit cost is stored per job line | #6 |
+| M5 Customers, orders, reserve, deliver, payments | Done: verify all green; G-01 golden scenario profit $8.25, $16.51/h | #7 |
+| M6 Parts lists, Assemble, Stock, Change history, Today due soon | Done: verify all green (115 unit, 68 db, 62 e2e). Unit cost stays per job line instead of a `cost_per_good_unit` view | #8 |
 
 ## Next step
 
-M6 (branch `m6-assemble`): parts lists and Assemble, Change history screen, Stock screen, `cost_per_good_unit` view (plan §M6).
+M7 (branch `m7-golive`): go-live hardening and weekly backup (plan §M7). Live site still needs Joe: fix the DB connection (bootstrap log), connect a Blob store, scope DB env vars to Production.
 
 ## Open issues
 

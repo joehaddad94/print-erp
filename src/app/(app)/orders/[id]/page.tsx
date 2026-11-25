@@ -32,6 +32,7 @@ import {
   STATUS_LABELS,
 } from "@/server/orders/service";
 import { productLabel } from "@/server/products/service";
+import { partsShortfall } from "@/server/assembly/service";
 import { orderFormOptions } from "../options";
 
 const s = (v: unknown) => (v == null ? "" : String(v));
@@ -42,10 +43,11 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
   const id = Number((await params).id);
   const o = Number.isInteger(id) ? await getOrder(db(), id) : null;
   if (!o) notFound();
-  const [products, opts, history] = await Promise.all([
+  const [products, opts, history, partsNeeded] = await Promise.all([
     sellableProducts(db()),
     orderFormOptions(),
     historyFor(db(), "orders", id),
+    partsShortfall(db(), id),
   ]);
   const open = (OPEN_STATUSES as readonly string[]).includes(o.status);
   const cur = o.currency as Currency;
@@ -135,6 +137,15 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
             </div>
             {open ? (
               <>
+                {partsNeeded.filter((x) => x.productId === l.productId && l.needToPrint > 0).length ? (
+                  <p className="text-xs">
+                    Parts to make {l.needToPrint}:{" "}
+                    {partsNeeded
+                      .filter((x) => x.productId === l.productId)
+                      .map((x) => `${x.needed} × ${x.partName} (${Math.max(0, x.available)} available)`)
+                      .join(", ")}
+                  </p>
+                ) : null}
                 <p className="text-xs text-ink-muted">
                   Reserved {l.qtyReserved} of {l.quantity} · {Math.max(0, l.available)} more available
                 </p>
