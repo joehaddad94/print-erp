@@ -29,7 +29,7 @@ export class OrderError extends Error {
 
 export const ORDER_STATUSES = ["quoted", "confirmed", "printing", "ready", "delivered", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
-export const OPEN_STATUSES: OrderStatus[] = ["quoted", "confirmed", "printing", "ready"];
+export const OPEN_STATUSES = ["quoted", "confirmed", "printing", "ready"] as const;
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   quoted: "Quoted",
   confirmed: "Confirmed",
