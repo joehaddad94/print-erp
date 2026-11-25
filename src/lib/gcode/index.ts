@@ -1,23 +1,34 @@
 import { bambuStudioParser, crealityPrintParser, orcaSlicerParser } from "./creality-print";
+import { DEFAULT_DIAMETER_MM, densityFor, firstOf, gramsFromMm, num } from "./common";
+import { curaParser } from "./cura";
+import { genericParser } from "./generic";
+import { scanMotion, type MotionTotals } from "./motion";
 import { prusaSlicerParser } from "./prusaslicer";
+import { simplify3dParser } from "./simplify3d";
 import { GcodeFormatError, type GcodeChunks, type GcodeParser, type ParsedGcode } from "./types";
 
 export * from "./types";
-export { durationToSeconds, plateObjects, printerModelsMatch } from "./common";
+export { densityFor, durationToSeconds, gramsFromMm, plateObjects, printerModelsMatch } from "./common";
+export { createMotionScanner, scanMotion } from "./motion";
 
 /**
  * One parser per slicer format (D14). Add new formats here; no schema change needed.
  * PrusaSlicer goes first: its config can name a "Creality …" printer profile.
+ * The generic parser matches anything, so it is last: values it can't read come from the moves.
  */
 export const PARSERS: readonly GcodeParser[] = [
   prusaSlicerParser,
   crealityPrintParser,
   orcaSlicerParser,
   bambuStudioParser,
+  curaParser,
+  simplify3dParser,
+  genericParser,
 ];
 
-/** Shown wherever a file is chosen, and in the "not supported" error. */
-export const SUPPORTED_SLICERS = "Creality Print, PrusaSlicer, OrcaSlicer or Bambu Studio";
+/** Slicers whose files are read exactly. Any other slicer's file still works, with estimates. */
+export const SUPPORTED_SLICERS =
+  "Creality Print, PrusaSlicer, OrcaSlicer, Bambu Studio, Cura, SuperSlicer or Simplify3D";
 
 /** Bytes read from each end (D40.1): header + thumbnails at the start, totals + config at the end. */
 export const HEAD_BYTES = 64 * 1024;
@@ -34,17 +45,7 @@ export function parseGcodeChunks(chunks: GcodeChunks): ParsedGcode {
       "This is binary G-code (.bgcode). In PrusaSlicer turn off Printer Settings › General › Binary G-code, then export again.",
     );
   }
-  const parser = PARSERS.find((p) => p.detect(chunks.head, chunks.tail));
-  if (!parser) {
-    if (/^;\s*Generated with Cura/im.test(chunks.head.slice(0, 4000))) {
-      throw new GcodeFormatError(
-        `Cura files don't record the filament grams, so the cost can't be worked out. Slice it in ${SUPPORTED_SLICERS} instead.`,
-      );
-    }
-    throw new GcodeFormatError(
-      `This file's slicer isn't supported. Export plain .gcode from ${SUPPORTED_SLICERS} and try again.`,
-    );
-  }
+  const parser = PARSERS.find((p) => p.detect(chunks.head, chunks.tail))!;
   return parser.parse(chunks);
 }
 
@@ -82,8 +83,42 @@ export async function readGcodeChunks(file: Blob): Promise<GcodeChunks> {
   return { head, tail, objectLines };
 }
 
+/**
+ * Reads any .gcode. When the file doesn't state the grams or the time, they are worked out
+ * from the moves and listed in `estimated`, so the screens can ask Joe to confirm them.
+ */
 export async function parseGcodeFile(file: Blob): Promise<ParsedGcode> {
-  return parseGcodeChunks(await readGcodeChunks(file));
+  const parsed = parseGcodeChunks(await readGcodeChunks(file));
+  if (parsed.totalGrams != null && parsed.estimatedSeconds != null) return parsed;
+  const motion = await scanMotion(file);
+  if (parsed.parser === "generic_gcode" && motion.extrudedMm <= 0)
+    throw new GcodeFormatError(
+      `This doesn't look like a G-code print file: it has no extrusion moves. Export plain .gcode from your slicer (for example ${SUPPORTED_SLICERS}).`,
+    );
+  return fillFromMotion(parsed, motion);
+}
+
+/** Pure: fills missing grams/time from move totals and says how each was worked out. */
+export function fillFromMotion(parsed: ParsedGcode, motion: MotionTotals): ParsedGcode {
+  const out: ParsedGcode = { ...parsed, estimated: { ...parsed.estimated } };
+  if (out.totalGrams == null && motion.extrudedMm > 0) {
+    const mm = out.totalMm ?? Number(motion.extrudedMm.toFixed(2));
+    const diameter = num(firstOf(out.rawHeader["filament_diameter"])) ?? DEFAULT_DIAMETER_MM;
+    const fromFile = num(firstOf(out.rawHeader["filament_density"]));
+    const { density, known } = fromFile != null ? { density: fromFile, known: true } : densityFor(out.material);
+    out.totalMm = mm;
+    out.totalGrams = gramsFromMm(mm, diameter, density);
+    out.estimated.totalGrams =
+      `Worked out from the ${Number((mm / 1000).toFixed(2))} m of filament the moves push, ` +
+      `for ${diameter} mm filament at ${density} g/cm³` +
+      (known ? (out.material ? ` (${out.material}).` : ".") : " (PLA assumed: the file doesn't name the material).");
+  }
+  if (out.estimatedSeconds == null && motion.seconds > 0) {
+    out.estimatedSeconds = Math.round(motion.seconds);
+    out.estimated.estimatedSeconds =
+      "Worked out from the moves at their set speeds. Real prints usually take longer (the printer slows for corners).";
+  }
+  return out;
 }
 
 /** D17: the plate items' grams must match the file's total within max(2 g, 2%). */

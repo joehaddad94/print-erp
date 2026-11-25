@@ -135,6 +135,14 @@ export const recipes = pgTable(
       .$type<Record<string, string>>()
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /**
+     * Values the file didn't state (D14): field → how it was worked out, or that Joe typed it at
+     * import. Empty when every value came from the file.
+     */
+    estimatedValues: jsonb("estimated_values")
+      .$type<Partial<Record<"totalGrams" | "estimatedSeconds", string>>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     // Overrides (D15): edited in place, logged, future jobs only
     gramsOverride: qty("grams_override"),
     wasteAllowancePctOverride: qty("waste_allowance_pct_override"),

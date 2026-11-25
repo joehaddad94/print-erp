@@ -11,7 +11,7 @@ import { importSchema } from "@/server/recipes/schema";
 import { findBySha, getRecipe, ImportError, importRecipe, updateOverrides } from "@/server/recipes/service";
 import { putLocal, readStoredFile, sha256Hex } from "@/server/storage";
 import { fixtureBlob, haveFixtures } from "../support/fixtures";
-import { syntheticGcode } from "../support/synthetic-gcode";
+import { syntheticGcode, syntheticMovesOnly } from "../support/synthetic-gcode";
 import { setupTestDb } from "./helpers";
 
 const { db } = setupTestDb();
@@ -193,5 +193,45 @@ describe("D-01 products", () => {
     const items = await db.select().from(recipeItems).where(eq(recipeItems.recipeId, r.id));
     expect(items[0]!.productId).toBe(id);
     expect(await db.select().from(products)).toHaveLength(1);
+  });
+});
+
+describe("D14 files that don't state grams or time", () => {
+  const unknown = (header: string) => enc(syntheticMovesOnly({ header }));
+  const one = (gramsPerPiece: number) => [
+    { productId: null, newProductName: "Tag", objectName: null, qty: 1, gramsPerPiece },
+  ];
+
+  it("saves the app's estimates and says so", async () => {
+    const r = await importRecipe(db, input({ ...(await upload(unknown("; a"), "a.gcode")), items: one(0.01) }));
+    const got = (await getRecipe(db, r.id))!;
+    expect(got.parser).toBe("generic_gcode");
+    expect(got.totalGrams).toBeCloseTo(0.01, 2);
+    expect(got.estimatedValues.totalGrams).toMatch(/Worked out from/);
+    expect(got.estimatedValues.estimatedSeconds).toMatch(/Worked out from the moves/);
+  });
+
+  it("Joe's typed values replace the estimates and are recorded as typed", async () => {
+    const r = await importRecipe(
+      db,
+      input({
+        ...(await upload(unknown("; b"), "b.gcode")),
+        items: one(12),
+        confirmed: { totalGrams: 12, estimatedSeconds: 5400 },
+      }),
+    );
+    const got = (await getRecipe(db, r.id))!;
+    expect(got).toMatchObject({ totalGrams: 12, estimatedSeconds: 5400 });
+    expect(got.estimatedValues.totalGrams).toMatch(/^Typed at import \(the app's estimate was 0\.01 g\)/);
+    expect(got.estimatedValues.estimatedSeconds).toMatch(/^Typed at import/);
+  });
+
+  it("typed values can't overwrite what the file states", async () => {
+    const r = await importRecipe(
+      db,
+      input({ ...(await upload(plate(10, ["1", "5"]))), confirmed: { totalGrams: 99, estimatedSeconds: 60 } }),
+    );
+    const got = (await getRecipe(db, r.id))!;
+    expect(got).toMatchObject({ totalGrams: 10, estimatedSeconds: 3600, estimatedValues: {} });
   });
 });

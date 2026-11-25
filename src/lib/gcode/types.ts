@@ -41,6 +41,11 @@ export type ParsedGcode = {
   thumbnails: Thumbnail[];
   /** Every `key = value` / `key: value` comment from the header and config blocks (D14). */
   rawHeader: Record<string, string>;
+  /**
+   * Fields the file didn't state, with how each was worked out (e.g. "From the extrusion moves:
+   * 1.75 mm filament, PLA at 1.24 g/cm³"). Empty when every value was read from the file.
+   */
+  estimated: Partial<Record<EstimatedField, string>>;
 };
 
 /** The three parts of a file a parser reads. Moves are never parsed. */
@@ -60,3 +65,6 @@ export class GcodeFormatError extends Error {
     this.name = "GcodeFormatError";
   }
 }
+
+/** Values a file didn't state and the app worked out instead. Shown as "estimated" until Joe confirms. */
+export type EstimatedField = "totalGrams" | "estimatedSeconds";

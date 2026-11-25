@@ -1,0 +1,1 @@
+ALTER TABLE "recipes" ADD COLUMN "estimated_values" jsonb DEFAULT '{}'::jsonb NOT NULL;
