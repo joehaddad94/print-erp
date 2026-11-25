@@ -1,6 +1,6 @@
 import { ActionForm } from "@/components/form/action-form";
 import { NumberField } from "@/components/form/fields";
-import { Card, Callout, PageHeader, formatWhen } from "@/components/ui";
+import { Card, Callout, PageHeader, buttonClass, formatWhen } from "@/components/ui";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
 import { saveSettingsAction } from "@/server/settings/actions";
@@ -32,6 +32,20 @@ export default async function SettingsPage() {
           </p>
         </ActionForm>
       </Card>
+      <section aria-labelledby="settings-backup" className="flex flex-col gap-2">
+        <h2 id="settings-backup" className="text-lg font-bold">
+          Backup
+        </h2>
+        <Card className="flex flex-col gap-3">
+          <p className="text-sm text-ink-muted">
+            A backup is saved automatically every Monday. Download one now to keep a copy on your own computer.
+          </p>
+          {/* A plain link: the browser downloads the file, nothing to hydrate. */}
+          <a className={buttonClass("secondary", true)} href="/api/backup" download>
+            Download backup
+          </a>
+        </Card>
+      </section>
       <section aria-labelledby="settings-history" className="flex flex-col gap-2">
         <h2 id="settings-history" className="text-lg font-bold">
           History

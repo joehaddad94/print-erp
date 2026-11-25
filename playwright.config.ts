@@ -4,6 +4,7 @@ import { urlFor } from "./tests/support/pg";
 const PORT = 3100;
 export const E2E_DB = "print_erp_e2e";
 export const E2E_UPLOAD_DIR = ".data/e2e-uploads";
+export const E2E_CRON_SECRET = "e2e-cron-secret-0123456789";
 export const E2E_USER = { username: "joe", password: "e2e-password-123" };
 
 /**
@@ -32,6 +33,7 @@ export default defineConfig({
       AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-0123",
       LOCAL_UPLOAD_DIR: E2E_UPLOAD_DIR,
       BLOB_READ_WRITE_TOKEN: "",
+      CRON_SECRET: E2E_CRON_SECRET,
     },
   },
 });

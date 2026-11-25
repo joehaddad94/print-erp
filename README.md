@@ -34,6 +34,8 @@ Only token utilities exist: `bg-surface`, `text-ink-muted`, `bg-danger-bg text-d
 | `AUTH_SECRET` | 32+ random characters |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | first user, created on deploy if none exists; remove after first login |
 | `BLOB_READ_WRITE_TOKEN` | set by Vercel when a Blob store is connected |
+| `BLOB_ACCESS` | `private` (default); must match the Blob store. Backups refuse a public store |
+| `CRON_SECRET` | 16+ random characters; Vercel sends it to the weekly backup job |
 
 Every Vercel build runs `scripts/bootstrap.ts` first: migrations, then seed, then first user. A failing migration stops the deploy.
 
@@ -53,6 +55,19 @@ pnpm verify   # typecheck, lint, format, migration checks, unit, db, build, e2e
 ```
 
 Database tests create throwaway databases on `TEST_PG_ADMIN_URL` (default `postgres://postgres:postgres@localhost:5432/postgres`). Never point it at Supabase.
+
+## Backups and restore
+
+- Every Monday 02:00 UTC, Vercel Cron calls `/api/cron/backup` (see `vercel.json`). It writes `backups/<time>/` to the private Blob store: `backup.json` (restorable), one CSV per table, and `manifest.json` (row counts, checksums, list of G-code files).
+- Settings → **Download backup** gives the same JSON, to keep a copy off Vercel. It includes password hashes, so store it privately.
+- Restore into a database that has every migration applied. It replaces all rows and checks every count and checksum:
+
+```bash
+pnpm db:restore backup.json postgres://postgres:postgres@localhost:5432/scratch   # localhost only
+pnpm db:restore backup.json "$DIRECT_URL" --yes                                   # a remote database
+```
+
+- After each deploy: `pnpm smoke https://<your-app>.vercel.app` (login 200, database reachable).
 
 ## Reset a password (D42, no email)
 
