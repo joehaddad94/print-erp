@@ -229,4 +229,38 @@ describe("S-02 machines and suppliers", () => {
     );
     expect((await listSuppliers(db))[0]!.totalUsd).toBeCloseTo(20, 6);
   });
+
+  it("S-03 a new supplier typed on a purchase is created with it; the same name again reuses it", async () => {
+    const id1 = await createExpense(
+      db,
+      form({
+        category: "packaging",
+        amount: "12",
+        newPackagingName: "Box S",
+        pieces: "50",
+        supplierId: "new",
+        newSupplierName: "  Box   Co ",
+        newSupplierContact: "+961 3 000 000",
+      }),
+    );
+    const id2 = await createExpense(
+      db,
+      form({ category: "other", amount: "3", supplierId: "new", newSupplierName: "box co" }),
+    );
+    const list = await listSuppliers(db);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ name: "Box Co", contact: "+961 3 000 000", totalUsd: 15 });
+    expect((await getExpense(db, id1))!.supplierId).toBe(list[0]!.id);
+    expect((await getExpense(db, id2))!.supplierId).toBe(list[0]!.id);
+
+    // Editing an expense can add a supplier too.
+    await updateExpense(
+      db,
+      id2,
+      form({ category: "other", amount: "3", supplierId: "new", newSupplierName: "Cable shop" }),
+    );
+    const after = await listSuppliers(db);
+    expect(after.map((s) => s.name)).toEqual(["Box Co", "Cable shop"]);
+    expect((await getExpense(db, id2))!.supplierId).toBe(after[1]!.id);
+  });
 });

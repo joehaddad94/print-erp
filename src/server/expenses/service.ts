@@ -1,13 +1,31 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { expenses, machines, stockItems, stockMovements, suppliers } from "@/db/schema";
 import { rateToUsdFromLbpRate } from "@/lib/money";
-import { lastEdited, softDeleteLogged, updateLogged } from "@/server/edits/engine";
+import { lastEdited, softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
 import { recordMovement, replayAverages } from "@/server/stock/ledger";
-import type { ExpenseInput } from "./schema";
+import { NEW_SUPPLIER, type ExpenseInput } from "./schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
+
+/**
+ * The supplier picked on the form, or the one typed as "+ New supplier…" (created here, in the
+ * expense's transaction). A typed name that matches an existing supplier (ignoring case and
+ * spaces) reuses it, so a hurried entry doesn't make a duplicate.
+ */
+async function resolveSupplier(tx: Tx, i: ExpenseInput): Promise<number | null> {
+  if (i.supplierId !== NEW_SUPPLIER) return i.supplierId;
+  const name = i.newSupplierName!.replace(/\s+/g, " ").trim();
+  const [existing] = await tx
+    .select({ id: suppliers.id })
+    .from(suppliers)
+    .where(and(isNull(suppliers.deletedAt), sql`lower(${suppliers.name}) = lower(${name})`))
+    .limit(1);
+  if (existing) return existing.id;
+  const [created] = await tx.insert(suppliers).values({ name, contact: i.newSupplierContact }).returning();
+  return created!.id;
+}
 
 const rateFor = (i: ExpenseInput) => (i.currency === "USD" ? 1 : rateToUsdFromLbpRate(i.lbpRate!));
 
@@ -19,6 +37,7 @@ export async function createExpense(db: Db, i: ExpenseInput) {
   return db.transaction(async (tx) => {
     const rateToUsd = rateFor(i);
     const usd = i.amount * rateToUsd;
+    const supplierId = await resolveSupplier(tx, i);
     const [expense] = await tx
       .insert(expenses)
       .values({
@@ -27,7 +46,7 @@ export async function createExpense(db: Db, i: ExpenseInput) {
         amount: i.amount,
         currency: i.currency,
         rateToUsd,
-        supplierId: i.supplierId,
+        supplierId,
         notes: i.notes,
       })
       .returning();
@@ -107,6 +126,7 @@ export async function createExpense(db: Db, i: ExpenseInput) {
 export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?: number) {
   return db.transaction(async (tx) => {
     const rateToUsd = rateFor(i);
+    const supplierId = await resolveSupplier(tx, i);
     const { row } = await updateLogged(
       tx,
       expenses,
@@ -116,7 +136,7 @@ export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?
         amount: i.amount,
         currency: i.currency,
         rateToUsd,
-        supplierId: i.supplierId,
+        supplierId,
         notes: i.notes,
       },
       { userId },

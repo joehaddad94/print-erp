@@ -23,7 +23,12 @@ const REFINE_INPUTS = new Set([
   "newPackagingName",
   "pieces",
   "machineName",
+  "supplierId",
+  "newSupplierName",
 ]);
+
+/** The supplier picker's "+ New supplier…" choice: the supplier is created with the expense. */
+export const NEW_SUPPLIER = "new";
 
 /**
  * Add expense form (spec: expenses, D9, D23, D30, D43, D46). Filament, packaging and machine
@@ -36,7 +41,9 @@ export const expenseSchema = z
     amount: f.number("the amount", { positive: true }),
     currency: f.currency(),
     lbpRate: f.optionalNumber("the LBP rate", { positive: true }),
-    supplierId: f.optionalId(),
+    supplierId: z.union([z.literal(NEW_SUPPLIER), f.optionalId()]),
+    newSupplierName: f.optionalText(80),
+    newSupplierContact: f.optionalText(120),
     notes: f.optionalText(),
     // filament purchase
     filamentId: f.optionalId(),
@@ -56,6 +63,7 @@ export const expenseSchema = z
   .superRefine(
     (v, ctx) => {
       const need = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+      if (v.supplierId === NEW_SUPPLIER && !v.newSupplierName) need("newSupplierName", "Enter the new supplier's name");
       if (v.currency === "LBP" && v.lbpRate == null) need("lbpRate", "Enter today's LBP per USD rate");
       if (v.category === "filament") {
         if (v.grams == null) need("grams", "Enter the grams bought");
