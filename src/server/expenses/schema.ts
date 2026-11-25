@@ -72,7 +72,7 @@ export const expenseSchema = z
     {
       // Run the purchase checks even when an unrelated field (say, the amount) failed, so every
       // missing field is reported in one go instead of one surprise per save.
-      when: (payload) => !payload.issues.some((i) => REFINE_INPUTS.has(String(i.path[0]))),
+      when: (payload) => !payload.issues.some((i) => REFINE_INPUTS.has(String(i.path?.[0]))),
     },
   );
 
