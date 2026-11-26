@@ -64,6 +64,11 @@ export const expenses = pgTable(
     paidTo: text("paid_to"),
     /** R7: repeats every month (internet, generator). */
     repeatsMonthly: boolean("repeats_monthly").notNull().default(false),
+    /**
+     * Filament purchases only: who made it (eSun, Sunlu). Not part of the filament's identity:
+     * stock and the weighted average stay per material + colour (D23). For "cheapest brand" later.
+     */
+    brand: text("brand"),
   },
   (t) => [
     check("expenses_rate_positive", sql`${t.rateToUsd} > 0`),

@@ -41,6 +41,7 @@ export default async function EditExpensePage({ params }: PageProps<"/expenses/[
             filamentId: e.category === "filament" && e.stockItemId ? String(e.stockItemId) : "",
             packagingId: e.category === "packaging" && e.stockItemId ? String(e.stockItemId) : "",
             grams: e.category === "filament" ? qty : "",
+            brand: e.brand ?? "",
             pieces: e.category === "packaging" ? qty : "",
           }}
           {...opts}

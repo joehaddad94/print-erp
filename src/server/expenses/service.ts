@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { expenses, machines, stockItems, stockMovements, suppliers } from "@/db/schema";
@@ -10,6 +10,40 @@ import { isPurchase, type ExpenseInput } from "./schema";
 type Db = PostgresJsDatabase<typeof schema>;
 
 const rateFor = (i: ExpenseInput) => (i.currency === "USD" ? 1 : rateToUsdFromLbpRate(i.lbpRate!));
+
+/**
+ * A filament brand as stored: reuses the spelling of a brand already entered, ignoring case
+ * ("esun" saved after "eSun" is stored as "eSun"), so the same brand is never two brands.
+ * Other categories never carry a brand. `exceptId` skips the expense being edited.
+ */
+async function canonicalBrand(db: Db, i: ExpenseInput, exceptId?: number) {
+  if (i.category !== "filament" || !i.brand) return null;
+  const [hit] = await db
+    .select({ brand: expenses.brand })
+    .from(expenses)
+    .where(
+      and(
+        isNull(expenses.deletedAt),
+        sql`lower(${expenses.brand}) = lower(${i.brand})`,
+        exceptId == null ? undefined : ne(expenses.id, exceptId),
+      ),
+    )
+    .orderBy(asc(expenses.id))
+    .limit(1);
+  return hit?.brand ?? i.brand;
+}
+
+/** Brands typed on filament purchases, most recently used first, one per brand (case-insensitive). */
+export async function listFilamentBrands(db: Db) {
+  const rows = await db
+    .select({ brand: expenses.brand })
+    .from(expenses)
+    .where(and(isNull(expenses.deletedAt), isNotNull(expenses.brand)))
+    .orderBy(desc(expenses.spentOn), desc(expenses.id));
+  const seen = new Map<string, string>();
+  for (const r of rows) if (r.brand && !seen.has(r.brand.toLowerCase())) seen.set(r.brand.toLowerCase(), r.brand);
+  return [...seen.values()];
+}
 
 /**
  * D9: a purchase is entered once and creates the expense plus the stock (filament grams at
@@ -32,6 +66,7 @@ export async function createExpense(db: Db, i: ExpenseInput) {
         description: i.description,
         paidTo: i.paidTo,
         repeatsMonthly: i.repeatsMonthly,
+        brand: await canonicalBrand(tx, i),
       })
       .returning();
 
@@ -124,6 +159,7 @@ export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?
         description: i.description,
         paidTo: i.paidTo,
         repeatsMonthly: i.repeatsMonthly,
+        brand: await canonicalBrand(tx, i, id),
       },
       { userId },
     );

@@ -48,6 +48,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
           >
             {e.boughtName ?? CATEGORY_LABELS[e.category]}
           </Link>
+          {e.brand ? <span className="text-ink-muted">{e.brand}</span> : null}
           <EditedMarker at={e.editedAt} />
         </span>
       ),
@@ -113,7 +114,7 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             rowKey={(e) => e.id}
             rowHref={(e) => `/expenses/${e.id}`}
             phoneRow={(e) => ({
-              title: `${e.boughtName ?? CATEGORY_LABELS[e.category]}${e.purchaseQty ? ` · ${qty(e)}` : ""}`,
+              title: `${e.boughtName ?? CATEGORY_LABELS[e.category]}${e.brand ? ` · ${e.brand}` : ""}${e.purchaseQty ? ` · ${qty(e)}` : ""}`,
               subtitle: [e.spentOn, CATEGORY_LABELS[e.category], e.supplierName].filter(Boolean).join(" · "),
               trailing: <Money amount={e.amount} currency={e.currency} rateToUsd={e.rateToUsd} />,
               badge: e.editedAt ? <EditedMarker at={e.editedAt} /> : undefined,
