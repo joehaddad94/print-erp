@@ -45,13 +45,17 @@ describe("R1 owner-only guards", () => {
       expect(body.split("\n").slice(0, 3).join("\n")).toMatch(/await requireOwner\(\)/);
     }
   });
-  it("backup download refuses non-owners with 403", () => {
+  it("backup downloads refuse non-owners with 403", () => {
     expect(src("src/app/api/backup/route.ts")).toMatch(/!isOwner\(user\)[\s\S]{0,120}status: 403/);
+    expect(src("src/app/api/backup/files/[id]/route.ts")).toMatch(/!isOwner\(user\)[\s\S]{0,120}status: 403/);
+  });
+  it("How costs work (R9) is owner only", () => {
+    expect(src("src/app/(app)/costs/page.tsx")).toMatch(/await requireOwner\(\)/);
   });
   it("owner-only nav items are flagged so staff don't see them", () => {
     const owner = NAV.flatMap((g) => g.items)
       .filter((i) => i.owner)
       .map((i) => i.href);
-    expect(owner).toEqual(["/history"]);
+    expect(owner).toEqual(["/costs", "/history"]);
   });
 });
