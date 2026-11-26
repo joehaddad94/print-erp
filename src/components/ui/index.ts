@@ -1,10 +1,16 @@
 export { Badge, type Tone } from "./badge";
 export { Button, Spinner, buttonClass, type ButtonVariant } from "./button";
 export { Callout } from "./callout";
-export { Card } from "./card";
+export { Card, Panel } from "./card";
 export { Field, Input } from "./field";
 export { EditedMarker, HistoryList, formatWhen } from "./history";
 export { Link } from "./link";
 export { EmptyState, List, ListRow, PageHeader, SectionTitle } from "./list";
 export { Money } from "./money";
 export { PageSkeleton, Skeleton } from "./skeleton";
+export { BackLink } from "./list";
+export { DataTable, type Column } from "./data-table";
+export { FormBar } from "./form-bar";
+export { InlineEdit, type InlineSave } from "./inline-edit";
+export { SearchPicker } from "./search-picker";
+export { Segmented } from "./segmented";

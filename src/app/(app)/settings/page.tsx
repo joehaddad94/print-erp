@@ -33,7 +33,7 @@ export default async function SettingsPage() {
         </ActionForm>
       </Card>
       <section aria-labelledby="settings-backup" className="flex flex-col gap-2">
-        <h2 id="settings-backup" className="text-lg font-bold">
+        <h2 id="settings-backup" className="text-lg font-semibold">
           Backup
         </h2>
         <Card className="flex flex-col gap-3">
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
         </Card>
       </section>
       <section aria-labelledby="settings-history" className="flex flex-col gap-2">
-        <h2 id="settings-history" className="text-lg font-bold">
+        <h2 id="settings-history" className="text-lg font-semibold">
           History
         </h2>
         <ul className="divide-y divide-border rounded-md border border-border bg-surface text-sm">

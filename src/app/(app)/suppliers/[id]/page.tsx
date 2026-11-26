@@ -41,7 +41,7 @@ export default async function SupplierPage({ params }: PageProps<"/suppliers/[id
         </ActionForm>
       </Card>
       <section aria-labelledby="supplier-bought" className="flex flex-col gap-2">
-        <h2 id="supplier-bought" className="text-lg font-bold">
+        <h2 id="supplier-bought" className="text-lg font-semibold">
           Bought: <Money amount={total} />
         </h2>
         {bought.length ? (
@@ -61,7 +61,7 @@ export default async function SupplierPage({ params }: PageProps<"/suppliers/[id
         )}
       </section>
       <section aria-labelledby="supplier-history" className="flex flex-col gap-2">
-        <h2 id="supplier-history" className="text-lg font-bold">
+        <h2 id="supplier-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

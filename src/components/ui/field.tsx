@@ -13,7 +13,7 @@ type FieldProps = {
 export function Field({ id, label, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-semibold">
+      <label htmlFor={id} className="text-sm font-medium text-ink-soft">
         {label}
       </label>
       {children}
@@ -23,7 +23,7 @@ export function Field({ id, label, hint, error, children }: FieldProps) {
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm font-semibold text-danger">
+        <p id={`${id}-error`} role="alert" className="text-sm font-medium text-danger">
           {error}
         </p>
       ) : null}
@@ -39,12 +39,7 @@ export function Input({ className, invalid, id, ...rest }: InputProps) {
       id={id}
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? `${id}-error` : undefined}
-      className={cn(
-        "control px-3 text-md text-ink",
-        "placeholder:text-ink-muted",
-        invalid && "border-danger",
-        className,
-      )}
+      className={cn("control px-3 text-ink", "placeholder:text-ink-muted", invalid && "border-danger", className)}
       {...rest}
     />
   );

@@ -17,32 +17,34 @@ export const NAV: NavGroup[] = [
       { href: "/", label: "Today", icon: "home", milestone: "M4", phone: true },
       { href: "/orders", label: "Orders", icon: "orders", milestone: "M5", phone: true },
       { href: "/customers", label: "Customers", icon: "customers", milestone: "M5" },
+      { href: "/calculator", label: "Cost calculator", icon: "calculator", milestone: "M3" },
     ],
   },
   {
     label: "Catalogue",
     items: [
-      { href: "/recipes", label: "Recipes", icon: "recipes", milestone: "M3" },
       { href: "/products", label: "Products", icon: "products", milestone: "M3" },
+      { href: "/recipes", label: "Recipes", icon: "recipes", milestone: "M3" },
       { href: "/stock", label: "Stock", icon: "stock", milestone: "M6", phone: true },
+      // Replaced by Adjust stock on the Stock screen in R6.
+      { href: "/weigh", label: "Weigh filament", icon: "weigh", milestone: "M4" },
+      { href: "/assemble", label: "Assemble", icon: "assemble", milestone: "M6" },
       { href: "/machines", label: "Machines", icon: "machines", milestone: "M2" },
     ],
   },
   {
     label: "Money",
     items: [
+      // Split into Purchases and Expenses in R7.
       { href: "/expenses", label: "Expenses & purchases", icon: "expenses", milestone: "M2" },
       { href: "/suppliers", label: "Suppliers", icon: "suppliers", milestone: "M2" },
     ],
   },
   {
-    label: "Tools",
+    label: "Account",
     items: [
-      { href: "/calculator", label: "Cost calculator", icon: "calculator", milestone: "M3" },
-      { href: "/weigh", label: "Weigh filament", icon: "weigh", milestone: "M4" },
-      { href: "/assemble", label: "Assemble", icon: "assemble", milestone: "M6" },
-      { href: "/history", label: "Change history", icon: "history", milestone: "M6" },
       { href: "/settings", label: "Settings", icon: "settings", milestone: "M2" },
+      { href: "/history", label: "Change history", icon: "history", milestone: "M6" },
     ],
   },
 ];

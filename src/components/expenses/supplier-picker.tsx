@@ -139,7 +139,7 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
             <button
               type="button"
               aria-label="Clear supplier"
-              className="absolute inset-y-0 right-0 inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center text-ink-muted hover:text-ink"
+              className="absolute inset-y-0 right-0 inline-flex min-h-control min-w-control cursor-pointer items-center justify-center text-ink-muted hover:text-ink"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 pick(null);
@@ -173,7 +173,7 @@ export function SupplierPicker({ suppliers }: { suppliers: Option[] }) {
                 role="option"
                 aria-selected={i === active}
                 className={cn(
-                  "flex min-h-tap cursor-pointer items-center rounded-sm px-3 text-md text-ink",
+                  "flex min-h-control cursor-pointer items-center rounded-sm px-3 text-md text-ink",
                   i === active && "bg-action-soft",
                 )}
                 onMouseDown={(e) => e.preventDefault()} // keep focus so blur doesn't run first

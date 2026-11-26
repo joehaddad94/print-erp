@@ -8,8 +8,8 @@ import { Icon } from "./icons";
 import { NAV, START_PRINT, isActive, type NavItem } from "./nav";
 
 const sideLink =
-  "flex min-h-tap items-center gap-3 rounded-md px-3 text-md font-medium text-ink-soft hover:bg-surface-muted hover:text-ink";
-const sideLinkOn = "bg-action-soft font-semibold text-action hover:bg-action-soft hover:text-action";
+  "group flex min-h-control items-center gap-2.5 rounded-md px-2.5 text-md text-rail-ink hover:bg-rail-active hover:text-rail-strong";
+const sideLinkOn = "bg-rail-active font-medium text-rail-strong";
 
 /**
  * Desktop sidebar list. Highlights the section you're in, including its detail pages.
@@ -27,7 +27,12 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
       {NAV.map((group, gi) => (
         <div key={group.label} className="flex flex-col gap-0.5">
           {gi > 0 ? (
-            <p className="px-3 pt-5 pb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase">{group.label}</p>
+            <p className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-rail-muted uppercase lg:rail-collapsed:sr-only">
+              {group.label}
+            </p>
+          ) : null}
+          {gi > 0 ? (
+            <hr aria-hidden="true" className="mx-2.5 my-2 hidden border-rail-border lg:rail-collapsed:block" />
           ) : null}
           {group.items.map((item) => (
             <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />
@@ -40,9 +45,18 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
 
 function SideLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
-    <Link href={item.href} aria-current={active ? "page" : undefined} className={cn(sideLink, active && sideLinkOn)}>
-      <Icon name={item.icon} size={18} className="shrink-0" />
-      <span className="truncate">{item.label}</span>
+    <Link
+      href={item.href}
+      title={item.label}
+      aria-current={active ? "page" : undefined}
+      className={cn(sideLink, "lg:rail-collapsed:justify-center lg:rail-collapsed:px-0", active && sideLinkOn)}
+    >
+      <Icon
+        name={item.icon}
+        size={17}
+        className={cn("shrink-0", active ? "text-rail-accent" : "text-rail-muted group-hover:text-rail-ink")}
+      />
+      <span className="truncate lg:rail-collapsed:sr-only">{item.label}</span>
     </Link>
   );
 }
@@ -61,13 +75,13 @@ export function TabBarList({ pathname }: { pathname: string }) {
   const startActive = isActive(START_PRINT.href, pathname);
   const tab = (active: boolean) =>
     cn(
-      "flex min-h-tap flex-col items-center justify-center gap-0.5 text-xs font-medium text-ink-muted",
-      active && "font-semibold text-action",
+      "flex min-h-tap flex-col items-center justify-center gap-0.5 text-xs font-medium text-rail-ink",
+      active && "text-rail-accent",
     );
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center border-t border-border bg-surface pb-safe lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 items-center bg-rail pb-safe lg:hidden"
     >
       {tabs.slice(0, 2).map((t) => (
         <Link
@@ -83,7 +97,7 @@ export function TabBarList({ pathname }: { pathname: string }) {
       <Link
         href={START_PRINT.href}
         aria-current={startActive ? "page" : undefined}
-        className="mx-auto my-1 grid size-12 place-items-center rounded-lg bg-action text-action-ink shadow-raised"
+        className="mx-auto my-1 grid size-12 place-items-center rounded-lg bg-action text-action-ink"
       >
         <Icon name="plus" size={24} />
         <span className="sr-only">{START_PRINT.label}</span>

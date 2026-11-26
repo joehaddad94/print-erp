@@ -64,7 +64,7 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
         )}
       </Card>
       <Card>
-        {finished ? <h2 className="pb-3 text-lg font-bold">Edit this print</h2> : null}
+        {finished ? <h2 className="pb-3 text-lg font-semibold">Edit this print</h2> : null}
         <FinishForm
           action={(finished ? editPrintAction : finishPrintAction).bind(null, id)}
           job={jobForFinish(job)}
@@ -77,7 +77,7 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
       </Card>
       {finished ? (
         <section aria-labelledby="print-history" className="flex flex-col gap-2">
-          <h2 id="print-history" className="text-lg font-bold">
+          <h2 id="print-history" className="text-lg font-semibold">
             History
           </h2>
           <HistoryList entries={history} />

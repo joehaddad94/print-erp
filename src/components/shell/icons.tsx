@@ -26,6 +26,13 @@ const paths = {
   more: "M4 6h16M4 12h16M4 18h16",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   chevron: "m9 18 6-6-6-6",
+  back: "m15 18-6-6 6-6",
+  columns: "M4 4h16v16H4zM9.5 4v16M14.5 4v16",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14M21 21l-4.3-4.3",
+  close: "M18 6 6 18M6 6l12 12",
+  check: "M20 6 9 17l-5-5",
+  collapse: "M4 4h16v16H4zM9 4v16M16 10l-2 2 2 2",
+  edit: "M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z",
 } as const;
 
 export type IconName = keyof typeof paths;

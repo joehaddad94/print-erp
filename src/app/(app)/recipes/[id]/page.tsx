@@ -38,7 +38,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
         <Callout tone="info">
           This is an old version, kept as history. Prints use the{" "}
           <Link
-            className="inline-flex min-h-tap items-center font-semibold underline"
+            className="inline-flex min-h-control items-center font-semibold underline"
             href={`/recipes/${r.versions.find((v) => v.isCurrent)?.id ?? id}`}
           >
             current version
@@ -86,7 +86,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
       </a>
 
       <section aria-labelledby="items" className="flex flex-col gap-2">
-        <h2 id="items" className="text-lg font-bold">
+        <h2 id="items" className="text-lg font-semibold">
           Items on the plate
         </h2>
         <List label="Items on the plate">
@@ -109,7 +109,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
 
       {r.isCurrent ? (
         <Card>
-          <h2 className="pb-3 text-lg font-bold">Your adjustments</h2>
+          <h2 className="pb-3 text-lg font-semibold">Your adjustments</h2>
           <ActionForm
             action={saveOverridesAction.bind(null, r.id)}
             submitLabel="Save adjustments"
@@ -147,7 +147,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
       ) : null}
 
       <section aria-labelledby="versions" className="flex flex-col gap-2">
-        <h2 id="versions" className="text-lg font-bold">
+        <h2 id="versions" className="text-lg font-semibold">
           Versions
         </h2>
         <List label="Versions">
@@ -164,7 +164,7 @@ export default async function RecipePage({ params }: PageProps<"/recipes/[id]">)
       </section>
 
       <section aria-labelledby="recipe-history" className="flex flex-col gap-2">
-        <h2 id="recipe-history" className="text-lg font-bold">
+        <h2 id="recipe-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

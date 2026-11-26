@@ -33,7 +33,7 @@ export default async function SuppliersPage() {
         </List>
       )}
       <Card>
-        <h2 className="pb-3 text-lg font-bold">Add a supplier</h2>
+        <h2 className="pb-3 text-lg font-semibold">Add a supplier</h2>
         <ActionForm action={saveSupplierAction.bind(null, null)} submitLabel="Add supplier">
           <TextField name="name" label="Name" />
           <TextField name="contact" label="Phone or link" />

@@ -5,6 +5,7 @@ import { currentUser } from "@/server/auth/session";
 import { Icon } from "./icons";
 import { START_PRINT } from "./nav";
 import { SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
+import { RailToggle } from "./rail-toggle";
 
 /**
  * App shell. Desktop (≥1024px): fixed left sidebar. Phone: top bar + bottom tabs.
@@ -16,33 +17,34 @@ import { SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh lg:pl-sidebar">
+    <div className="min-h-dvh lg:pl-sidebar lg:rail-collapsed:pl-rail">
       <aside
         aria-label="Sidebar"
-        className="fixed inset-y-0 left-0 hidden w-sidebar flex-col border-r border-border bg-surface lg:flex"
+        className="fixed inset-y-0 left-0 hidden w-sidebar flex-col bg-rail text-rail-ink lg:flex lg:rail-collapsed:w-rail"
       >
-        <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
+        <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 lg:rail-collapsed:flex-col lg:rail-collapsed:px-2.5">
           <Brand />
+          <RailToggle />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2.5 pb-3">
           <Suspense fallback={<SidebarNavList primary={<StartPrintButton />} pathname="" />}>
             <SidebarNav primary={<StartPrintButton />} />
           </Suspense>
         </div>
-        <div className="border-t border-border p-3">
+        <div className="border-t border-rail-border px-2.5 py-2">
           <Suspense fallback={<UserBadgeSkeleton />}>
             <UserBadge />
           </Suspense>
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
-        <Link href="/" className="flex min-h-tap items-center gap-2.5">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-rail px-4 lg:hidden">
+        <Link href="/" className="flex min-h-control items-center gap-2.5">
           <Brand />
         </Link>
       </header>
 
-      <main id="content" className="w-full max-w-page min-w-0 px-4 pt-5 pb-28 sm:px-6 lg:px-10 lg:pt-8 lg:pb-12">
+      <main id="content" className="w-full max-w-page min-w-0 px-4 pt-5 pb-28 sm:px-6 lg:px-8 lg:pt-6 lg:pb-12">
         {children}
       </main>
 
@@ -57,10 +59,11 @@ function StartPrintButton() {
   return (
     <Link
       href={START_PRINT.href}
-      className="mb-3 flex min-h-tap items-center justify-center gap-2 rounded-md bg-action px-4 font-semibold text-action-ink hover:bg-action-hover"
+      title={START_PRINT.label}
+      className="mb-2 flex min-h-control items-center justify-center gap-1.5 rounded-md bg-action px-3 font-medium text-action-ink hover:bg-action-hover"
     >
-      <Icon name="plus" size={18} />
-      {START_PRINT.label}
+      <Icon name="plus" size={16} />
+      <span className="lg:rail-collapsed:sr-only">{START_PRINT.label}</span>
     </Link>
   );
 }
@@ -71,7 +74,7 @@ function Brand() {
       <span className="grid size-7 place-items-center rounded-md bg-action text-action-ink">
         <Icon name="machines" size={16} />
       </span>
-      <span className="text-md font-bold text-ink">Print Shop</span>
+      <span className="flex-1 text-md font-semibold text-rail-strong lg:rail-collapsed:sr-only">Print Shop</span>
     </>
   );
 }
@@ -80,18 +83,17 @@ async function UserBadge() {
   const user = await currentUser();
   if (!user) return null;
   return (
-    <div className="flex items-center gap-3 px-2">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold text-ink-soft uppercase">
+    <div className="flex items-center gap-2.5 px-2 lg:rail-collapsed:justify-center">
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rail-active text-xs font-semibold text-rail-strong uppercase">
         {user.username.slice(0, 1)}
       </span>
-      <p className="min-w-0 flex-1 truncate text-sm">
-        <span className="block text-xs text-ink-muted">Signed in as</span>
-        <span className="font-semibold">{user.username}</span>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium text-rail-strong lg:rail-collapsed:sr-only">
+        {user.username}
       </p>
-      <form action={logoutAction}>
+      <form action={logoutAction} className="lg:rail-collapsed:hidden">
         <button
           type="submit"
-          className="flex min-h-tap cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-ink-muted hover:bg-surface-muted hover:text-ink"
+          className="flex min-h-control cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-rail-ink hover:bg-rail-active hover:text-rail-strong"
         >
           <Icon name="logout" size={16} />
           Sign out
@@ -103,9 +105,9 @@ async function UserBadge() {
 
 function UserBadgeSkeleton() {
   return (
-    <div className="flex min-h-tap items-center gap-3 px-2" aria-hidden="true">
-      <span className="size-8 animate-shimmer rounded-full bg-skeleton" />
-      <span className="h-3 w-20 animate-shimmer rounded-sm bg-skeleton" />
+    <div className="flex min-h-control items-center gap-3 px-2" aria-hidden="true">
+      <span className="size-7 animate-shimmer rounded-full bg-rail-active" />
+      <span className="h-3 w-20 animate-shimmer rounded-sm bg-rail-active" />
     </div>
   );
 }

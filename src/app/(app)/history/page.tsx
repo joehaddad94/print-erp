@@ -15,7 +15,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/history"
   const from = one(q.from)?.match(/^\d{4}-\d{2}-\d{2}$/) ? one(q.from) : undefined;
   const to = one(q.to)?.match(/^\d{4}-\d{2}-\d{2}$/) ? one(q.to) : undefined;
   const rows = await changeHistory(db(), { table, from, to });
-  const control = "control px-3 text-md text-ink";
+  const control = "control px-3 text-ink";
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Change history" />
@@ -55,7 +55,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/history"
                 {formatWhen(r.editedAt)} · {r.tableLabel}{" "}
                 {r.href ? (
                   <Link
-                    className="inline-flex min-h-tap min-w-tap items-center justify-center font-semibold text-action underline"
+                    className="inline-flex min-h-control min-w-control items-center justify-center font-semibold text-action underline"
                     href={r.href}
                   >
                     #{r.rowId}

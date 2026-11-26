@@ -30,7 +30,7 @@ export function ImportDetails({
   return (
     <>
       <Section nested={nested} className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">From the file</h2>
+        <h2 className="text-lg font-semibold">From the file</h2>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <Spec label="Filament">
             {round(parsed.totalGrams ?? 0, 2)} g{gramsEstimated ? <EstimatedTag /> : null}
@@ -91,7 +91,7 @@ export function ImportDetails({
               id={`${idPrefix}-save-as`}
               value={imp.group?.recipeGroup ?? ""}
               onChange={(e) => imp.setGroup(versionChoices.find((g) => g.recipeGroup === e.target.value))}
-              className="control px-3 text-md text-ink"
+              className="control px-3 text-ink"
             >
               <option value="">A new recipe</option>
               {versionChoices.map((g) => (
@@ -122,7 +122,7 @@ export function ImportDetails({
       </Section>
 
       <Section nested={nested} className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold">Items on the plate</h2>
+        <h2 className="text-lg font-semibold">Items on the plate</h2>
         {rows.map((r, i) => (
           <fieldset key={i} className="flex flex-col gap-3 rounded-md border border-border p-3">
             <legend className="px-1 text-sm font-semibold">{r.label}</legend>
@@ -131,7 +131,7 @@ export function ImportDetails({
                 id={`${idPrefix}-item-${i}-product`}
                 value={r.productId}
                 onChange={(e) => update(i, { productId: e.target.value })}
-                className="control px-3 text-md text-ink"
+                className="control px-3 text-ink"
               >
                 <option value="">New product…</option>
                 {products.map((p) => (

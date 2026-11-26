@@ -42,7 +42,7 @@ test("desktop: sidebar links reach every screen; the phone tab bar is hidden", a
     await expect(page.locator("h1:visible")).toHaveCount(1);
     await expect(page.getByText("This screen couldn't load")).toHaveCount(0);
   }
-  await expect(sidebar).toContainText("Signed in as");
+  await expect(sidebar.getByRole("button", { name: "Sign out" })).toBeVisible();
 });
 
 test("browser back and forward keep working across screens", async ({ page }) => {

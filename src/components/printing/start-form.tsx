@@ -181,7 +181,7 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
             })}
             .{" "}
             <Link
-              className="inline-flex min-h-tap items-center font-semibold underline"
+              className="inline-flex min-h-control items-center font-semibold underline"
               href={`/print/${p.busy!.jobId}`}
             >
               Finish this print
@@ -252,7 +252,7 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
                   <Callout tone="info" title="Already saved">
                     This file is{" "}
                     <Link
-                      className="inline-flex min-h-tap items-center font-semibold underline"
+                      className="inline-flex min-h-control items-center font-semibold underline"
                       href={`/recipes/${dupRecipe.id}`}
                     >
                       {dupRecipe.name} v{dupRecipe.version}
@@ -375,7 +375,7 @@ function FilamentPick({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={!value && error ? true : undefined}
-          className="control px-3 text-md text-ink"
+          className="control px-3 text-ink"
         >
           {value ? null : <option value="">Choose…</option>}
           {filaments.map((f) => (
@@ -402,7 +402,7 @@ function MissingList({ missing, printerId }: { missing: MissingInput[]; printerI
       <ul className="list-disc pl-5">
         {missing.map((m) => (
           <li key={m}>
-            <Link className="inline-flex min-h-tap items-center font-semibold underline" href={map[m][1]}>
+            <Link className="inline-flex min-h-control items-center font-semibold underline" href={map[m][1]}>
               {map[m][0]}
             </Link>
           </li>

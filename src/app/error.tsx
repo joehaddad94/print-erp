@@ -17,7 +17,7 @@ export default function RootError({ error, reset }: { error: Error & { digest?: 
       <button
         type="button"
         onClick={reset}
-        className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-md bg-action px-4 font-bold text-action-ink"
+        className="inline-flex min-h-control min-w-control items-center justify-center rounded-md bg-action px-4 font-bold text-action-ink"
       >
         Try again
       </button>

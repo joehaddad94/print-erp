@@ -50,7 +50,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
       </Card>
       {p.kind === "product" ? (
         <section aria-labelledby="parts-list" className="flex flex-col gap-2">
-          <h2 id="parts-list" className="text-lg font-bold">
+          <h2 id="parts-list" className="text-lg font-semibold">
             Parts list
           </h2>
           {parts.length ? (
@@ -94,7 +94,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
         </section>
       ) : null}
       <section aria-labelledby="product-history" className="flex flex-col gap-2">
-        <h2 id="product-history" className="text-lg font-bold">
+        <h2 id="product-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

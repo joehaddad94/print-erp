@@ -45,7 +45,7 @@ export function ActionForm({
             {state.link ? (
               <>
                 {" "}
-                <Link className="inline-flex min-h-tap items-center font-semibold underline" href={state.link}>
+                <Link className="inline-flex min-h-control items-center font-semibold underline" href={state.link}>
                   Fix it
                 </Link>
               </>
