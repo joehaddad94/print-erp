@@ -29,6 +29,7 @@ const SPEC_TABLES = [
   "print_job_items",
   "print_job_filaments",
   "assemblies",
+  "backup_runs",
   "customers",
   "suppliers",
   "orders",
@@ -70,7 +71,7 @@ async function makeRecipeAndPrinter() {
 }
 
 describe("F-01/F-02 migrations and tables", () => {
-  it("has exactly the 21 spec tables, each with the six common columns", async () => {
+  it("has exactly the 22 spec tables, each with the six common columns", async () => {
     const rows = await client<
       { tablename: string }[]
     >`select tablename from pg_tables where schemaname = 'public' and tablename not like '\_before\_%' order by 1`;

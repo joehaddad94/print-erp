@@ -1,12 +1,14 @@
 import { ActionForm } from "@/components/form/action-form";
 import { NumberField } from "@/components/form/fields";
 import { PeoplePanel } from "@/components/people/people-panel";
-import { Card, Callout, PageHeader, Panel, buttonClass, formatWhen } from "@/components/ui";
+import { FullBackupButton } from "@/components/settings/full-backup";
+import { Badge, Callout, PageHeader, Panel, buttonClass, formatWhen } from "@/components/ui";
 import { Link } from "@/components/ui/link";
 import { db } from "@/db";
 import { listPeople } from "@/server/auth/service";
 import { isOwner, requireUser } from "@/server/auth/session";
 import { saveSettingsAction } from "@/server/settings/actions";
+import { backupStatus, BACKUP_LATE_DAYS } from "@/server/backup/status";
 import { SETTING_KEYS, currentSettings, settingHistory } from "@/server/settings/service";
 
 export default async function SettingsPage() {
@@ -18,25 +20,34 @@ export default async function SettingsPage() {
     Object.keys(SETTING_KEYS).map((k) => [k, current[k] == null ? "" : String(current[k])]),
   );
   const histories = await Promise.all(Object.keys(SETTING_KEYS).map((k) => settingHistory(db(), k)));
+  const backup = owner ? await backupStatus(db()) : null;
 
   return (
     <div className="flex max-w-content flex-col gap-6">
-      <PageHeader title="Settings" />
+      <PageHeader
+        title="Settings"
+        description="Cost settings apply to new prints only. Past prints keep the values they used."
+      />
       {current.electricity_kwh_price == null ? (
         <Callout tone="warning" title="Electricity price not set">
           Print costs show as incomplete until you enter it.
         </Callout>
       ) : null}
-      <Card>
+      <Panel title="Costs" titleId="settings-costs">
         <ActionForm action={saveSettingsAction} defaults={defaults} submitLabel="Save settings">
-          {Object.entries(SETTING_KEYS).map(([key, meta]) => (
-            <NumberField key={key} name={key} label={meta.label} hint={meta.hint} />
-          ))}
-          <p className="text-xs text-ink-muted">
-            A change applies from now on. Past prints keep the values they were saved with.
-          </p>
+          {Object.entries(SETTING_KEYS).map(([key, meta], i) => {
+            const since = histories[i]![0]?.validFrom;
+            return (
+              <NumberField
+                key={key}
+                name={key}
+                label={meta.label}
+                hint={since ? `${meta.hint} Since ${formatWhen(since)}.` : meta.hint}
+              />
+            );
+          })}
         </ActionForm>
-      </Card>
+      </Panel>
       {owner ? (
         <Panel title="People" titleId="settings-people" count={people.length} flush>
           <PeoplePanel
@@ -62,27 +73,47 @@ export default async function SettingsPage() {
           </Link>
         </div>
       </Panel>
-      {owner ? (
-        <section aria-labelledby="settings-backup" className="flex flex-col gap-2">
-          <h2 id="settings-backup" className="text-lg font-semibold">
-            Backup
-          </h2>
-          <Card className="flex flex-col gap-3">
-            <p className="text-sm text-ink-muted">
-              A backup is saved automatically every Monday. Download one now to keep a copy on your own computer.
+      {owner && backup ? (
+        <Panel title="Backup" titleId="settings-backup">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium text-ink-muted">Last automatic backup</dt>
+              <dd className="flex flex-wrap items-center gap-2 font-medium">
+                {backup.lastOkAt ? formatWhen(backup.lastOkAt) : "None yet"}
+                {backup.lastFailed ? (
+                  <Badge tone="danger">Last run failed</Badge>
+                ) : backup.late ? (
+                  <Badge tone="danger">Late</Badge>
+                ) : (
+                  <Badge tone="success">OK</Badge>
+                )}
+              </dd>
+              <dd className="text-xs text-ink-muted">
+                {backup.lastFailed?.error ?? `Turns red if older than ${BACKUP_LATE_DAYS} days.`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-ink-muted">Next</dt>
+              <dd className="font-medium">{formatWhen(backup.next)}</dd>
+              <dd className="text-xs text-ink-muted">Every Monday, kept in private storage.</dd>
+            </div>
+          </dl>
+          <div className="mt-4 flex flex-wrap items-start gap-3 border-t border-border pt-4">
+            <p className="min-w-56 flex-1 text-sm text-ink-muted">
+              The full backup is one .zip: every table (JSON to restore, CSV for Excel),{" "}
+              <b className="font-medium text-ink">every G-code file</b>, and a list of file checksums. Keep a copy off
+              this computer (USB or Google Drive).
             </p>
+            <FullBackupButton />
             {/* A plain link: the browser downloads the file, nothing to hydrate. */}
-            <a className={buttonClass("secondary", true)} href="/api/backup" download>
-              Download backup
+            <a className={buttonClass("quiet")} href="/api/backup" download>
+              Data only (.json)
             </a>
-          </Card>
-        </section>
+          </div>
+        </Panel>
       ) : null}
-      <section aria-labelledby="settings-history" className="flex flex-col gap-2">
-        <h2 id="settings-history" className="text-lg font-semibold">
-          History
-        </h2>
-        <ul className="divide-y divide-border rounded-md border border-border bg-surface text-sm">
+      <Panel title="Recent setting changes" titleId="settings-history" flush>
+        <ul className="divide-y divide-border text-sm">
           {Object.entries(SETTING_KEYS).flatMap(([, meta], i) =>
             histories[i]!.slice(0, 5).map((row) => (
               <li key={row.id} className="flex justify-between gap-3 px-3 py-2">
@@ -95,7 +126,7 @@ export default async function SettingsPage() {
             )),
           )}
         </ul>
-      </section>
+      </Panel>
     </div>
   );
 }

@@ -182,7 +182,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.goto("/settings").then(() => page.getByRole("link", { name: "Download backup" }).click()),
+    page.goto("/settings").then(() => page.getByRole("link", { name: "Data only (.json)" }).click()),
   ]);
   const dump = JSON.parse(await readFile((await download.path())!, "utf8")) as {
     tables: Record<string, { count: number; rows?: unknown[] }>;
