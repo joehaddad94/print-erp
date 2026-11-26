@@ -10,9 +10,10 @@ export default async function NewExpensePage() {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
     <div className="flex max-w-content flex-col gap-6">
-      <PageHeader title="Add expense" />
+      <PageHeader back={{ href: "/expenses", label: "Expenses" }} title="Add expense" />
       <Card>
         <ExpenseForm
+          kind="expense"
           action={createExpenseAction}
           defaults={{ spentOn: today, currency: "USD", lbpRate: opts.lbpRate ?? "" }}
           {...opts}

@@ -1,44 +1,62 @@
-import { ActionForm } from "@/components/form/action-form";
-import { TextField } from "@/components/form/fields";
-import { Card, EmptyState, List, ListRow, Money, PageHeader } from "@/components/ui";
+import { Icon } from "@/components/shell/icons";
+import { DataTable, EmptyState, Money, PageHeader, Panel, buttonClass, type Column } from "@/components/ui";
+import { Link } from "@/components/ui/link";
 import { db } from "@/db";
+import { formatPhone } from "@/lib/phone";
 import { requireUser } from "@/server/auth/session";
-import { saveSupplierAction } from "@/server/suppliers/actions";
 import { listSuppliers } from "@/server/suppliers/service";
 
+type Row = Awaited<ReturnType<typeof listSuppliers>>[number];
+
+/** R7 suppliers: who you buy from, what they sell, what you spent. */
 export default async function SuppliersPage() {
   await requireUser();
   const rows = await listSuppliers(db());
+  const columns: Column<Row>[] = [
+    {
+      key: "name",
+      header: "Name",
+      cell: (s) => s.name,
+    },
+    { key: "sells", header: "Sells", lo: true, cell: (s) => s.sells ?? "—" },
+    { key: "phone", header: "Phone", lo: true, cell: (s) => formatPhone(s.phone) || s.contact || "—" },
+    { key: "area", header: "Area", lo: true, cell: (s) => s.area ?? "—" },
+    { key: "count", header: "Purchases", numeric: true, cell: (s) => s.purchaseCount },
+    { key: "last", header: "Last purchase", lo: true, cell: (s) => s.lastPurchase ?? "—" },
+    { key: "spent", header: "Spent", numeric: true, cell: (s) => <Money amount={s.totalUsd} /> },
+  ];
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Suppliers" />
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Suppliers"
+        description="The shops you buy filament, packaging and machines from."
+        action={
+          <Link href="/suppliers/new" className={buttonClass("primary")}>
+            <Icon name="plus" size={15} />
+            Add supplier
+          </Link>
+        }
+      />
       {rows.length === 0 ? (
         <EmptyState title="No suppliers yet">Add the shops you buy filament and packaging from.</EmptyState>
       ) : (
-        <List label="Suppliers">
-          {rows.map((s) => (
-            <ListRow
-              key={s.id}
-              href={`/suppliers/${s.id}`}
-              title={s.name}
-              subtitle={s.contact ?? undefined}
-              trailing={
-                <span className="text-sm">
-                  <Money amount={s.totalUsd} />
-                  <span className="block text-xs text-ink-muted">total spent</span>
-                </span>
-              }
-            />
-          ))}
-        </List>
+        <Panel title="Suppliers" titleId="suppliers" count={rows.length} flush>
+          <DataTable
+            id="suppliers"
+            label="Suppliers"
+            wide
+            columns={columns}
+            rows={rows}
+            rowKey={(s) => s.id}
+            rowHref={(s) => `/suppliers/${s.id}`}
+            phoneRow={(s) => ({
+              title: s.name,
+              subtitle: [s.sells, formatPhone(s.phone) || s.contact, s.area].filter(Boolean).join(" · ") || undefined,
+              trailing: <Money amount={s.totalUsd} />,
+            })}
+          />
+        </Panel>
       )}
-      <Card>
-        <h2 className="pb-3 text-lg font-semibold">Add a supplier</h2>
-        <ActionForm action={saveSupplierAction.bind(null, null)} submitLabel="Add supplier">
-          <TextField name="name" label="Name" />
-          <TextField name="contact" label="Phone or link" />
-        </ActionForm>
-      </Card>
     </div>
   );
 }

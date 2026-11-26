@@ -10,7 +10,14 @@ import {
   TextField,
   TextareaField,
 } from "@/components/form/fields";
-import { CATEGORY_LABELS, EXPENSE_CATEGORIES } from "@/server/expenses/schema";
+import { Link } from "@/components/ui/link";
+import {
+  CATEGORY_LABELS,
+  PURCHASE_CATEGORIES,
+  RUNNING_CATEGORIES,
+  isPurchase,
+  type ExpenseCategory,
+} from "@/server/expenses/schema";
 import { SupplierPicker } from "./supplier-picker";
 import type { FormState } from "@/server/form";
 
@@ -28,6 +35,7 @@ export function ExpenseForm({
   packaging,
   lbpRate,
   editing = false,
+  kind,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   defaults: Record<string, string>;
@@ -36,13 +44,21 @@ export function ExpenseForm({
   packaging: Option[];
   lbpRate?: string;
   editing?: boolean;
+  /** R7: a purchase (into stock or a machine) or a running cost. On edit it follows the category. */
+  kind?: "purchase" | "expense";
 }) {
   const [category, setCategory] = useState(defaults.category ?? "");
+  const purchase = kind ? kind === "purchase" : isPurchase(category as ExpenseCategory);
+  const categories = purchase ? PURCHASE_CATEGORIES : RUNNING_CATEGORIES;
   const [filamentId, setFilamentId] = useState(defaults.filamentId ?? "");
   const [packagingId, setPackagingId] = useState(defaults.packagingId ?? "");
 
   return (
-    <ActionForm action={action} defaults={defaults} submitLabel={editing ? "Save changes" : "Save expense"}>
+    <ActionForm
+      action={action}
+      defaults={defaults}
+      submitLabel={editing ? "Save changes" : purchase ? "Save purchase" : "Save expense"}
+    >
       {editing ? (
         <>
           <input type="hidden" name="category" value={category} />
@@ -55,10 +71,26 @@ export function ExpenseForm({
           name="category"
           label="Category"
           placeholder="Choose…"
-          options={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))}
+          options={categories.map((c) => ({ value: c, label: CATEGORY_LABELS[c] }))}
           onValueChange={setCategory}
+          hint={
+            purchase
+              ? undefined
+              : "Buying filament, packaging or a machine? Use Add purchase instead, so it goes into stock."
+          }
         />
       )}
+      {!purchase && !editing ? (
+        <p className="-mt-2 text-sm">
+          <Link
+            href="/purchases/new"
+            className="inline-flex min-h-control items-center font-medium text-action hover:underline"
+          >
+            Add purchase instead
+          </Link>
+        </p>
+      ) : null}
+      {!purchase ? <TextField name="description" label="What" placeholder="Fiber, December" hint="Optional." /> : null}
       <div className="grid grid-cols-2 gap-3">
         <NumberField name="amount" label="Amount" />
         <DateField name="spentOn" label="Date" />
@@ -126,7 +158,22 @@ export function ExpenseForm({
       ) : null}
       {category === "machine" && editing ? <input type="hidden" name="machineName" value="(kept)" /> : null}
 
-      <SupplierPicker suppliers={suppliers} />
+      {purchase ? (
+        <SupplierPicker suppliers={suppliers} />
+      ) : (
+        <>
+          <TextField name="paidTo" label="Paid to" placeholder="IDM" hint="Optional." />
+          <label className="flex min-h-control items-center gap-3 text-md">
+            <input
+              type="checkbox"
+              name="repeatsMonthly"
+              defaultChecked={defaults.repeatsMonthly === "true"}
+              className="size-control shrink-0 accent-action"
+            />
+            Repeats every month
+          </label>
+        </>
+      )}
       <TextareaField name="notes" label="Notes" />
     </ActionForm>
   );

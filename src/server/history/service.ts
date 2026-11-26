@@ -58,7 +58,11 @@ const LIST_LINKS: Record<string, string> = { stock_items: "/stock" };
 /** Plain values that can be put back without breaking stock, reservations or costs already worked out. */
 const RESTORABLE: Record<string, { table?: PgTable; fields: string[]; undelete?: boolean }> = {
   customers: { table: customers, fields: ["name", "phone", "handle", "notes"], undelete: true },
-  suppliers: { table: suppliers, fields: ["name", "contact", "notes"], undelete: true },
+  suppliers: {
+    table: suppliers,
+    fields: ["name", "contact", "phone", "sells", "email", "website", "area", "address", "map_url", "notes"],
+    undelete: true,
+  },
   machines: {
     table: machines,
     fields: [

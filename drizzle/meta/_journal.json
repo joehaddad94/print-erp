@@ -57,6 +57,13 @@
       "when": 1795706169524,
       "tag": "0007_r5_customer_details",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795707602716,
+      "tag": "0008_r7_money",
+      "breakpoints": true
     }
   ]
 }

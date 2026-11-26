@@ -52,21 +52,21 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByText(/^Saved\.|Nothing changed\./)).toBeVisible();
 
   // 2. Supplier.
-  await page.goto("/suppliers");
+  await page.goto("/suppliers/new");
   await page.getByLabel("Name").fill(supplier);
   await page.getByRole("button", { name: "Add supplier" }).click();
-  await expect(page.getByText(`Added ${supplier}.`)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: supplier })).toBeVisible();
 
   // 3. Buy a printer, then fill in its power and life.
-  await page.goto("/expenses/new");
+  await page.goto("/purchases/new");
   await page.getByLabel("Category").selectOption("machine");
   await page.getByLabel("Amount").fill("200");
   await page.getByLabel("Name").fill(printer);
   await page.getByLabel("Type").selectOption("printer");
   await page.getByLabel("Model").fill("Creality Ender-3 V3 SE");
   await pickSupplier(page, supplier);
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/machines");
   await page.getByRole("link").filter({ hasText: printer }).click();
   await page.getByLabel("Average power").fill("0.12");
@@ -76,25 +76,25 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("link").filter({ hasText: printer })).toContainText("$0.067/h");
 
   // 4. Filament (1 kg, $17.50) and 10 boxes ($5) from the supplier.
-  await page.goto("/expenses/new");
+  await page.goto("/purchases/new");
   await page.getByLabel("Category").selectOption("filament");
   await page.getByLabel("Amount").fill("17.50");
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(colour);
   await page.getByLabel("Grams bought").fill("1000");
   await pickSupplier(page, supplier);
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
-  await page.goto("/expenses/new");
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
+  await page.goto("/purchases/new");
   await page.getByLabel("Category").selectOption("packaging");
   await page.getByLabel("Amount").fill("5");
   await page.getByLabel("New item name").fill(box);
   await page.getByLabel("Pieces").fill("10");
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/suppliers");
-  await page.getByRole("link").filter({ hasText: supplier }).click();
-  await expect(page.getByRole("heading", { name: /Bought:/ })).toContainText("$217.50");
+  await page.locator(":is(tr, li):visible").filter({ hasText: supplier }).getByRole("link").first().click();
+  await expect(page.getByText("Spent in total").locator("..")).toContainText("$217.50");
 
   // 5. Import the real padel file (synthetic stand-in when the private fixtures are absent).
   const bytes = haveFixtures

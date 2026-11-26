@@ -5,7 +5,7 @@ import { expenses, machines, stockItems, stockMovements, suppliers } from "@/db/
 import { rateToUsdFromLbpRate } from "@/lib/money";
 import { lastEdited, softDeleteLogged, updateLogged } from "@/server/edits/engine";
 import { recordMovement, replayAverages } from "@/server/stock/ledger";
-import type { ExpenseInput } from "./schema";
+import { isPurchase, type ExpenseInput } from "./schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
 
@@ -29,6 +29,9 @@ export async function createExpense(db: Db, i: ExpenseInput) {
         rateToUsd,
         supplierId: i.supplierId,
         notes: i.notes,
+        description: i.description,
+        paidTo: i.paidTo,
+        repeatsMonthly: i.repeatsMonthly,
       })
       .returning();
 
@@ -118,6 +121,9 @@ export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?
         rateToUsd,
         supplierId: i.supplierId,
         notes: i.notes,
+        description: i.description,
+        paidTo: i.paidTo,
+        repeatsMonthly: i.repeatsMonthly,
       },
       { userId },
     );
@@ -153,6 +159,7 @@ export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?
 /** D13 delete: soft, logged; its stock movement goes too and averages are replayed. */
 export async function deleteExpense(db: Db, id: number, userId?: number) {
   return db.transaction(async (tx) => {
+    const [e] = await tx.select({ category: expenses.category }).from(expenses).where(eq(expenses.id, id));
     await softDeleteLogged(tx, expenses, id, { userId });
     const moves = await tx
       .select()
@@ -162,13 +169,22 @@ export async function deleteExpense(db: Db, id: number, userId?: number) {
       await softDeleteLogged(tx, stockMovements, m.id, { userId });
       await replayAverages(tx, m.stockItemId);
     }
+    return e?.category ?? null;
   });
 }
 
 export async function listExpenses(db: Db) {
   const rows = await db
-    .select({ expense: expenses, supplierName: suppliers.name, itemName: stockItems.name, machineName: machines.name })
+    .select({
+      expense: expenses,
+      supplierName: suppliers.name,
+      itemName: stockItems.name,
+      unit: stockItems.unit,
+      machineName: machines.name,
+      qty: stockMovements.amount,
+    })
     .from(expenses)
+    .leftJoin(stockMovements, and(eq(stockMovements.expenseId, expenses.id), isNull(stockMovements.deletedAt)))
     .leftJoin(suppliers, eq(suppliers.id, expenses.supplierId))
     .leftJoin(stockItems, eq(stockItems.id, expenses.stockItemId))
     .leftJoin(machines, eq(machines.id, expenses.machineId))
@@ -183,7 +199,9 @@ export async function listExpenses(db: Db) {
     ...r.expense,
     supplierName: r.supplierName,
     boughtName: r.itemName ?? r.machineName,
-    isPurchase: ["filament", "packaging", "machine"].includes(r.expense.category),
+    isPurchase: isPurchase(r.expense.category),
+    purchaseQty: r.qty,
+    unit: r.unit,
     editedAt: edited.get(r.expense.id) ?? null,
   }));
 }
