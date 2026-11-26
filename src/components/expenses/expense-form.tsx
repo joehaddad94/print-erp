@@ -33,6 +33,7 @@ export function ExpenseForm({
   suppliers,
   filaments,
   packaging,
+  brands = [],
   lbpRate,
   editing = false,
   kind,
@@ -42,6 +43,8 @@ export function ExpenseForm({
   suppliers: Option[];
   filaments: Option[];
   packaging: Option[];
+  /** Filament brands entered before, offered as suggestions; a new one can still be typed. */
+  brands?: string[];
   lbpRate?: string;
   editing?: boolean;
   /** R7: a purchase (into stock or a machine) or a running cost. On edit it follows the category. */
@@ -119,6 +122,19 @@ export function ExpenseForm({
             </div>
           ) : null}
           <NumberField name="grams" label="Grams bought" suffix="g" hint="A 1 kg spool is 1000 g." />
+          <TextField
+            name="brand"
+            label="Brand"
+            placeholder="eSun"
+            hint="Optional. Pick one you used before or type a new one."
+            list="filament-brands"
+            autoComplete="off"
+          />
+          <datalist id="filament-brands">
+            {brands.map((b) => (
+              <option key={b} value={b} />
+            ))}
+          </datalist>
         </fieldset>
       ) : null}
 

@@ -78,6 +78,8 @@ export const expenseSchema = z
     newColor: f.optionalText(40),
     grams: f.optionalNumber("the grams", { positive: true }),
     emptySpoolWeightG: f.optionalNumber("the empty spool weight", { min: 0 }),
+    /** Optional maker; spacing is tidied here, spelling is matched to earlier brands on save. */
+    brand: z.preprocess((v) => (typeof v === "string" ? v.replace(/\s+/g, " ") : v), f.optionalText(60)),
     // packaging purchase
     packagingId: f.optionalId(),
     newPackagingName: f.optionalText(80),

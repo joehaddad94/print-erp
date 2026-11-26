@@ -46,12 +46,14 @@ test("S-03/S-04 LBP filament purchase converts to USD and shows as a purchase", 
       await page.getByLabel("Material", { exact: true }).fill("PLA");
       await page.getByLabel("Colour", { exact: true }).fill(colour);
       await page.getByLabel("Grams bought").fill("1000");
+      await page.getByLabel("Brand").fill("eSun");
     },
     "purchase",
   );
   const row = page.locator(":is(tr, li):visible").filter({ hasText: `PLA ${colour}` });
   await expect(row).toContainText("Filament");
   await expect(row).toContainText("$20.00");
+  await expect(row).toContainText("eSun");
   await checkPage(page);
 });
 
