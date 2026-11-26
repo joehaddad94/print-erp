@@ -1,7 +1,7 @@
 import { and, desc, eq, lte } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
-import { settings } from "@/db/schema";
+import { editLog, settings } from "@/db/schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
 
@@ -42,10 +42,30 @@ export async function numberSetting(db: Db, key: SettingKey, at = new Date()): P
 }
 
 /** Adds a dated row only when the value actually changes; old rows are never overwritten. */
-export async function setSetting(db: Db, key: string, value: unknown, at = new Date()): Promise<boolean> {
+export async function setSetting(
+  db: Db,
+  key: string,
+  value: unknown,
+  at = new Date(),
+  log: { userId?: number | null; reason?: string | null } = {},
+): Promise<boolean> {
   const current = (await currentSettings(db, at))[key];
   if (JSON.stringify(current) === JSON.stringify(value)) return false;
-  await db.insert(settings).values({ key, value: value as never, validFrom: at });
+  const [row] = await db
+    .insert(settings)
+    .values({ key, value: value as never, validFrom: at })
+    .returning({ id: settings.id });
+  // R2: settings changes show in Change history like any other edit (and can be restored there).
+  await db.insert(editLog).values({
+    tableName: "settings",
+    rowId: row!.id,
+    field: key,
+    oldValue: (current ?? null) as never,
+    newValue: value as never,
+    reason: log.reason ?? null,
+    action: "edit",
+    editedBy: log.userId ?? null,
+  });
   return true;
 }
 

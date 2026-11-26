@@ -29,7 +29,7 @@ const STATIC = [
   "/weigh",
   "/assemble",
   "/history",
-  "/history?table=orders",
+  "/history?area=sales",
   "/settings",
   "/more",
 ];

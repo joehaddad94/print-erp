@@ -102,7 +102,7 @@ export function DataTable<T>({
                             {content}
                           </span>
                         ) : href && c.key === first ? (
-                          <Link href={href} className="text-action hover:underline">
+                          <Link href={href} className="inline-flex min-h-6 items-center text-action hover:underline">
                             {content}
                           </Link>
                         ) : (

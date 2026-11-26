@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/shell/icons";
 import { hiddenColumnsCss, parseHidden, toggleColumn } from "@/lib/ui/columns";
 
@@ -45,6 +45,9 @@ export function ColumnsMenu({
     pinned,
   );
 
+  // The list is only rendered while open, so closed menus add nothing to the page.
+  const [open, setOpen] = useState(false);
+
   const flip = (key: string) => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(toggleColumn(hidden, key, pinned)));
@@ -55,29 +58,31 @@ export function ColumnsMenu({
   };
 
   return (
-    <details className="relative">
+    <details className="relative" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className="flex min-h-control cursor-pointer list-none items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-ink-soft hover:bg-surface-muted">
         <Icon name="columns" size={15} />
         Columns{hidden.length ? ` (${hidden.length} hidden)` : ""}
       </summary>
-      <fieldset className="absolute right-0 z-30 mt-1 flex w-56 flex-col rounded-md border border-border bg-surface p-1.5 shadow-overlay">
-        <legend className="sr-only">Columns to show</legend>
-        {columns.map((c) => (
-          <label
-            key={c.key}
-            className="flex min-h-control cursor-pointer items-center gap-2 rounded-sm px-2 text-md hover:bg-surface-muted"
-          >
-            <input
-              type="checkbox"
-              checked={!hidden.includes(c.key)}
-              disabled={pinned.includes(c.key)}
-              onChange={() => flip(c.key)}
-              className="size-4 accent-action"
-            />
-            {c.header}
-          </label>
-        ))}
-      </fieldset>
+      {open ? (
+        <fieldset className="absolute right-0 z-30 mt-1 flex w-56 flex-col rounded-md border border-border bg-surface p-1.5 shadow-overlay">
+          <legend className="sr-only">Columns to show</legend>
+          {columns.map((c) => (
+            <label
+              key={c.key}
+              className="flex min-h-control cursor-pointer items-center gap-2 rounded-sm px-2 text-md hover:bg-surface-muted"
+            >
+              <input
+                type="checkbox"
+                checked={!hidden.includes(c.key)}
+                disabled={pinned.includes(c.key)}
+                onChange={() => flip(c.key)}
+                className="size-4 accent-action"
+              />
+              {c.header}
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
       <style>{hiddenColumnsCss(tableId, hidden)}</style>
     </details>
   );

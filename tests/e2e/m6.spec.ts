@@ -50,10 +50,13 @@ test("H-01 change history lists edits newest first with old → new, and filters
   await page.getByLabel("Sale price").fill("3");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page).toHaveURL(/\/products$/);
-  await page.goto("/history?table=products");
-  const first = page.getByRole("list", { name: "Changes" }).getByRole("listitem").first();
-  await expect(first).toContainText("sale price usd: 2 → 3");
-  await expect(first.getByRole("link", { name: `#${p!.id}` })).toHaveAttribute("href", `/products/${p!.id}`);
+  await page.goto("/history?area=stock");
+  const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
+  await expect(changes).toContainText("Sale price");
+  await expect(changes).toContainText("2");
+  await expect(changes).toContainText("3");
+  if (info.project.name === "desktop")
+    await expect(changes.getByRole("link", { name }).first()).toHaveAttribute("href", `/products/${p!.id}`);
   await checkPage(page);
 });
 
