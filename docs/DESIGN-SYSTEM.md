@@ -100,7 +100,7 @@ Rules:
 | `Field` + inputs | The label sits above (13px, weight 500), with the hint or error below. Teal focus ring. Optional fields say "(optional)" in muted text. |
 | `Segmented`      | For 2 to 4 options, like USD/LBP or Success/Failed. Replaces a select when there are only a few options. |
 | `Card`           | Optional header (title, count chip, link on the right) above a body. The body has no padding when it holds a table or list. |
-| `DataTable`      | Desktop tables use 12px muted headers, 42px rows and right-aligned numbers, and long text is truncated. On phone they become `ListRow`s. |
+| `DataTable`      | 12px muted headers, 42px rows, right-aligned numbers, truncated long text. **Never scrolls sideways on a dashboard.** Each table sits in a container query: below 760px of card width, low-priority columns (marked `lo`) hide, and below 520px the table becomes `ListRow`s, the same as on phone. Sideways scroll is a last-resort fallback only. Two-column dashboards stack to one column when the content area is under 1040px. |
 | `ListRow`        | Title and meta line on the left, value and badge on the right. The whole row is tappable.                   |
 | `Badge`          | A small dot plus a label, tinted by tone. The status-to-tone mapping lives in `lib/status.ts`.              |
 | `StatTile`       | Label, then the number (26px), then a muted detail line. The `featured` variant (teal fill) is allowed at most once per screen. |
