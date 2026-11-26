@@ -28,9 +28,13 @@ test("R1 owner adds staff with a one-time password; staff picks a password and c
   await page.goto("/settings");
   await page.getByLabel("Add person: username").fill(name);
   await page.getByRole("button", { name: "Add person" }).click();
-  const callout = page.getByText(`One-time password for ${name}`).locator("..");
-  await expect(callout).toBeVisible();
-  const otp = (await callout.locator("code").textContent())!.trim();
+  const details = page.getByRole("status").filter({ hasText: `Sign-in details for ${name}` });
+  await expect(details).toBeVisible();
+  await expect(details.locator("code").nth(0)).toHaveText(name);
+  const otp = (await details.locator("code").nth(1).textContent())!.trim();
+  await expect(page.getByRole("button", { name: "Copy username" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy one-time password" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy sign-in details" })).toBeVisible();
   await expect(page.getByRole("list", { name: "People" })).toContainText("Hasn't chosen a password yet");
   await signOut(page);
 
