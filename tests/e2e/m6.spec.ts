@@ -60,7 +60,7 @@ test("H-01 change history lists edits newest first with old → new, and filters
   await checkPage(page);
 });
 
-test("T-01 Today shows printing now and orders due soon", async ({ page }, info) => {
+test("T-01 Today shows what needs you and what is due this week", async ({ page }, info) => {
   const due = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   const [o] = await withDb((db) =>
     db
@@ -69,9 +69,9 @@ test("T-01 Today shows printing now and orders due soon", async ({ page }, info)
       .returning(),
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Printing now" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   await expect(
-    page.getByRole("list", { name: "Orders" }).getByRole("link", { name: new RegExp(`^#${o!.id} `) }),
+    page.getByRole("list", { name: "Needs you" }).getByRole("link", { name: new RegExp(`^#${o!.id} `) }),
   ).toBeVisible();
   await checkPage(page);
 });

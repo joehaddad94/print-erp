@@ -15,7 +15,10 @@ export function SearchPicker({
   label,
   items,
   recentIds = [],
+  recentLabel,
   defaultId,
+  value,
+  error,
   placeholder = "Search",
   empty = "Nothing matches.",
   onChange,
@@ -24,19 +27,31 @@ export function SearchPicker({
   label: string;
   items: PickerItem[];
   recentIds?: string[];
+  /** Heading of the first group (default "Recently used"), e.g. "Matches the file". */
+  recentLabel?: string;
   defaultId?: string;
+  /** Controlled choice: when set, the parent owns it (onChange reports picks). */
+  value?: string | null;
+  error?: string;
   placeholder?: string;
   empty?: string;
   onChange?: (id: string | null) => void;
 }) {
   const uid = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [chosen, setChosen] = useState<string | null>(defaultId ?? null);
+  const [own, setOwn] = useState<string | null>(defaultId ?? null);
+  const chosen = value !== undefined ? value || null : own;
+  const setChosen = (id: string | null) => {
+    if (value === undefined) setOwn(id);
+  };
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
 
-  const groups = useMemo(() => groupItems(items, query, recentIds), [items, query, recentIds]);
+  const groups = useMemo(
+    () => groupItems(items, query, recentIds, recentLabel),
+    [items, query, recentIds, recentLabel],
+  );
   const flat = groups.flatMap((g) => g.items);
   const picked = items.find((i) => i.id === chosen);
 
@@ -56,7 +71,7 @@ export function SearchPicker({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div role="group" aria-label={label} className="flex flex-col gap-1.5">
       <label htmlFor={`${uid}-q`} className="text-sm font-medium text-ink-soft">
         {label}
       </label>
@@ -112,6 +127,8 @@ export function SearchPicker({
                 setOpen(false);
               }
             }}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${uid}-err` : undefined}
             className="control pr-3 pl-9"
           />
           {open ? (
@@ -166,6 +183,11 @@ export function SearchPicker({
           ) : null}
         </div>
       )}
+      {error ? (
+        <p id={`${uid}-err`} className="text-sm font-medium text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

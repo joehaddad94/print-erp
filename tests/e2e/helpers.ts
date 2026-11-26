@@ -85,3 +85,31 @@ export async function pickSupplier(page: Page, name: string) {
   await page.getByRole("option", { name, exact: true }).click();
   await expect(box).toHaveValue(name);
 }
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** R3 SearchPicker: pick an item by its label (opens it again with Change when something is already chosen). */
+export async function pickIn(page: Page, label: string, item: string | RegExp) {
+  const group = page.getByRole("group", { name: label, exact: true });
+  const change = group.getByRole("button", { name: "Change" });
+  if (await change.isVisible()) await change.click();
+  await group.getByRole("combobox").click();
+  const name = typeof item === "string" ? new RegExp(`^${escapeRe(item)}`) : item;
+  await group.getByRole("option", { name }).first().click();
+  await expect(group.getByRole("button", { name: "Change" })).toBeVisible();
+}
+
+/** R3 Start print: recipe picker, printer card, filament picker (filament as a label or pattern). */
+export async function fillStart(page: Page, s: { recipe?: string; printer: string; filament?: string | RegExp }) {
+  if (s.recipe) await pickIn(page, "Recipe", s.recipe);
+  await page.getByRole("radio", { name: new RegExp(`^${escapeRe(s.printer)}`) }).check();
+  if (s.filament) await pickIn(page, "Filament", s.filament);
+}
+
+/** The running print on Today's "Needs you" list. */
+export function runningPrint(page: Page, printer: string) {
+  return page
+    .getByRole("list", { name: "Needs you" })
+    .getByRole("link")
+    .filter({ hasText: ` on ${printer}` });
+}

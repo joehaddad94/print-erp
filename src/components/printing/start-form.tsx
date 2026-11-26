@@ -1,13 +1,15 @@
 "use client";
 
 import { Link } from "@/components/ui/link";
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { ActionForm, useFieldState } from "@/components/form/action-form";
 import { NumberField, SelectField } from "@/components/form/fields";
 import { uploadGcode } from "@/components/recipes/gcode-client";
 import { ImportDetails } from "@/components/recipes/import-details";
 import { num, useGcodeImport, type ProductOption, type RecipeGroup } from "@/components/recipes/use-gcode-import";
 import { Button, Callout, Field } from "@/components/ui";
+import { SearchPicker } from "@/components/ui/search-picker";
+import { LOW_FILAMENT_G } from "@/lib/filament";
 import { jobCost, unitCost, type MissingInput } from "@/lib/cost";
 import { formatDuration } from "@/lib/format";
 import { printerModelsMatch, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
@@ -75,7 +77,8 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
   const [source, setSource] = useState<"recipe" | "file">(options.recipes.length ? "recipe" : "file");
   const [recipeId, setRecipeId] = useState("");
   const [printerId, setPrinterId] = useState(free.length === 1 ? String(free[0]!.id) : "");
-  const [filamentId, setFilamentId] = useState("");
+  /** undefined = picked for you from the recipe's material; "" = cleared by you. */
+  const [filamentId, setFilamentId] = useState<string | undefined>(undefined);
   const [secondId, setSecondId] = useState("");
   const imp = useGcodeImport({ tolerance: fileOpts.tolerance, onParsed: (p) => suggestGroup(groups, p) });
   /** The file already uploaded by a Start that was then refused, so a retry doesn't upload it again. */
@@ -108,16 +111,24 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
     : savedRecipe;
   const printer = free.find((p) => String(p.id) === printerId);
   const autoFilament =
-    filamentId ||
+    filamentId ??
     (fromFile
       ? onlyMatch(options.filaments, recipe?.material)
       : String(
-          options.filaments.find((f) => recipe?.material && f.material?.toLowerCase() === recipe.material.toLowerCase())
-            ?.id ??
-            options.filaments[0]?.id ??
+          options.filaments.find(
+            (f) => f.onHand > 0 && recipe?.material && f.material?.toLowerCase() === recipe.material.toLowerCase(),
+          )?.id ??
+            options.filaments.find((f) => f.onHand > 0)?.id ??
             "",
         ));
   const filament = options.filaments.find((f) => String(f.id) === autoFilament);
+
+  /** Filament of the recipe's material comes first in the picker. */
+  const matching = recipe?.material
+    ? options.filaments
+        .filter((f) => f.onHand > 0 && f.material?.toLowerCase() === recipe.material!.toLowerCase())
+        .map((f) => String(f.id))
+    : [];
 
   const estimate =
     recipe && printer && filament && recipe.estimatedSeconds && recipe.plateGrams > 0
@@ -193,200 +204,255 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
           action={start}
           submitLabel={fromFile ? "Save recipe and start print" : "Start print"}
           defaults={{ machineId: printerId, filamentId: autoFilament }}
+          className="grid items-start gap-5 lg:grid-aside"
         >
-          <Field id={`${fileId}-source`} label="Print from">
-            <div id={`${fileId}-source`} role="group" className="grid grid-cols-2 gap-2">
-              <Button
-                variant={source === "recipe" ? "primary" : "secondary"}
-                aria-pressed={source === "recipe"}
-                disabled={options.recipes.length === 0}
-                onClick={() => setSource("recipe")}
-              >
-                Saved recipe
-              </Button>
-              <Button
-                variant={source === "file" ? "primary" : "secondary"}
-                aria-pressed={source === "file"}
-                onClick={() => setSource("file")}
-              >
-                .gcode file
-              </Button>
-            </div>
-          </Field>
+          <div className="flex min-w-0 flex-col gap-4">
+            <Field id={`${fileId}-source`} label="Print from">
+              <div id={`${fileId}-source`} role="group" className="grid grid-cols-2 gap-2">
+                <Button
+                  variant={source === "recipe" ? "primary" : "secondary"}
+                  aria-pressed={source === "recipe"}
+                  disabled={options.recipes.length === 0}
+                  onClick={() => setSource("recipe")}
+                >
+                  Saved recipe
+                </Button>
+                <Button
+                  variant={source === "file" ? "primary" : "secondary"}
+                  aria-pressed={source === "file"}
+                  onClick={() => setSource("file")}
+                >
+                  .gcode file
+                </Button>
+              </div>
+            </Field>
 
-          {source === "recipe" ? (
-            <SelectField
-              name="recipeId"
-              label="Recipe"
-              placeholder="Choose…"
-              options={options.recipes.map((r) => ({ value: String(r.id), label: `${r.name} · v${r.version}` }))}
-              onValueChange={setRecipeId}
-            />
-          ) : !fileOpts.available ? (
-            <Callout tone="warning" title="File storage isn't connected">
-              Connect a Vercel Blob store to start from a file. Saved recipes still work.
-            </Callout>
-          ) : (
-            <>
-              <Field
-                id={`${fileId}-gcode`}
-                label="G-code file"
-                hint={`Saved as a recipe when the print starts. Plain .gcode from ${SUPPORTED_SLICERS}.`}
-              >
-                <input
+            {source === "recipe" ? (
+              <WithError name="recipeId">
+                {(recipeError) => (
+                  <SearchPicker
+                    name="recipeId"
+                    label="Recipe"
+                    placeholder="Search recipes"
+                    items={options.recipes.map((r) => ({
+                      id: String(r.id),
+                      label: `${r.name} · v${r.version}`,
+                      sub: `${Number(r.plateGrams.toFixed(1))} g · ${formatDuration(r.estimatedSeconds)} · ${r.items
+                        .map((i) => `${i.qty} × ${i.name}`)
+                        .join(", ")}`,
+                      keywords: r.material ?? undefined,
+                    }))}
+                    recentIds={options.recentRecipeIds.map(String)}
+                    error={recipeError}
+                    onChange={(id) => {
+                      setRecipeId(id ?? "");
+                      setFilamentId(undefined);
+                    }}
+                  />
+                )}
+              </WithError>
+            ) : !fileOpts.available ? (
+              <Callout tone="warning" title="File storage isn't connected">
+                Connect a Vercel Blob store to start from a file. Saved recipes still work.
+              </Callout>
+            ) : (
+              <>
+                <Field
                   id={`${fileId}-gcode`}
-                  type="file"
-                  accept=".gcode"
-                  onChange={(e) => {
-                    setFilamentId("");
-                    void imp.choose(e.target.files?.[0] ?? null);
-                  }}
-                  className="control px-3 py-2.5 text-sm text-ink"
-                />
-              </Field>
-              {imp.reading ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
-              {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
-              {imp.duplicate && dupRecipe ? (
-                <>
-                  <input type="hidden" name="recipeId" value={dupRecipe.id} />
-                  <Callout tone="info" title="Already saved">
-                    This file is{" "}
-                    <Link
-                      className="inline-flex min-h-control items-center font-semibold underline"
-                      href={`/recipes/${dupRecipe.id}`}
-                    >
-                      {dupRecipe.name} v{dupRecipe.version}
-                    </Link>
-                    . Start uses it; no copy is saved.
+                  label="G-code file"
+                  hint={`Saved as a recipe when the print starts. Plain .gcode from ${SUPPORTED_SLICERS}.`}
+                >
+                  <input
+                    id={`${fileId}-gcode`}
+                    type="file"
+                    accept=".gcode"
+                    onChange={(e) => {
+                      setFilamentId(undefined);
+                      void imp.choose(e.target.files?.[0] ?? null);
+                    }}
+                    className="control px-3 py-2.5 text-sm text-ink"
+                  />
+                </Field>
+                {imp.reading ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
+                {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
+                {imp.duplicate && dupRecipe ? (
+                  <>
+                    <input type="hidden" name="recipeId" value={dupRecipe.id} />
+                    <Callout tone="info" title="Already saved">
+                      This file is{" "}
+                      <Link
+                        className="inline-flex min-h-control items-center font-semibold underline"
+                        href={`/recipes/${dupRecipe.id}`}
+                      >
+                        {dupRecipe.name} v{dupRecipe.version}
+                      </Link>
+                      . Start uses it; no copy is saved.
+                    </Callout>
+                  </>
+                ) : imp.duplicate ? (
+                  <Callout tone="danger" title="Older version">
+                    This file is {imp.duplicate.name} v{imp.duplicate.version}, which is no longer the current version.
+                    Choose the current one under Saved recipe.
                   </Callout>
-                </>
-              ) : imp.duplicate ? (
-                <Callout tone="danger" title="Older version">
-                  This file is {imp.duplicate.name} v{imp.duplicate.version}, which is no longer the current version.
-                  Choose the current one under Saved recipe.
-                </Callout>
-              ) : null}
-              {fromFile ? (
-                <ImportDetails
-                  imp={imp}
-                  idPrefix={fileId}
-                  products={fileOpts.products}
-                  versionChoices={groups}
-                  nested
+                ) : null}
+                {fromFile ? (
+                  <ImportDetails
+                    imp={imp}
+                    idPrefix={fileId}
+                    products={fileOpts.products}
+                    versionChoices={groups}
+                    nested
+                  />
+                ) : null}
+              </>
+            )}
+
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="pb-1.5 text-sm font-medium text-ink-soft">Printer</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {free.map((p) => (
+                  <label
+                    key={p.id}
+                    className="relative flex min-h-control cursor-pointer items-center gap-3 rounded-md border border-border-strong bg-surface px-3 py-2 has-checked:border-action has-checked:bg-action-soft"
+                  >
+                    <input
+                      type="radio"
+                      name="machineId"
+                      value={p.id}
+                      checked={printerId === String(p.id)}
+                      onChange={() => setPrinterId(String(p.id))}
+                      className="peer absolute inset-0 size-full cursor-pointer opacity-0"
+                    />
+                    <span
+                      aria-hidden
+                      className="grid size-4 shrink-0 place-items-center rounded-full border border-border-strong peer-checked:border-action peer-focus-visible:outline-2 peer-focus-visible:outline-action peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-action"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{p.name}</span>
+                      <span className="block truncate text-sm text-ink-muted">
+                        {[p.model, p.nozzleMm != null ? `${p.nozzleMm} mm nozzle` : null].filter(Boolean).join(" · ") ||
+                          "Free"}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <WithError name="machineId">
+                {(e) => (e ? <p className="text-sm font-medium text-danger">{e}</p> : null)}
+              </WithError>
+            </fieldset>
+
+            <WithError name="filamentId">
+              {(filamentError) => (
+                <SearchPicker
+                  name="filamentId"
+                  label="Filament"
+                  placeholder="Search filament"
+                  value={autoFilament}
+                  onChange={(id) => setFilamentId(id ?? "")}
+                  recentIds={matching}
+                  recentLabel={recipe?.material ? `Matches ${recipe.material}` : undefined}
+                  error={autoFilament ? undefined : filamentError}
+                  items={options.filaments.map((f) => ({
+                    id: String(f.id),
+                    label: f.name,
+                    sub: `${Math.round(f.onHand)} g left${f.material ? ` · ${f.material}` : ""}`,
+                    badge: f.onHand <= 0 ? "Out" : f.onHand < LOW_FILAMENT_G ? "Low" : undefined,
+                    disabled: f.onHand <= 0,
+                  }))}
                 />
-              ) : null}
-            </>
-          )}
-
-          <SelectField
-            name="machineId"
-            label="Printer"
-            placeholder={free.length === 1 ? undefined : "Choose…"}
-            options={free.map((p) => ({ value: String(p.id), label: p.name }))}
-            onValueChange={setPrinterId}
-          />
-          <FilamentPick
-            value={autoFilament}
-            onChange={setFilamentId}
-            filaments={options.filaments}
-            hint={
-              fromFile && !autoFilament && recipe?.material
-                ? `More than one filament (or none) in stock is ${recipe.material}. Choose the one on the printer.`
-                : undefined
-            }
-          />
-          <SelectField
-            name="secondFilamentId"
-            label="Second filament (colour change)"
-            placeholder="None"
-            options={options.filaments
-              .filter((f) => String(f.id) !== autoFilament)
-              .map((f) => ({ value: String(f.id), label: f.name }))}
-            onValueChange={setSecondId}
-          />
-          {secondId ? (
-            <NumberField
-              name="firstFilamentGrams"
-              label="Grams of the first filament"
-              suffix="g"
-              hint={recipe ? `The second gets the rest of ${Number(recipe.plateGrams.toFixed(2))} g.` : undefined}
-            />
-          ) : null}
-
-          {recipe && printer
-            ? mismatch(recipe, printer).map((m) => (
-                <Callout key={m} tone="warning">
-                  {m}
-                </Callout>
-              ))
-            : null}
-
-          {recipe ? (
-            <div className="rounded-md bg-bg px-3 py-2.5 text-sm" aria-live="polite">
-              <p className="font-semibold">
-                {Number(recipe.plateGrams.toFixed(2))} g · {formatDuration(recipe.estimatedSeconds)} ·{" "}
-                {recipe.items.map((i) => `${i.qty} × ${i.name}`).join(", ")}
+              )}
+            </WithError>
+            {fromFile && !autoFilament && recipe?.material ? (
+              <p className="-mt-2 text-sm text-ink-muted">
+                More than one filament (or none) in stock is {recipe.material}. Choose the one on the printer.
               </p>
-              {estimate?.complete ? (
-                <p>
-                  Estimated cost {usd(estimate.total)}
-                  {recipe.items.length === 1
-                    ? ` · ${usd(
-                        unitCost({
-                          share: estimate.total,
-                          planned: recipe.items[0]!.qty,
-                          good: recipe.items[0]!.qty,
-                          method: options.method,
-                          allowancePct: allowance,
-                        })!,
-                      )} per piece`
-                    : ""}
-                </p>
-              ) : estimate ? (
-                <MissingList missing={estimate.missing} printerId={printer?.id} />
-              ) : null}
-            </div>
-          ) : null}
+            ) : null}
+
+            <details className="rounded-md border border-border px-3" open={!!secondId}>
+              <summary className="flex min-h-control cursor-pointer items-center text-sm font-medium text-ink-soft">
+                Second filament (colour change)
+              </summary>
+              <div className="flex flex-col gap-3 pb-3">
+                <SelectField
+                  name="secondFilamentId"
+                  label="Second filament"
+                  placeholder="None"
+                  options={options.filaments
+                    .filter((f) => String(f.id) !== autoFilament)
+                    .map((f) => ({ value: String(f.id), label: f.name }))}
+                  onValueChange={setSecondId}
+                />
+                {secondId ? (
+                  <NumberField
+                    name="firstFilamentGrams"
+                    label="Grams of the first filament"
+                    suffix="g"
+                    hint={recipe ? `The second gets the rest of ${Number(recipe.plateGrams.toFixed(2))} g.` : undefined}
+                  />
+                ) : null}
+              </div>
+            </details>
+
+            {recipe && printer
+              ? mismatch(recipe, printer).map((m) => (
+                  <Callout key={m} tone="warning">
+                    {m}
+                  </Callout>
+                ))
+              : null}
+          </div>
+
+          <aside
+            aria-label="Estimate"
+            className="flex flex-col gap-2 self-start rounded-lg border border-border bg-bg p-4 text-sm lg:sticky lg:top-4"
+            aria-live="polite"
+          >
+            <h2 className="text-md font-semibold">Estimate</h2>
+            {recipe ? (
+              <>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <dt className="text-ink-muted">Filament</dt>
+                  <dd className="text-right tabular-nums">{Number(recipe.plateGrams.toFixed(2))} g</dd>
+                  <dt className="text-ink-muted">Time</dt>
+                  <dd className="text-right tabular-nums">{formatDuration(recipe.estimatedSeconds)}</dd>
+                  <dt className="text-ink-muted">On the plate</dt>
+                  <dd className="text-right">{recipe.items.map((i) => `${i.qty} × ${i.name}`).join(", ")}</dd>
+                </dl>
+                {estimate?.complete ? (
+                  <p className="border-t border-border pt-2 font-semibold">
+                    Estimated cost {usd(estimate.total)}
+                    {recipe.items.length === 1
+                      ? ` · ${usd(
+                          unitCost({
+                            share: estimate.total,
+                            planned: recipe.items[0]!.qty,
+                            good: recipe.items[0]!.qty,
+                            method: options.method,
+                            allowancePct: allowance,
+                          })!,
+                        )} per piece`
+                      : ""}
+                  </p>
+                ) : estimate ? (
+                  <MissingList missing={estimate.missing} printerId={printer?.id} />
+                ) : (
+                  <p className="text-ink-muted">Choose a printer and filament to see the cost.</p>
+                )}
+              </>
+            ) : (
+              <p className="text-ink-muted">Choose what to print.</p>
+            )}
+          </aside>
         </ActionForm>
       )}
     </div>
   );
 }
 
-/** The filament select; shows the form's error when none was chosen. */
-function FilamentPick({
-  value,
-  onChange,
-  filaments,
-  hint,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  filaments: Options["filaments"];
-  hint?: string;
-}) {
-  const { error } = useFieldState("filamentId");
-  return (
-    <>
-      <input type="hidden" name="filamentId" value={value} />
-      <Field id="filament-pick" label="Filament" hint={hint} error={value ? undefined : error}>
-        <select
-          id="filament-pick"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={!value && error ? true : undefined}
-          className="control px-3 text-ink"
-        >
-          {value ? null : <option value="">Choose…</option>}
-          {filaments.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name} ({Math.round(f.onHand)} g left)
-            </option>
-          ))}
-        </select>
-      </Field>
-    </>
-  );
+/** The form's error for one field (ActionForm context), passed to a render function. */
+function WithError({ name, children }: { name: string; children: (error?: string) => ReactNode }) {
+  return <>{children(useFieldState(name).error)}</>;
 }
 
 function MissingList({ missing, printerId }: { missing: MissingInput[]; printerId?: number }) {

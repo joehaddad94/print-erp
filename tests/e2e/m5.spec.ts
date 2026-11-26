@@ -3,7 +3,7 @@ import { machines, products } from "@/db/schema";
 import { setSetting } from "@/server/settings/service";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, login } from "./helpers";
+import { checkPage, fillStart, login, runningPrint } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -104,19 +104,11 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
   // Print it twice.
   for (let k = 0; k < 2; k++) {
     await page.goto("/print");
-    await page.getByLabel("Recipe").selectOption({ label: `${product} · v1` });
-    await page.getByLabel("Printer", { exact: true }).selectOption({ label: `Printer ${tag}` });
-    await page
-      .getByLabel("Filament", { exact: true })
-      .selectOption({ label: `PLA ${tag} (${1000 - Math.round(k * 29.22)} g left)` });
+    await fillStart(page, { recipe: `${product} · v1`, printer: `Printer ${tag}`, filament: `PLA ${tag}` });
     await page.getByRole("button", { name: "Start print" }).click();
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
-    await page
-      .getByRole("list", { name: "Printing now" })
-      .getByRole("link")
-      .filter({ hasText: `Printer ${tag}` })
-      .click();
-    await page.getByRole("button", { name: "Save and add to stock" }).click();
+    await runningPrint(page, `Printer ${tag}`).click();
+    await page.getByRole("button", { name: "Finish print" }).click();
     await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
   }
 

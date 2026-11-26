@@ -182,6 +182,8 @@ export async function startOptions(db: Db) {
         busy: job ? { jobId: job.id, recipeName: job.recipeName, startedAt: job.startedAt } : null,
       };
     }),
+    /** R3: recipes printed lately (current version of each), most recent first, for the picker. */
+    recentRecipeIds: await recentRecipes(db, recipeRows),
     filaments: await Promise.all(
       filamentRows.map(async (f) => ({
         ...f,
@@ -190,6 +192,23 @@ export async function startOptions(db: Db) {
       })),
     ),
   };
+}
+
+async function recentRecipes(db: Db, current: { id: number; recipeGroup: string }[]) {
+  const rows = await db
+    .select({ group: recipes.recipeGroup })
+    .from(printJobs)
+    .innerJoin(recipes, eq(recipes.id, printJobs.recipeId))
+    .where(isNull(printJobs.deletedAt))
+    .orderBy(desc(printJobs.startedAt))
+    .limit(40);
+  const ids: number[] = [];
+  for (const r of rows) {
+    const id = current.find((c) => c.recipeGroup === r.group)?.id;
+    if (id != null && !ids.includes(id)) ids.push(id);
+    if (ids.length === 5) break;
+  }
+  return ids;
 }
 
 export type StartInput = {

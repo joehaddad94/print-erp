@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { printJobs, recipes } from "@/db/schema";
 import { startJob } from "@/server/printing/service";
 import { withDb } from "./db";
-import { checkPage, login } from "./helpers";
+import { checkPage, fillStart, login, pickIn, runningPrint } from "./helpers";
 import { setup } from "./seed";
 import { syntheticGcode } from "../support/synthetic-gcode";
 
@@ -17,18 +17,16 @@ test("J-01/J-02 golden path on the phone: Start → Finish with untouched time �
   const s = await setup(`j01-${info.project.name}`);
   await page.goto("/print");
   await checkPage(page);
-  await page.getByLabel("Recipe").selectOption({ label: s.recipe });
-  await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
-  await page.getByLabel("Filament", { exact: true }).selectOption({ label: `${s.filament} (1000 g left)` });
+  await fillStart(page, { recipe: s.recipe, printer: s.printer, filament: s.filament });
   await expect(page.getByText("Estimated cost $0.77 · $0.87 per piece")).toBeVisible();
   await page.getByRole("button", { name: "Start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
-  await page.getByRole("link").filter({ hasText: s.printer }).first().click();
+  await runningPrint(page, s.printer).click();
   await expect(page.getByRole("heading", { name: /Finish print/ })).toBeVisible();
   await checkPage(page);
   await expect(page.getByText(/G-code estimate, not checked/)).toBeVisible();
   await expect(page.getByTestId("live-cost")).toContainText("Job cost $0.77");
-  await page.getByRole("button", { name: "Save and add to stock" }).click();
+  await page.getByRole("button", { name: "Finish print" }).click();
   await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
   await expect(page.getByText("Job cost $0.77").first()).toBeVisible();
   await expect(page.getByText("Estimated grams").first()).toBeVisible();
@@ -61,14 +59,13 @@ test("J-03 busy printer: Start shows the busy message and a Finish link", async 
   const busy = page.getByRole("status").filter({ hasText: s.printer });
   await expect(busy).toContainText(`Busy: Holder j03-${info.project.name}`);
   await expect(busy.getByRole("link", { name: "Finish this print" })).toHaveAttribute("href", `/print/${jobId}`);
-  await expect(page.getByLabel("Printer", { exact: true }).locator("option", { hasText: s.printer })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: new RegExp(`^${s.printer}`) })).toHaveCount(0);
 });
 
 test("J-10/J-11 mismatch warnings and a missing machine cost", async ({ page }, info) => {
   const s = await setup(`j10-${info.project.name}`, { model: "Bambu A1", nozzleMm: 0.6, purchaseAmount: null });
   await page.goto("/print");
-  await page.getByLabel("Recipe").selectOption({ label: s.recipe });
-  await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
+  await fillStart(page, { recipe: s.recipe, printer: s.printer });
   await expect(page.getByText("The file was sliced for Creality Ender-3 V3 SE, not Bambu A1.")).toBeVisible();
   await expect(page.getByText(/uses a 0.4 mm nozzle/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Set the printer's purchase cost" })).toHaveAttribute(
@@ -107,10 +104,10 @@ test("S-01 Start from a .gcode file: saved as a recipe when the print starts; th
   await page.getByLabel("G-code file").setInputFiles(file);
   await expect(page.getByLabel("Recipe name")).toHaveValue(`croix-${tag}`);
   await expect(page.getByTestId("grams-check")).toContainText("Items add up to 20 g of 20 g.");
-  await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
+  await fillStart(page, { printer: s.printer });
   // Several PLA filaments are in stock, so none is picked for a new file (Joe, Nov 26).
-  await expect(page.getByLabel("Filament", { exact: true })).toHaveValue("");
-  await page.getByLabel("Filament", { exact: true }).selectOption({ label: `${s.filament} (1000 g left)` });
+  await expect(page.getByRole("group", { name: "Filament", exact: true }).getByRole("combobox")).toBeVisible();
+  await pickIn(page, "Filament", s.filament);
   await checkPage(page);
   await page.getByRole("button", { name: "Save recipe and start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { products } from "@/db/schema";
 import { addPart } from "@/server/assembly/service";
-import { checkPage, login, pickSupplier } from "./helpers";
+import { checkPage, fillStart, login, pickSupplier, runningPrint } from "./helpers";
 import { withDb } from "./db";
 import { setup } from "./seed";
 
@@ -301,15 +301,14 @@ test.describe("prints", () => {
   test("finish validation; a failed print (0 good, stopped at 40%) books waste, not stock", async ({ page }, info) => {
     const s = await setup(`fail-${uid(info)}`);
     await page.goto("/print");
-    await page.getByLabel("Recipe").selectOption({ label: s.recipe });
-    await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
-    await page.getByLabel("Filament", { exact: true }).selectOption({ label: `${s.filament} (1000 g left)` });
+    await fillStart(page, { recipe: s.recipe, printer: s.printer, filament: s.filament });
     await page.getByRole("button", { name: "Start print" }).click();
-    await page.getByRole("list", { name: "Printing now" }).getByRole("link").filter({ hasText: s.printer }).click();
+    await runningPrint(page, s.printer).click();
 
     await page.getByLabel("Print time (hours)").fill("");
+    await page.getByLabel("Stopped early").check();
     await page.getByLabel("How far it got (%)").fill("140");
-    await page.getByRole("button", { name: "Save and add to stock" }).click();
+    await page.getByRole("button", { name: "Finish print" }).click();
     await expect(page.getByText("Enter the print time as a number")).toBeVisible();
     await expect(page.getByText("How far it got must be at most 100")).toBeVisible();
 
@@ -319,7 +318,7 @@ test.describe("prints", () => {
     await page.getByLabel("Power cut during the print").check();
     await page.getByLabel("What went wrong").fill("power cut, layer shift");
     await expect(page.getByTestId("live-cost")).toContainText("nothing good");
-    await page.getByRole("button", { name: "Save and add to stock" }).click();
+    await page.getByRole("button", { name: "Finish print" }).click();
     await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
     await expect(page.getByText(/waste \$/).first()).toBeVisible();
     await page.goto("/stock");
@@ -329,15 +328,11 @@ test.describe("prints", () => {
   test("busy printer can't start twice even if the form is posted twice", async ({ page }, info) => {
     const s = await setup(`dbl-${uid(info)}`);
     await page.goto("/print");
-    await page.getByLabel("Recipe").selectOption({ label: s.recipe });
-    await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
-    await page.getByLabel("Filament", { exact: true }).selectOption({ label: `${s.filament} (1000 g left)` });
+    await fillStart(page, { recipe: s.recipe, printer: s.printer, filament: s.filament });
     const start = page.getByRole("button", { name: "Start print" });
     await start.dblclick();
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
-    await expect(
-      page.getByRole("list", { name: "Printing now" }).getByRole("link").filter({ hasText: s.printer }),
-    ).toHaveCount(1);
+    await expect(runningPrint(page, s.printer)).toHaveCount(1);
   });
 });
 

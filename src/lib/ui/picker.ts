@@ -33,6 +33,7 @@ export function groupItems(
   items: readonly PickerItem[],
   query: string,
   recentIds: readonly string[] = [],
+  recentLabel = "Recently used",
 ): PickerGroup[] {
   const hits = items.filter((i) => matches(i, query));
   const recent = recentIds.map((id) => hits.find((i) => i.id === id)).filter((i): i is PickerItem => !!i);
@@ -40,7 +41,7 @@ export function groupItems(
     .filter((i) => !recentIds.includes(i.id))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }));
   return [
-    { label: "Recently used", items: recent },
+    { label: recentLabel, items: recent },
     { label: recent.length ? "All" : "", items: rest },
   ].filter((g) => g.items.length);
 }

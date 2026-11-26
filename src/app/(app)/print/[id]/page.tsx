@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { FinishForm, type FinishDefaults } from "@/components/printing/finish-form";
-import { Badge, Card, HistoryList, PageHeader, formatWhen } from "@/components/ui";
+import { Badge, HistoryList, PageHeader, Panel, formatWhen } from "@/components/ui";
+import { formatDuration } from "@/lib/format";
 import { db } from "@/db";
 import { formatMoney } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
@@ -23,7 +24,12 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
     name: productLabel({ name: i.productName, variant: i.productVariant }),
     qtyPlanned: i.line.qtyPlanned,
   }));
-  const filaments = job.filaments.map((f) => ({ id: f.line.id, name: f.name }));
+  const forFinish = jobForFinish(job);
+  const filaments = job.filaments.map((f) => ({
+    id: f.line.id,
+    name: f.name,
+    fileGrams: forFinish.filaments.find((x) => x.id === f.line.id)?.plannedGrams ?? null,
+  }));
   const defaults: FinishDefaults = finished
     ? {
         hours: s(job.hours),
@@ -45,44 +51,71 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
       };
   const history = finished ? await historyFor(db(), "print_jobs", id) : [];
   const estimated = job.filaments.some((f) => f.line.gramsSource !== "weighed");
-  return (
-    <div className="flex max-w-content flex-col gap-6">
-      <PageHeader title={`${finished ? "Print" : "Finish print"}: ${job.recipe.name}`} />
-      <Card className="flex flex-col gap-1 text-sm">
-        <p>
-          <span className="font-semibold">{job.machine.name}</span> · started {formatWhen(job.startedAt)}
-          {finished ? ` · finished ${formatWhen(job.finishedAt!)}` : ""}
-        </p>
-        {finished ? (
-          <p className="flex flex-wrap items-center gap-2">
-            Job cost <span className="font-bold">{formatMoney(job.jobCostUsd ?? 0, "USD")}</span>
-            {job.wasteCostUsd ? <span>· waste {formatMoney(job.wasteCostUsd, "USD")}</span> : null}
-            {estimated ? <Badge tone="estimated">Estimated grams</Badge> : <Badge tone="success">Weighed</Badge>}
-          </p>
-        ) : (
-          <Badge tone="info">Printing now</Badge>
-        )}
-      </Card>
-      <Card>
-        {finished ? <h2 className="pb-3 text-lg font-semibold">Edit this print</h2> : null}
-        <FinishForm
-          action={(finished ? editPrintAction : finishPrintAction).bind(null, id)}
-          job={jobForFinish(job)}
-          estimateHours={estimateHours}
-          items={items}
-          filaments={filaments}
-          defaults={defaults}
-          submitLabel={finished ? "Save changes" : "Save and add to stock"}
+  const form = (
+    <FinishForm
+      action={(finished ? editPrintAction : finishPrintAction).bind(null, id)}
+      job={forFinish}
+      estimateHours={estimateHours}
+      items={items}
+      filaments={filaments}
+      defaults={defaults}
+      submitLabel={finished ? "Save changes" : "Finish print"}
+    />
+  );
+  const started = `${job.machine.name} · started ${formatWhen(job.startedAt)}`;
+  if (!finished)
+    return (
+      <div className="flex flex-col gap-5">
+        <PageHeader
+          back={{ href: "/", label: "Today" }}
+          title={`Finish print: ${job.recipe.name}`}
+          badges={<Badge tone="info">Printing now</Badge>}
+          description={started}
         />
-      </Card>
-      {finished ? (
-        <section aria-labelledby="print-history" className="flex flex-col gap-2">
-          <h2 id="print-history" className="text-lg font-semibold">
-            History
-          </h2>
-          <HistoryList entries={history} />
-        </section>
-      ) : null}
+        {form}
+      </div>
+    );
+
+  const good = job.items.reduce((n, i) => n + (i.line.qtyGood ?? 0), 0);
+  const planned = job.items.reduce((n, i) => n + i.line.qtyPlanned, 0);
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        back={{ href: "/", label: "Today" }}
+        title={`Print: ${job.recipe.name}`}
+        badges={
+          <>
+            {(job.stoppedAtPct ?? 100) < 100 ? (
+              <Badge tone="warning">Stopped at {Number(job.stoppedAtPct)}%</Badge>
+            ) : (
+              <Badge tone="success">Ran to the end</Badge>
+            )}
+            {estimated ? <Badge tone="estimated">Estimated grams</Badge> : <Badge tone="success">Weighed</Badge>}
+          </>
+        }
+        description={`${started} · finished ${formatWhen(job.finishedAt!)}`}
+      />
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
+        <Fact label="Job cost" value={formatMoney(job.jobCostUsd ?? 0, "USD")} />
+        <Fact label="Waste" value={formatMoney(job.wasteCostUsd ?? 0, "USD")} />
+        <Fact label="Good pieces" value={`${good} of ${planned}`} />
+        <Fact label="Print time" value={formatDuration((job.hours ?? 0) * 3600)} />
+      </dl>
+      <Panel title="Edit this print" titleId="print-edit">
+        {form}
+      </Panel>
+      <Panel title="History" titleId="print-history">
+        <HistoryList entries={history} />
+      </Panel>
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 bg-surface px-4 py-3">
+      <dt className="text-xs font-medium text-ink-muted">{label}</dt>
+      <dd className="text-lg font-semibold tabular-nums">{value}</dd>
     </div>
   );
 }
