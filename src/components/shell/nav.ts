@@ -5,7 +5,15 @@ import type { IconName } from "./icons";
  * Desktop: sidebar groups. Phone: the `phone` items as bottom tabs, the rest under "More".
  * "Start print" is the primary action (sidebar button, phone centre +), not a list item.
  */
-export type NavItem = { href: string; label: string; icon: IconName; milestone: string; phone?: boolean };
+/** `owner`: only shown to owners (R1); the screen itself also refuses staff. */
+export type NavItem = {
+  href: string;
+  label: string;
+  icon: IconName;
+  milestone: string;
+  phone?: boolean;
+  owner?: boolean;
+};
 export type NavGroup = { label: string; items: NavItem[] };
 
 export const START_PRINT = { href: "/print", label: "Start print" } as const;
@@ -44,7 +52,7 @@ export const NAV: NavGroup[] = [
     label: "Account",
     items: [
       { href: "/settings", label: "Settings", icon: "settings", milestone: "M2" },
-      { href: "/history", label: "Change history", icon: "history", milestone: "M6" },
+      { href: "/history", label: "Change history", icon: "history", milestone: "M6", owner: true },
     ],
   },
 ];

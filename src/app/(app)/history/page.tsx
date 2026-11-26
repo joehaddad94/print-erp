@@ -2,14 +2,14 @@ import { Link } from "@/components/ui/link";
 import { Button, Card, EmptyState, PageHeader, formatWhen } from "@/components/ui";
 import { db } from "@/db";
 import { changeHistory, HISTORY_TABLES } from "@/server/assembly/service";
-import { requireUser } from "@/server/auth/session";
+import { requireOwner } from "@/server/auth/session";
 
 const show = (v: unknown) => (v == null || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
 const one = (v: string | string[] | undefined) => (typeof v === "string" && v ? v : undefined);
 
 /** D13 Change history: every edit and delete, newest first, filtered by kind and date. */
 export default async function HistoryPage({ searchParams }: PageProps<"/history">) {
-  await requireUser();
+  await requireOwner();
   const q = await searchParams;
   const table = one(q.table) && HISTORY_TABLES[one(q.table)!] ? one(q.table) : undefined;
   const from = one(q.from)?.match(/^\d{4}-\d{2}-\d{2}$/) ? one(q.from) : undefined;

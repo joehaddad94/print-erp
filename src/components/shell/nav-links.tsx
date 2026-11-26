@@ -15,12 +15,21 @@ const sideLinkOn = "bg-rail-active font-medium text-rail-strong";
  * Desktop sidebar list. Highlights the section you're in, including its detail pages.
  * `primary` (the Start print button) sits inside the nav landmark, above the list.
  */
-export function SidebarNav({ primary }: { primary?: ReactNode }) {
-  return <SidebarNavList primary={primary} pathname={usePathname()} />;
+export function SidebarNav({ primary, ownerSlot }: { primary?: ReactNode; ownerSlot?: ReactNode }) {
+  return <SidebarNavList primary={primary} ownerSlot={ownerSlot} pathname={usePathname()} />;
 }
 
 /** Same list without reading the URL: the Suspense fallback while the pathname is unknown. */
-export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pathname: string }) {
+export function SidebarNavList({
+  primary,
+  ownerSlot,
+  pathname,
+}: {
+  primary?: ReactNode;
+  /** Owner-only links, streamed in once the user is known; placed at the end of the last group. */
+  ownerSlot?: ReactNode;
+  pathname: string;
+}) {
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5">
       {primary}
@@ -34,9 +43,12 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
           {gi > 0 ? (
             <hr aria-hidden="true" className="mx-2.5 my-2 hidden border-rail-border lg:rail-collapsed:block" />
           ) : null}
-          {group.items.map((item) => (
-            <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />
-          ))}
+          {group.items
+            .filter((item) => !item.owner)
+            .map((item) => (
+              <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />
+            ))}
+          {gi === NAV.length - 1 ? ownerSlot : null}
         </div>
       ))}
     </nav>
@@ -59,6 +71,14 @@ function SideLink({ item, active }: { item: NavItem; active: boolean }) {
       <span className="truncate lg:rail-collapsed:sr-only">{item.label}</span>
     </Link>
   );
+}
+
+/** Owner-only sidebar links (Change history…), rendered by the server only for owners. */
+export function OwnerSideLinks() {
+  const pathname = usePathname();
+  return NAV.flatMap((g) => g.items)
+    .filter((i) => i.owner)
+    .map((item) => <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />);
 }
 
 /** Phone bottom bar: four tabs plus the Start print button in the middle. */

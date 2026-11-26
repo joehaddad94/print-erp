@@ -40,7 +40,12 @@ describe("A-03 password change invalidates sessions", () => {
     const id = await setPassword(db, "joe", PW);
     const [before] = await db.select().from(users).where(eq(users.id, id));
     const pwv = passwordFingerprint(before!.passwordHash);
-    expect(await userForSession(db, id, pwv)).toEqual({ id, username: "joe" });
+    expect(await userForSession(db, id, pwv)).toEqual({
+      id,
+      username: "joe",
+      role: "owner",
+      mustChangePassword: false,
+    });
     await setPassword(db, "joe", "a brand new password");
     expect(await userForSession(db, id, pwv)).toBeNull();
   });

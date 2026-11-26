@@ -4,7 +4,7 @@ import { logoutAction } from "@/server/auth/actions";
 import { currentUser } from "@/server/auth/session";
 import { Icon } from "./icons";
 import { START_PRINT } from "./nav";
-import { SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
+import { OwnerSideLinks, SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
 import { RailToggle } from "./rail-toggle";
 
 /**
@@ -28,7 +28,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2.5 pb-3">
           <Suspense fallback={<SidebarNavList primary={<StartPrintButton />} pathname="" />}>
-            <SidebarNav primary={<StartPrintButton />} />
+            <SidebarNav
+              primary={<StartPrintButton />}
+              ownerSlot={
+                <Suspense fallback={null}>
+                  <OwnerNav />
+                </Suspense>
+              }
+            />
           </Suspense>
         </div>
         <div className="border-t border-rail-border px-2.5 py-2">
@@ -77,6 +84,11 @@ function Brand() {
       <span className="flex-1 text-md font-semibold text-rail-strong lg:rail-collapsed:sr-only">Print Shop</span>
     </>
   );
+}
+
+async function OwnerNav() {
+  const user = await currentUser();
+  return user?.role === "owner" ? <OwnerSideLinks /> : null;
 }
 
 async function UserBadge() {

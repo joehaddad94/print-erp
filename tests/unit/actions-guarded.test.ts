@@ -23,7 +23,7 @@ describe("A-05 Server Actions are guarded", () => {
       if (PUBLIC_ACTIONS.has(name!)) continue;
       it(`${file}: ${name} starts with requireUser()`, () => {
         const firstStatement = body!.trim().split("\n")[0]!;
-        expect(firstStatement).toMatch(/await requireUser\(\)/);
+        expect(firstStatement).toMatch(/await require(User|Owner|Session)\(\)/);
       });
     }
   }
@@ -42,6 +42,6 @@ describe("A-05b signed-in pages are guarded", () => {
     const src = readFileSync(file, "utf8");
     // Reads data = imports the db or a server service (actions are guarded by A-05 above).
     if (!/from "@\/db"|from "@\/server\/[\w/]+\/service"/.test(src)) continue;
-    it(`${file} calls requireUser()`, () => expect(src).toMatch(/await requireUser\(\)/));
+    it(`${file} calls requireUser()`, () => expect(src).toMatch(/await require(User|Owner|Session)\(\)/));
   }
 });

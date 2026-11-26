@@ -1,6 +1,9 @@
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { baseColumns } from "./_common";
+
+/** R1: Owner can do everything; Staff can't adjust stock, download backups, see Change history or manage people. */
+export const userRoleEnum = pgEnum("user_role", ["owner", "staff"]);
 
 /** D42: username + password only. Throttle columns implement "repeated wrong passwords are slowed down". */
 export const users = pgTable(
@@ -12,6 +15,9 @@ export const users = pgTable(
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     failedLogins: integer("failed_logins").notNull().default(0),
     lastFailedLoginAt: timestamp("last_failed_login_at", { withTimezone: true }),
+    role: userRoleEnum("role").notNull().default("staff"),
+    /** Set when the app generated the password (new person, reset): changed at next sign-in. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
   },
   (t) => [uniqueIndex("users_username_uq").on(sql`lower(${t.username})`)],
 );
