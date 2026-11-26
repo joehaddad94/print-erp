@@ -112,3 +112,10 @@ Rules:
 - Focus is always visible: a 2px teal outline.
 - Status is never shown by colour alone: badges always have a label.
 - Axe runs on every screen in the e2e suite.
+
+## 8. How UI changes are approved
+
+1. New screens and visual changes are drawn first in the HTML prototype (`/mnt/project-files/3d-printing/design-directions/prototype.html`), on desktop and phone.
+2. Joe approves the rendered prototype before any code is written.
+3. Every UI PR must match the approved prototype and include desktop and phone screenshots of each screen it changes.
+4. Passing the checks (axe, contrast, target size) is necessary, but it is not the bar. The bar is matching the approved design.
