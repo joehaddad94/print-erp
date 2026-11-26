@@ -153,9 +153,12 @@ export default async function HistoryPage({ searchParams }: PageProps<"/history"
           phoneRow={(r) => ({
             title: `${r.item} · ${r.what}`,
             subtitle: `${formatWhen(r.when)}${r.who ? ` · ${r.who}` : ""}${r.reason ? ` · ${r.reason}` : ""}`,
-            trailing: (
-              <span className="text-sm">
-                <Value v={r.before} kind="before" /> → <Value v={r.after} kind="after" />
+            badge: (
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="min-w-0 break-words">
+                  <Value v={r.before} kind="before" /> → <Value v={r.after} kind="after" />
+                </span>
+                {r.restorable ? <RestoreButton id={r.id} back={back} /> : null}
               </span>
             ),
           })}

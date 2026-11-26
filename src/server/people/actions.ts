@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { db } from "@/db";
 import {
   changePassword,
@@ -57,7 +56,7 @@ export async function removePersonAction(_prev: PeopleState, fd: FormData): Prom
   return { version: Date.now() };
 }
 
-export type ChangePasswordState = { error?: string };
+export type ChangePasswordState = { error?: string; done?: boolean };
 
 /** First sign-in (forced) or Settings → Change password. Keeps you signed in with the new password. */
 export async function changePasswordAction(_prev: ChangePasswordState, fd: FormData): Promise<ChangePasswordState> {
@@ -67,5 +66,7 @@ export async function changePasswordAction(_prev: ChangePasswordState, fd: FormD
   const res = await changePassword(db(), me.id, String(fd.get("current") ?? ""), next);
   if (!res.ok) return { error: res.error };
   await startSession(me.id, res.passwordHash);
-  redirect("/");
+  // The form does a full page load to Today: a client redirect can bounce back here, because the
+  // browser cached "/" while it still sent a first sign-in to this screen.
+  return { done: true };
 }

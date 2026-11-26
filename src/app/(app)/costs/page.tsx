@@ -28,7 +28,7 @@ function T({ label, value, kind, href }: { label: string; value: string; kind: K
       <span className="text-sm font-semibold whitespace-nowrap tabular-nums">{value}</span>
     </>
   );
-  const cls = cn("flex min-h-tap flex-col justify-center rounded-md border px-2.5 py-1.5 text-ink", KIND[kind]);
+  const cls = cn("flex min-h-tap min-w-tap flex-col justify-center rounded-md border px-2.5 py-1.5 text-ink", KIND[kind]);
   return href ? (
     <Link href={href} className={cn(cls, "hover:outline-2 hover:outline-action")}>
       {body}
