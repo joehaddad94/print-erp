@@ -87,7 +87,7 @@ Rules:
 
 **Screen patterns** (every screen is one of these):
 
-1. **Dashboard** (Today): a row of stat tiles, then a two-column grid of cards (main table on the left, side cards on the right).
+1. **Dashboard** (Today, a quick look and act page): it must fit one screen on a 1366×768 laptop, with no scrolling. Order: a compact 4-number strip, then a **Needs you** list where each row is the item, the reason, and the one button that clears it (Start print, Deliver, Record payment, Buy, Confirm), then a short **Due this week** list on the right. History such as recent prints doesn't go on Today.
 2. **List** (Orders, Stock, Recipes…): page header, filter row, then a table on desktop or a list of rows on phone.
 3. **Detail** (an order, a recipe…): header with a status badge and actions, then a main column of cards plus a 320px summary panel on the right on desktop (below it on phone).
 4. **Form** (Start print, Add expense…): fields grouped into cards with a small group title. One column. A sticky save bar on phone.
