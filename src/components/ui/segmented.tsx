@@ -1,0 +1,48 @@
+import { cn } from "@/lib/cn";
+
+/**
+ * Segmented choice for 2 to 4 options (USD/LBP, Ran to the end/Stopped early).
+ * Real radio inputs, so it works in a plain <form> and with the keyboard (arrows) without JS.
+ */
+export function Segmented({
+  name,
+  legend,
+  options,
+  defaultValue,
+  onChange,
+}: {
+  name: string;
+  legend: string;
+  options: readonly { value: string; label: string }[];
+  defaultValue?: string;
+  onChange?: (value: string) => void;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="pb-1.5 text-sm font-medium text-ink-soft">{legend}</legend>
+      <div className="inline-flex w-full rounded-md bg-surface-muted p-0.5 sm:w-auto">
+        {options.map((o) => (
+          <label key={o.value} className="flex-1 sm:flex-none">
+            <input
+              type="radio"
+              name={name}
+              value={o.value}
+              defaultChecked={o.value === (defaultValue ?? options[0]?.value)}
+              onChange={onChange ? () => onChange(o.value) : undefined}
+              className="peer sr-only"
+            />
+            <span
+              className={cn(
+                "flex min-h-control cursor-pointer items-center justify-center rounded-sm px-3 text-md font-medium text-ink-muted",
+                "peer-checked:bg-surface peer-checked:text-ink peer-checked:shadow-raised",
+                "peer-focus-visible:outline-2 peer-focus-visible:outline-action",
+              )}
+            >
+              {o.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}

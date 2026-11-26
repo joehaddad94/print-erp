@@ -62,6 +62,8 @@
   /* Lists, tables and dashboards. Content is left-aligned, never centred. */
   --spacing-page: 1200px;
   --spacing-sidebar: 236px;
+  /* Collapsed sidebar: icons only (docs/DESIGN-SYSTEM.md §5). */
+  --spacing-rail: 64px;
   /* Summary panel beside a form or detail on desktop. */
   --spacing-aside: 320px;
 
@@ -120,6 +122,9 @@
     }
   }
 }
+
+/* Sidebar collapsed to its icon rail: set on <html> by railBootScript and RailToggle. */
+@custom-variant rail-collapsed (&:where([data-rail="collapsed"] *));
 
 @layer base {
   html {

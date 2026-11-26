@@ -10,6 +10,8 @@ const variants = {
   secondary: "border border-border-strong bg-surface text-ink hover:bg-surface-muted shadow-raised",
   danger: "border border-danger bg-surface text-danger hover:bg-danger-bg",
   ghost: "bg-transparent text-action hover:bg-action-soft",
+  /** Text-only, for low-weight actions in rows and panels. */
+  quiet: "bg-transparent text-ink-soft hover:bg-surface-muted hover:text-ink",
 } as const;
 
 export type ButtonVariant = keyof typeof variants;

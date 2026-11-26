@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { railBootScript } from "@/lib/ui/sidebar";
 import "./globals.css";
 
 /** Self-hosted at build time by next/font: no request to Google from the browser. */
@@ -22,7 +23,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* Sets the sidebar width before paint, so it never jumps. */}
+        <script dangerouslySetInnerHTML={{ __html: railBootScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );

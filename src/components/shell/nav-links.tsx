@@ -27,9 +27,12 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
       {NAV.map((group, gi) => (
         <div key={group.label} className="flex flex-col gap-0.5">
           {gi > 0 ? (
-            <p className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-rail-muted uppercase">
+            <p className="px-2.5 pt-4 pb-1 text-xs font-semibold tracking-wide text-rail-muted uppercase lg:rail-collapsed:sr-only">
               {group.label}
             </p>
+          ) : null}
+          {gi > 0 ? (
+            <hr aria-hidden="true" className="mx-2.5 my-2 hidden border-rail-border lg:rail-collapsed:block" />
           ) : null}
           {group.items.map((item) => (
             <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />
@@ -42,13 +45,18 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
 
 function SideLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
-    <Link href={item.href} aria-current={active ? "page" : undefined} className={cn(sideLink, active && sideLinkOn)}>
+    <Link
+      href={item.href}
+      title={item.label}
+      aria-current={active ? "page" : undefined}
+      className={cn(sideLink, "lg:rail-collapsed:justify-center lg:rail-collapsed:px-0", active && sideLinkOn)}
+    >
       <Icon
         name={item.icon}
         size={17}
         className={cn("shrink-0", active ? "text-rail-accent" : "text-rail-muted group-hover:text-rail-ink")}
       />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate lg:rail-collapsed:sr-only">{item.label}</span>
     </Link>
   );
 }
