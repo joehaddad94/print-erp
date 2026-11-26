@@ -211,7 +211,7 @@ function MissingLink({ missing, printerId }: { missing: MissingInput; printerId?
   const [text, href] = links[missing];
   return (
     <li>
-      <Link className="inline-flex min-h-tap items-center font-semibold underline" href={href}>
+      <Link className="inline-flex min-h-control items-center font-semibold underline" href={href}>
         {text}
       </Link>
     </li>
@@ -242,12 +242,7 @@ function Select({
 }) {
   return (
     <Field id={id} label={label}>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="control px-3 text-md text-ink"
-      >
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="control px-3 text-ink">
         {children}
       </select>
     </Field>

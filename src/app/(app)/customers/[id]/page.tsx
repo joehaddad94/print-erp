@@ -23,7 +23,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
         <Money amount={c.balanceOwedUsd} />
       </Card>
       <section aria-labelledby="customer-orders" className="flex flex-col gap-2">
-        <h2 id="customer-orders" className="text-lg font-bold">
+        <h2 id="customer-orders" className="text-lg font-semibold">
           Orders
         </h2>
         {c.orders.length ? <OrderRows rows={c.orders} /> : <EmptyState title="No orders yet" />}
@@ -43,7 +43,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
         </ActionForm>
       </Card>
       <section aria-labelledby="customer-history" className="flex flex-col gap-2">
-        <h2 id="customer-history" className="text-lg font-bold">
+        <h2 id="customer-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

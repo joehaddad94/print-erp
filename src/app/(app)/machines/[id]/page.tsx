@@ -73,7 +73,7 @@ export default async function MachinePage({ params }: PageProps<"/machines/[id]"
         </ActionForm>
       </Card>
       <section aria-labelledby="machine-history" className="flex flex-col gap-2">
-        <h2 id="machine-history" className="text-lg font-bold">
+        <h2 id="machine-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

@@ -66,7 +66,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
           <span>
             {o.customer ? (
               <Link
-                className="inline-flex min-h-tap items-center font-semibold underline"
+                className="inline-flex min-h-control items-center font-semibold underline"
                 href={`/customers/${o.customer.id}`}
               >
                 {o.customer.name}
@@ -112,7 +112,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
       </Card>
 
       <section aria-labelledby="lines" className="flex flex-col gap-2">
-        <h2 id="lines" className="text-lg font-bold">
+        <h2 id="lines" className="text-lg font-semibold">
           Items
         </h2>
         {o.lines.length === 0 ? <p className="text-sm text-ink-muted">No items yet.</p> : null}
@@ -150,7 +150,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
                   Reserved {l.qtyReserved} of {l.quantity} · {Math.max(0, l.available)} more available
                 </p>
                 <details>
-                  <summary className="flex min-h-tap cursor-pointer items-center text-sm font-semibold text-action">
+                  <summary className="flex min-h-control cursor-pointer items-center text-sm font-semibold text-action">
                     Edit line
                   </summary>
                   <div className="flex flex-col gap-3 pt-2">
@@ -201,7 +201,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
 
       {open ? (
         <Card className="flex flex-col gap-3">
-          <h2 className="text-lg font-bold">Stock and delivery</h2>
+          <h2 className="text-lg font-semibold">Stock and delivery</h2>
           {!o.fullyReserved && o.lines.length ? (
             <form action={reserveAction.bind(null, o.id)}>
               <Button type="submit" variant="secondary" block>
@@ -234,7 +234,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
       ) : null}
 
       <section aria-labelledby="payments" className="flex flex-col gap-2">
-        <h2 id="payments" className="text-lg font-bold">
+        <h2 id="payments" className="text-lg font-semibold">
           Payments
         </h2>
         {o.payments.map((p) => (
@@ -294,7 +294,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
 
       {open ? (
         <Card className="flex flex-col gap-3">
-          <h2 className="text-lg font-bold">Status</h2>
+          <h2 className="text-lg font-semibold">Status</h2>
           <div className="flex flex-wrap gap-2">
             {OPEN_STATUSES.map((st) => (
               <form key={st} action={setStatusAction.bind(null, o.id, st)}>
@@ -314,7 +314,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
 
       {o.status !== "delivered" ? (
         <details>
-          <summary className="flex min-h-tap cursor-pointer items-center text-sm font-semibold text-action">
+          <summary className="flex min-h-control cursor-pointer items-center text-sm font-semibold text-action">
             Edit order details
           </summary>
           <Card className="mt-2 flex flex-col gap-3">
@@ -348,7 +348,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
       ) : null}
 
       <section aria-labelledby="order-history" className="flex flex-col gap-2">
-        <h2 id="order-history" className="text-lg font-bold">
+        <h2 id="order-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

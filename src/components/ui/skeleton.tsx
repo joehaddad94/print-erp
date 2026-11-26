@@ -12,7 +12,7 @@ export function PageSkeleton({ rows = 5 }: { rows?: number }) {
       <span className="sr-only">Loading…</span>
       <div className="flex items-center justify-between gap-4">
         <Skeleton className="h-7 w-44" />
-        <Skeleton className="h-tap w-32 rounded-md" />
+        <Skeleton className="h-control w-32 rounded-md" />
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         {Array.from({ length: rows }, (_, i) => (

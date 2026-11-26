@@ -1,7 +1,7 @@
 export { Badge, type Tone } from "./badge";
 export { Button, Spinner, buttonClass, type ButtonVariant } from "./button";
 export { Callout } from "./callout";
-export { Card } from "./card";
+export { Card, Panel } from "./card";
 export { Field, Input } from "./field";
 export { EditedMarker, HistoryList, formatWhen } from "./history";
 export { Link } from "./link";

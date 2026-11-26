@@ -30,7 +30,7 @@ export default async function CustomersPage() {
         </List>
       )}
       <Card>
-        <h2 className="pb-3 text-lg font-bold">Add customer</h2>
+        <h2 className="pb-3 text-lg font-semibold">Add customer</h2>
         <ActionForm action={saveCustomerAction.bind(null, null)} submitLabel="Add customer">
           <TextField name="name" label="Name" />
           <div className="grid grid-cols-2 gap-3">

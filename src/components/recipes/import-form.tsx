@@ -87,7 +87,7 @@ export function ImportForm({
           <Callout tone="warning" title="Same file">
             This file is already{" "}
             <Link
-              className="inline-flex min-h-tap items-center font-semibold underline"
+              className="inline-flex min-h-control items-center font-semibold underline"
               href={`/recipes/${imp.duplicate.id}`}
             >
               {imp.duplicate.name} v{imp.duplicate.version}

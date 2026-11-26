@@ -20,9 +20,9 @@ export function Callout({
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
-      className={cn("rounded-md border-l-4 px-4 py-3 text-sm", tones[tone])}
+      className={cn("rounded-md border-l-3 px-4 py-3 text-sm", tones[tone])}
     >
-      {title ? <p className="font-bold">{title}</p> : null}
+      {title ? <p className="font-semibold">{title}</p> : null}
       <div>{children}</div>
     </div>
   );

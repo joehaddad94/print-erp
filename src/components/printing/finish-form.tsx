@@ -174,12 +174,12 @@ export function FinishForm({
         </Field>
       ))}
 
-      <label className="flex min-h-tap items-center gap-3 text-md">
+      <label className="flex min-h-control items-center gap-3 text-md">
         <input
           type="checkbox"
           name="powerCut"
           defaultChecked={v("powerCut", defaults.powerCut ? "on" : "") === "on"}
-          className="size-tap shrink-0 accent-action"
+          className="size-control shrink-0 accent-action"
         />
         Power cut during the print
       </label>

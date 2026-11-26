@@ -88,7 +88,7 @@ export function SelectField({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
         onChange={(e) => onValueChange?.(e.target.value)}
-        className={cn("control px-3 text-md text-ink", error && "border-danger")}
+        className={cn("control px-3 text-ink", error && "border-danger")}
       >
         {placeholder != null ? <option value="">{placeholder}</option> : null}
         {options.map((o) => (
@@ -112,7 +112,7 @@ export function TextareaField({ name, label, hint }: Base) {
         name={name}
         rows={3}
         defaultValue={defaultValue}
-        className="control px-3 py-2 text-md text-ink"
+        className="control px-3 py-2 text-ink"
       />
     </Field>
   );

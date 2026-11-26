@@ -11,7 +11,7 @@ export function Money({
   rateToUsd?: number;
 }) {
   return (
-    <span className="font-bold tabular-nums">
+    <span className="font-medium tabular-nums">
       {formatMoney(amount, currency)}
       {currency !== "USD" && rateToUsd ? (
         <small className="block text-xs font-normal text-ink-muted">≈ {formatMoney(amount * rateToUsd, "USD")}</small>

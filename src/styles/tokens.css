@@ -1,6 +1,6 @@
 /*
- * Design tokens — v0.8 "calm" palette (Nov 25 2026 redesign): neutral greys,
- * one blue accent for actions, tones only for status.
+ * Design tokens — "Workshop" (Nov 26 2026, docs/DESIGN-SYSTEM.md): warm neutrals,
+ * a dark sidebar ("rail"), one teal accent for actions, tones only for status.
  *
  * Tier 1 (raw palette) is private to this file: components never use it.
  * Tier 2 (semantic tokens) is what Tailwind exposes, via @theme in globals.css.
@@ -9,38 +9,45 @@
  */
 :root {
   /* Tier 1: raw palette */
-  --raw-blue-600: #3b5bdb;
-  --raw-blue-700: #3249b8;
-  --raw-blue-50: #edf1fd;
-  --raw-green-700: #17744a;
-  --raw-green-50: #e7f6ee;
-  --raw-amber-700: #9a5b00;
-  --raw-amber-50: #fdf3e1;
-  --raw-red-700: #c0262d;
-  --raw-red-50: #fdecec;
-  --raw-gray-25: #f6f7f9;
-  --raw-gray-50: #f1f3f5;
-  --raw-gray-100: #eef0f3;
-  --raw-gray-200: #e3e6ea;
-  --raw-gray-400: #8d95a3;
-  --raw-gray-600: #4b5563;
-  --raw-gray-700: #374151;
-  --raw-gray-900: #111827;
+  --raw-teal-700: #0f766e;
+  --raw-teal-800: #115e59;
+  --raw-teal-50: #e6f4f2;
+  --raw-teal-300: #5eead4;
+  --raw-green-700: #15723f;
+  --raw-green-50: #e9f6ee;
+  --raw-amber-700: #94560a;
+  --raw-amber-50: #fbf3e2;
+  --raw-red-700: #b42318;
+  --raw-red-50: #fcefed;
+  --raw-blue-700: #2952b3;
+  --raw-blue-50: #ebf0fb;
+  --raw-stone-50: #f4f4f2;
+  --raw-stone-100: #efeeeb;
+  --raw-stone-150: #e9e7e4;
+  --raw-stone-200: #e7e5e2;
+  --raw-stone-400: #8f8984;
+  --raw-stone-600: #5f5a55;
+  --raw-stone-700: #44403c;
+  --raw-stone-900: #1c1917;
+  --raw-char-900: #1c1f22;
+  --raw-char-800: #2c3136;
+  --raw-char-200: #c9cdd1;
+  --raw-char-400: #8b9298;
 
   /* Tier 2: semantic */
-  --bg: var(--raw-gray-25);
+  --bg: var(--raw-stone-50);
   --surface: #fff;
-  --surface-muted: var(--raw-gray-50);
-  --ink: var(--raw-gray-900);
-  --ink-soft: var(--raw-gray-700);
-  --ink-muted: var(--raw-gray-600);
-  --border: var(--raw-gray-200);
+  --surface-muted: var(--raw-stone-100);
+  --ink: var(--raw-stone-900);
+  --ink-soft: var(--raw-stone-700);
+  --ink-muted: var(--raw-stone-600);
+  --border: var(--raw-stone-200);
   /* Input and secondary-button outlines: ≥3:1 against surface (WCAG 1.4.11). */
-  --border-strong: var(--raw-gray-400);
-  --action: var(--raw-blue-600);
-  --action-hover: var(--raw-blue-700);
+  --border-strong: var(--raw-stone-400);
+  --action: var(--raw-teal-700);
+  --action-hover: var(--raw-teal-800);
   --action-ink: #fff;
-  --action-soft: var(--raw-blue-50);
+  --action-soft: var(--raw-teal-50);
   --on-tone: #fff;
   --tone-success: var(--raw-green-700);
   --tone-success-bg: var(--raw-green-50);
@@ -48,83 +55,106 @@
   --tone-warning-bg: var(--raw-amber-50);
   --tone-danger: var(--raw-red-700);
   --tone-danger-bg: var(--raw-red-50);
-  --tone-info: var(--raw-blue-600);
+  --tone-info: var(--raw-blue-700);
   --tone-info-bg: var(--raw-blue-50);
-  --tone-neutral: var(--raw-gray-600);
-  --tone-neutral-bg: var(--raw-gray-100);
+  --tone-neutral: var(--raw-stone-600);
+  --tone-neutral-bg: var(--raw-stone-100);
   --ch-wa: #0b6b38;
   --ch-wa-bg: #dcf5e4;
   --ch-ig: #a3245f;
   --ch-ig-bg: #fbe1ef;
-  --skeleton: var(--raw-gray-100);
+  --skeleton: var(--raw-stone-150);
+  /* The rail: desktop sidebar, phone top bar and tab bar. Dark in both themes. */
+  --rail: var(--raw-char-900);
+  --rail-ink: var(--raw-char-200);
+  --rail-strong: #fff;
+  --rail-muted: var(--raw-char-400);
+  --rail-active: var(--raw-char-800);
+  --rail-border: var(--raw-char-800);
+  --rail-accent: var(--raw-teal-300);
+
+  /* Control height (buttons, inputs, nav rows): 44px for touch, 36px with a mouse on desktop. */
+  --control-h: 44px;
 
   color-scheme: light;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  :root {
+    --control-h: 36px;
+  }
 }
 
 /* Dark values, applied by OS preference unless the user forced light. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1115;
-    --surface: #171a21;
-    --surface-muted: #1c2028;
-    --ink: #e8eaef;
-    --ink-soft: #c9ced8;
-    --ink-muted: #9aa3b2;
-    --border: #2a2f3a;
-    --border-strong: #6b7385;
-    --action: #7b93ff;
-    --action-hover: #9aacff;
-    --action-ink: #0b1020;
-    --action-soft: #1d2540;
-    --on-tone: #0f1115;
+    --bg: #121416;
+    --surface: #1a1d20;
+    --surface-muted: #22262a;
+    --ink: #ecebe8;
+    --ink-soft: #c9c6c1;
+    --ink-muted: #9c9893;
+    --border: #2a2e33;
+    --border-strong: #6b6f75;
+    --action: #2dd4bf;
+    --action-hover: #5eead4;
+    --action-ink: #042f2e;
+    --action-soft: #123532;
+    --on-tone: #121416;
     --tone-success: #5ccf8a;
-    --tone-success-bg: #14291e;
+    --tone-success-bg: #13281c;
     --tone-warning: #f0b04a;
     --tone-warning-bg: #33270f;
-    --tone-danger: #ff6b6b;
-    --tone-danger-bg: #3a1a1a;
-    --tone-info: #6aa5ff;
-    --tone-info-bg: #17253b;
-    --tone-neutral: #a3abb8;
-    --tone-neutral-bg: #262b35;
+    --tone-danger: #ff7b6e;
+    --tone-danger-bg: #3a1b18;
+    --tone-info: #7fa8ff;
+    --tone-info-bg: #18233a;
+    --tone-neutral: #a8a49f;
+    --tone-neutral-bg: #262a2e;
     --ch-wa: #5fd394;
     --ch-wa-bg: #12301f;
     --ch-ig: #f08cbc;
     --ch-ig-bg: #3a1528;
-    --skeleton: #232833;
+    --skeleton: #262a2e;
+    --rail: #0c0d0f;
+    --rail-active: #22262a;
+    --rail-border: #22262a;
     color-scheme: dark;
   }
 }
 
 /* Same dark values when forced with data-theme="dark". Keep in sync with the block above. */
 :root[data-theme="dark"] {
-  --bg: #0f1115;
-  --surface: #171a21;
-  --surface-muted: #1c2028;
-  --ink: #e8eaef;
-  --ink-soft: #c9ced8;
-  --ink-muted: #9aa3b2;
-  --border: #2a2f3a;
-  --border-strong: #6b7385;
-  --action: #7b93ff;
-  --action-hover: #9aacff;
-  --action-ink: #0b1020;
-  --action-soft: #1d2540;
-  --on-tone: #0f1115;
+  --bg: #121416;
+  --surface: #1a1d20;
+  --surface-muted: #22262a;
+  --ink: #ecebe8;
+  --ink-soft: #c9c6c1;
+  --ink-muted: #9c9893;
+  --border: #2a2e33;
+  --border-strong: #6b6f75;
+  --action: #2dd4bf;
+  --action-hover: #5eead4;
+  --action-ink: #042f2e;
+  --action-soft: #123532;
+  --on-tone: #121416;
   --tone-success: #5ccf8a;
-  --tone-success-bg: #14291e;
+  --tone-success-bg: #13281c;
   --tone-warning: #f0b04a;
   --tone-warning-bg: #33270f;
-  --tone-danger: #ff6b6b;
-  --tone-danger-bg: #3a1a1a;
-  --tone-info: #6aa5ff;
-  --tone-info-bg: #17253b;
-  --tone-neutral: #a3abb8;
-  --tone-neutral-bg: #262b35;
+  --tone-danger: #ff7b6e;
+  --tone-danger-bg: #3a1b18;
+  --tone-info: #7fa8ff;
+  --tone-info-bg: #18233a;
+  --tone-neutral: #a8a49f;
+  --tone-neutral-bg: #262a2e;
   --ch-wa: #5fd394;
   --ch-wa-bg: #12301f;
   --ch-ig: #f08cbc;
   --ch-ig-bg: #3a1528;
-  --skeleton: #232833;
+  --skeleton: #262a2e;
+  --rail: #0c0d0f;
+  --rail-active: #22262a;
+  --rail-border: #22262a;
   color-scheme: dark;
 }

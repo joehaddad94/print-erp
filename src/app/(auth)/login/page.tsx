@@ -13,7 +13,7 @@ export default function LoginPage() {
           <span className="grid size-8 place-items-center rounded-md bg-action text-action-ink">
             <Icon name="machines" size={18} />
           </span>
-          <h1 className="text-lg font-bold">Print Shop</h1>
+          <h1 className="text-lg font-semibold">Print Shop</h1>
         </div>
         <LoginForm />
       </Card>

@@ -44,7 +44,7 @@ export default async function EditExpensePage({ params }: PageProps<"/expenses/[
         </Button>
       </form>
       <section aria-labelledby="expense-history" className="flex flex-col gap-2">
-        <h2 id="expense-history" className="text-lg font-bold">
+        <h2 id="expense-history" className="text-lg font-semibold">
           History
         </h2>
         <HistoryList entries={history} />

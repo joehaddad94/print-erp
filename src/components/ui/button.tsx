@@ -6,8 +6,8 @@ import { cn } from "@/lib/cn";
  * or quiet. Danger is outlined so a destructive action never looks like the default.
  */
 const variants = {
-  primary: "bg-action text-action-ink hover:bg-action-hover shadow-raised",
-  secondary: "border border-border-strong bg-surface text-ink hover:bg-surface-muted",
+  primary: "bg-action text-action-ink hover:bg-action-hover",
+  secondary: "border border-border-strong bg-surface text-ink hover:bg-surface-muted shadow-raised",
   danger: "border border-danger bg-surface text-danger hover:bg-danger-bg",
   ghost: "bg-transparent text-action hover:bg-action-soft",
 } as const;
@@ -20,7 +20,7 @@ export type ButtonVariant = keyof typeof variants;
  */
 export const buttonClass = (variant: ButtonVariant = "primary", block = false) =>
   cn(
-    "inline-flex min-h-tap min-w-tap cursor-pointer items-center justify-center gap-2 rounded-md px-4 py-2 text-center text-md font-semibold",
+    "inline-flex min-h-control min-w-control cursor-pointer items-center justify-center gap-1.5 rounded-md px-3.5 py-1.5 text-center text-md font-medium",
     "disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
     variants[variant],
     block && "w-full sm:w-auto sm:self-start",
@@ -61,7 +61,7 @@ export function Spinner() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+      className="inline-block size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
     />
   );
 }

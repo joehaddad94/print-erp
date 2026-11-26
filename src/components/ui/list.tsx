@@ -27,9 +27,9 @@ export function ListRow({
   badge?: ReactNode;
 }) {
   const body = (
-    <div className="flex min-h-tap items-center gap-4 px-4 py-3">
+    <div className="flex min-h-13 items-center gap-4 px-4 py-2.5 lg:min-h-12">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{title}</p>
+        <p className="truncate font-medium">{title}</p>
         {subtitle ? <p className="text-sm text-ink-muted">{subtitle}</p> : null}
         {badge ? <div className="pt-1">{badge}</div> : null}
       </div>
@@ -51,8 +51,8 @@ export function ListRow({
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border-strong bg-surface px-4 py-6">
-      <p className="font-semibold">{title}</p>
+    <div className="rounded-lg border border-border bg-surface px-4 py-5">
+      <p className="font-medium text-ink-soft">{title}</p>
       {children ? <div className="pt-1 text-sm text-ink-muted">{children}</div> : null}
     </div>
   );
@@ -72,7 +72,7 @@ export function PageHeader({
     <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
       <div className="min-w-0">
         <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-        {description ? <p className="pt-1 text-ink-muted">{description}</p> : null}
+        {description ? <p className="pt-0.5 text-sm text-ink-muted">{description}</p> : null}
       </div>
       {action ? <div className="flex flex-wrap gap-2">{action}</div> : null}
     </div>

@@ -28,7 +28,7 @@ export default async function StockPage() {
         if (!items.length) return null;
         return (
           <section key={type} aria-labelledby={`stock-${type}`} className="flex flex-col gap-2">
-            <h2 id={`stock-${type}`} className="text-lg font-bold">
+            <h2 id={`stock-${type}`} className="text-lg font-semibold">
               {title}
             </h2>
             <List label={title}>

@@ -73,6 +73,12 @@ const PAIRS: [string, string][] = [
   ["ink", "tone-success-bg"],
   ["ch-wa", "ch-wa-bg"],
   ["ch-ig", "ch-ig-bg"],
+  ["rail-ink", "rail"],
+  ["rail-muted", "rail"],
+  ["rail-strong", "rail-active"],
+  ["rail-ink", "rail-active"],
+  ["rail-accent", "rail"],
+  ["action-ink", "action"],
 ];
 
 /** Non-text UI (input and secondary-button outlines): WCAG 1.4.11 needs 3:1. */
