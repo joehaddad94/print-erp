@@ -59,6 +59,7 @@ No local database or server is started in this mode.
 | `load.spec.ts` | 40 concurrent screen loads and 50 health checks must all answer fast (pool leaks, hangs) |
 | `smoke.spec.ts` | `@smoke` read-only subset for live |
 | `m2`–`m7.spec.ts` | milestone acceptance tests (IDs from docs/IMPLEMENTATION-PLAN.md) |
+| `redesign.spec.ts` | R10: the Workshop redesign end to end: staff with a one-time password and owner-only screens (R1), Restore (R2), Take from a later order (R4), monthly running costs (R7), How costs work on a real print (R9). Full backup .zip (R8) is in `m7.spec.ts` |
 
 Timeouts are tight on purpose (45 s per test, 15 s per navigation, 10 s per action, 8 s per assertion): a
 page that hangs fails in seconds instead of waiting for Vercel's 300 s limit.

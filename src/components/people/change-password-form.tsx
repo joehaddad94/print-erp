@@ -1,11 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { Button, Callout, Field, Input } from "@/components/ui";
 import { changePasswordAction, type ChangePasswordState } from "@/server/people/actions";
 
 export function ChangePasswordForm({ username }: { username: string }) {
   const [state, action, pending] = useActionState<ChangePasswordState, FormData>(changePasswordAction, {});
+  useEffect(() => {
+    if (state.done) window.location.replace("/");
+  }, [state.done]);
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
       {state.error ? <Callout tone="danger">{state.error}</Callout> : null}
@@ -21,7 +24,7 @@ export function ChangePasswordForm({ username }: { username: string }) {
         <Input id="confirm" name="confirm" type="password" autoComplete="new-password" required />
       </Field>
       <Button type="submit" pending={pending}>
-        {pending ? "Saving…" : "Save password"}
+        {pending || state.done ? "Saving…" : "Save password"}
       </Button>
     </form>
   );

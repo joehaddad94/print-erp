@@ -32,7 +32,16 @@ test.describe("@smoke", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible({ timeout: PAGE_BUDGET_MS * 2 });
     const timings: string[] = [];
-    for (const path of [...ALL_ITEMS.map((i) => i.href), "/more", "/orders/new", "/expenses/new", "/products/new"]) {
+    for (const path of [
+      ...ALL_ITEMS.map((i) => i.href),
+      "/more",
+      "/orders/new",
+      "/customers/new",
+      "/purchases/new",
+      "/expenses/new",
+      "/suppliers/new",
+      "/products/new",
+    ]) {
       timings.push(`${path} ${await openScreen(page, path, PAGE_BUDGET_MS * 2)} ms`);
     }
     console.log(timings.join("\n"));
