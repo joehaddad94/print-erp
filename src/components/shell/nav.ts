@@ -35,7 +35,6 @@ export const NAV: NavGroup[] = [
       { href: "/recipes", label: "Recipes", icon: "recipes", milestone: "M3" },
       { href: "/stock", label: "Stock", icon: "stock", milestone: "M6", phone: true },
       // Replaced by Adjust stock on the Stock screen in R6.
-      { href: "/weigh", label: "Weigh filament", icon: "weigh", milestone: "M4" },
       { href: "/assemble", label: "Assemble", icon: "assemble", milestone: "M6" },
       { href: "/machines", label: "Machines", icon: "machines", milestone: "M2" },
     ],

@@ -26,7 +26,7 @@ const STATIC = [
   "/expenses/new",
   "/suppliers",
   "/calculator",
-  "/weigh",
+  "/stock/adjust",
   "/assemble",
   "/history",
   "/history?area=sales",

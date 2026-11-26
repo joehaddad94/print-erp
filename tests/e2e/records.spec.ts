@@ -326,7 +326,7 @@ test.describe("prints", () => {
     await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
     await expect(page.getByText(/waste \$/).first()).toBeVisible();
     await page.goto("/stock");
-    await expect(page.getByRole("listitem").filter({ hasText: s.recipe.replace(" · v1", "") })).toHaveCount(0);
+    await expect(page.locator(":is(tr, li):visible").filter({ hasText: s.recipe.replace(" · v1", "") })).toHaveCount(0);
   });
 
   test("busy printer can't start twice even if the form is posted twice", async ({ page }, info) => {
@@ -341,11 +341,11 @@ test.describe("prints", () => {
 });
 
 test.describe("weigh and assemble validation", () => {
-  test("weigh-in needs a filament, an empty-spool weight and a reading", async ({ page }) => {
+  test("Adjust stock needs an item; Weigh filament now opens Adjust stock", async ({ page }) => {
     await page.goto("/weigh");
-    await page.getByRole("button", { name: "Save weigh-in" }).click();
-    await expect(page.getByRole("alert").or(page.locator("[id$=-error]")).first()).toBeVisible();
-    await expect(page).toHaveURL(/\/weigh$/);
+    await expect(page).toHaveURL(/\/stock\/adjust$/);
+    await page.getByRole("button", { name: "Save adjustment" }).click();
+    await expect(page.getByText("Choose a stock item")).toBeVisible();
   });
 
   test("assemble needs a whole number", async ({ page }, info) => {

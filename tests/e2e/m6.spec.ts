@@ -36,10 +36,10 @@ test("B-02 short parts warn but the save is allowed; negative stock shows in red
   await expect(page.getByText("Saved: 2 made. Parts taken out of stock.")).toBeVisible();
 
   await page.goto("/stock");
-  const leg = page.getByRole("listitem").filter({ hasText: `Leg ${tag}` });
+  const leg = page.locator(":is(tr, li):visible").filter({ hasText: `Leg ${tag}` });
   await expect(leg).toContainText("-1 pcs");
   await expect(leg.locator(".text-danger")).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: `Stand ${tag}` })).toContainText("2 pcs");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: `Stand ${tag}` })).toContainText("2 pcs");
   await checkPage(page);
 });
 
