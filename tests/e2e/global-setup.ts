@@ -4,6 +4,7 @@ import postgres from "postgres";
 import * as schema from "@/db/schema";
 import { seed } from "@/db/seed";
 import { setPassword } from "@/server/auth/service";
+import { setSetting } from "@/server/settings/service";
 import { E2E_DB, E2E_UPLOAD_DIR, E2E_USER } from "../../playwright.config";
 import { freshDatabase } from "../support/pg";
 
@@ -14,6 +15,9 @@ export default async function setup() {
   const client = postgres(url, { max: 1, onnotice: () => {} });
   const db = drizzle(client, { schema });
   await seed(db);
+  // Every spec expects the allowance method (e.g. $0.87 per piece). Without this, whichever spec
+  // runs after the suite's 20th finished print sees the "actual" method instead.
+  await setSetting(db, "failure_actual_after_prints", 100_000);
   await setPassword(db, E2E_USER.username, E2E_USER.password);
   await client.end();
 }

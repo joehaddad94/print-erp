@@ -13,6 +13,7 @@ import {
   stockMovements,
 } from "@/db/schema";
 import { softDeleteLogged, type Tx } from "@/server/edits/engine";
+import { allocate } from "@/server/orders/allocate";
 import { currentAverage, onHand, recordMovement } from "@/server/stock/ledger";
 
 type Db = PostgresJsDatabase<typeof schema>;
@@ -165,6 +166,7 @@ export async function assemble(
       unitCostUsd: unitCost,
       labourMinutesPerUnit: minutes,
     });
+    await allocate(tx, i.productId);
     return a!;
   });
 }

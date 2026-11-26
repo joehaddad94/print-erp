@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { lastEdited, softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
 import { currentAverage, recordMovement } from "@/server/stock/ledger";
+import { allocate } from "./allocate";
 
 type Db = PostgresJsDatabase<typeof schema>;
 
@@ -30,6 +31,15 @@ export class OrderError extends Error {
 export const ORDER_STATUSES = ["quoted", "confirmed", "printing", "ready", "delivered", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const OPEN_STATUSES = ["quoted", "confirmed", "printing", "ready"] as const;
+/** R4: the only statuses set by hand. "Ready" is worked out (every item reserved); delivered comes from Deliver. */
+export const SETTABLE_STATUSES = ["quoted", "confirmed"] as const;
+export type SettableStatus = (typeof SETTABLE_STATUSES)[number] | "cancelled";
+
+/** R4 status shown to people: a confirmed order with every item reserved reads "Ready". */
+export function shownStatus(o: { status: OrderStatus; needToPrint: number; lineCount?: number }): string {
+  if (o.status === "confirmed" && o.needToPrint === 0 && (o.lineCount ?? 1) > 0) return "Ready";
+  return STATUS_LABELS[o.status];
+}
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   quoted: "Quoted",
   confirmed: "Confirmed",
@@ -162,6 +172,8 @@ export async function listOrders(db: Db, filter: { customerId?: number } = {}) {
       paymentState: orderBalance.paymentState,
       needToPrint: sql<number>`(select coalesce(sum(oi.quantity - oi.qty_reserved), 0)::int from order_items oi
         where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
+      lineCount: sql<number>`(select count(*)::int from order_items oi
+        where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
     })
     .from(orders)
     .leftJoin(customers, eq(customers.id, orders.customerId))
@@ -214,6 +226,7 @@ export async function addLine(db: Db, orderId: number, i: LineInput) {
       .insert(orderItems)
       .values({ orderId, productId: p.id, quantity: i.quantity, unitPrice, customization: i.customization })
       .returning({ id: orderItems.id });
+    if (o.status === "confirmed") await reserveLines(tx, orderId);
     return line!.id;
   });
 }
@@ -222,8 +235,9 @@ export async function updateLine(db: Db, lineId: number, i: Omit<LineInput, "pro
   return db.transaction(async (tx) => {
     const [line] = await tx.select().from(orderItems).where(eq(orderItems.id, lineId));
     if (!line || line.deletedAt) throw new OrderError("That line no longer exists.");
-    assertOpen(await lockOrder(tx, line.orderId));
-    return updateLogged(
+    const o = await lockOrder(tx, line.orderId);
+    assertOpen(o);
+    const changed = await updateLogged(
       tx,
       orderItems,
       lineId,
@@ -235,6 +249,10 @@ export async function updateLine(db: Db, lineId: number, i: Omit<LineInput, "pro
       },
       { userId },
     );
+    // Fewer pieces: the freed ones go to the next order. More: this order takes what's free.
+    if (i.quantity < line.qtyReserved) await allocate(tx, line.productId, userId);
+    if (o.status === "confirmed") await reserveLines(tx, line.orderId, userId);
+    return changed;
   });
 }
 
@@ -244,6 +262,7 @@ export async function deleteLine(db: Db, lineId: number, userId?: number) {
     if (!line || line.deletedAt) return;
     assertOpen(await lockOrder(tx, line.orderId));
     await softDeleteLogged(tx, orderItems, lineId, { userId });
+    if (line.qtyReserved > 0) await allocate(tx, line.productId, userId);
   });
 }
 
@@ -261,8 +280,13 @@ async function productStockId(tx: Tx | Db, productId: number) {
  */
 export async function reserve(db: Db, orderId: number, userId?: number) {
   return db.transaction(async (tx) => {
-    const o = await lockOrder(tx, orderId);
-    assertOpen(o);
+    assertOpen(await lockOrder(tx, orderId));
+    return reserveLines(tx, orderId, userId);
+  });
+}
+
+async function reserveLines(tx: Tx, orderId: number, userId?: number) {
+  {
     const lines = await tx
       .select()
       .from(orderItems)
@@ -290,17 +314,87 @@ export async function reserve(db: Db, orderId: number, userId?: number) {
       }
     }
     return reserved;
-  });
+  }
 }
 
-/** Quoted → Confirmed → Printing → Ready (by hand). Cancel releases reservations (O-06). */
-export async function setStatus(db: Db, orderId: number, status: Exclude<OrderStatus, "delivered">, userId?: number) {
+/**
+ * R4: Quoted holds no stock; Confirmed reserves what's free right away. Cancel or back to Quoted
+ * releases its pieces to the next order due (O-06).
+ */
+export async function setStatus(db: Db, orderId: number, status: SettableStatus, userId?: number) {
   return db.transaction(async (tx) => {
     const o = await lockOrder(tx, orderId);
     if (o.status === "delivered") throw new OrderError("A delivered order can't change status.");
-    if (status === "cancelled") await releaseAll(tx, orderId, userId);
     await updateLogged(tx, orders, orderId, { status }, { userId });
+    if (status === "confirmed") await reserveLines(tx, orderId, userId);
+    else await releaseAll(tx, orderId, userId);
   });
+}
+
+/**
+ * R4 "Take N from #order": move reserved pieces of the same product from another open order
+ * (usually one due later) to this line. Returns how many moved.
+ */
+export async function takeFrom(db: Db, lineId: number, fromLineId: number, userId?: number) {
+  return db.transaction(async (tx) => {
+    const [to] = await tx.select().from(orderItems).where(eq(orderItems.id, lineId));
+    const [from] = await tx.select().from(orderItems).where(eq(orderItems.id, fromLineId));
+    if (!to || to.deletedAt || !from || from.deletedAt) throw new OrderError("That item no longer exists.");
+    if (to.productId !== from.productId || to.orderId === from.orderId)
+      throw new OrderError("Pieces can only move between orders of the same product.");
+    const [a, b] = to.orderId < from.orderId ? [to.orderId, from.orderId] : [from.orderId, to.orderId];
+    const first = await lockOrder(tx, a);
+    const second = await lockOrder(tx, b);
+    for (const o of [first, second]) assertOpen(o);
+    const n = Math.min(to.quantity - to.qtyReserved, from.qtyReserved);
+    if (n <= 0) return 0;
+    await updateLogged(
+      tx,
+      orderItems,
+      from.id,
+      { qtyReserved: from.qtyReserved - n },
+      { userId, reason: `moved to #${to.orderId}` },
+    );
+    await updateLogged(
+      tx,
+      orderItems,
+      to.id,
+      { qtyReserved: to.qtyReserved + n },
+      { userId, reason: `taken from #${from.orderId}` },
+    );
+    return n;
+  });
+}
+
+/** R4: for each line still short, the other open order holding the most reserved pieces of it, due last. */
+export async function donorsFor(db: Db, orderId: number) {
+  const rows = await db
+    .select({
+      toLineId: sql<number>`t.id`,
+      fromLineId: orderItems.id,
+      fromOrderId: orderItems.orderId,
+      dueOn: orders.dueOn,
+      reserved: orderItems.qtyReserved,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orders.id, orderItems.orderId))
+    .innerJoin(
+      sql`order_items t`,
+      sql`t.product_id = ${orderItems.productId} and t.order_id = ${orderId} and t.deleted_at is null and t.quantity > t.qty_reserved`,
+    )
+    .where(
+      and(
+        isNull(orderItems.deletedAt),
+        isNull(orders.deletedAt),
+        sql`${orderItems.orderId} <> ${orderId}`,
+        sql`${orderItems.qtyReserved} > 0`,
+        inArray(orders.status, ["quoted", "confirmed", "printing", "ready"]),
+      ),
+    )
+    .orderBy(sql`${orders.dueOn} desc nulls first`, desc(orders.id));
+  const out = new Map<number, { fromLineId: number; fromOrderId: number; dueOn: string | null; reserved: number }>();
+  for (const { toLineId, ...r } of rows) if (!out.has(Number(toLineId))) out.set(Number(toLineId), r);
+  return out;
 }
 
 async function releaseAll(tx: Tx, orderId: number, userId?: number) {
@@ -310,14 +404,16 @@ async function releaseAll(tx: Tx, orderId: number, userId?: number) {
     .where(and(eq(orderItems.orderId, orderId), isNull(orderItems.deletedAt)));
   for (const l of lines)
     if (l.qtyReserved > 0) await updateLogged(tx, orderItems, l.id, { qtyReserved: 0 }, { userId, reason: "release" });
+  for (const productId of new Set(lines.filter((l) => l.qtyReserved > 0).map((l) => l.productId)))
+    await allocate(tx, productId, userId);
 }
 
 export async function deleteOrder(db: Db, orderId: number, userId?: number) {
   return db.transaction(async (tx) => {
     const o = await lockOrder(tx, orderId);
     if (o.status === "delivered") throw new OrderError("A delivered order can't be deleted. Its stock has left.");
-    await releaseAll(tx, orderId, userId);
     await softDeleteLogged(tx, orders, orderId, { userId });
+    await releaseAll(tx, orderId, userId);
   });
 }
 

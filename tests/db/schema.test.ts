@@ -73,7 +73,7 @@ describe("F-01/F-02 migrations and tables", () => {
   it("has exactly the 21 spec tables, each with the six common columns", async () => {
     const rows = await client<
       { tablename: string }[]
-    >`select tablename from pg_tables where schemaname = 'public' order by 1`;
+    >`select tablename from pg_tables where schemaname = 'public' and tablename not like '\_before\_%' order by 1`;
     expect(rows.map((r) => r.tablename).sort()).toEqual([...SPEC_TABLES].sort());
     for (const t of SPEC_TABLES) {
       const cols = await client<

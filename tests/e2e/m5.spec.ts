@@ -116,7 +116,6 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
   await newOrder(page, `Customer ${tag}`);
   await checkPage(page);
   await addItem(page, `${product} · $5.00`, "2");
-  await page.getByRole("button", { name: "Reserve from stock" }).click();
   await expect(page.getByText("Reserved", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Deliver whole order" }).click();
   await expect(page.getByText(/^Delivered .*Stock and packaging were taken out\.$/)).toBeVisible();

@@ -102,7 +102,7 @@ describe("O-03 reserve and shortfall (D21)", () => {
   it("5 ordered, 2 available → reserved 2, need to print 3; on hand unchanged, available 0", async () => {
     const id = await createOrder(db, order());
     await addLine(db, id, { productId: holder, quantity: 5, unitPrice: null, customization: null });
-    expect(await reserve(db, id)).toBe(2);
+    expect(await reserve(db, id)).toBe(0); // R4: adding the line already reserved the 2 free pieces
     const o = (await getOrder(db, id))!;
     expect(o.lines[0]).toMatchObject({ qtyReserved: 2, needToPrint: 3, unitPrice: 5 });
     expect(await onHand(db, holderStock)).toBe(2);

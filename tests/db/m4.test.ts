@@ -7,6 +7,7 @@ import {
   adjustments,
   editLog,
   machines,
+  orderItems,
   printJobs,
   products,
   recipes,
@@ -27,6 +28,7 @@ import {
   weighFilament,
   type FinishFormInput,
 } from "@/server/printing/service";
+import { addLine, createOrder, setStatus } from "@/server/orders/service";
 import { importSchema } from "@/server/recipes/schema";
 import { importRecipe } from "@/server/recipes/service";
 import { setSetting } from "@/server/settings/service";
@@ -375,5 +377,46 @@ describe("S-01 Start from a .gcode file (Nov 26)", () => {
     );
     expect((await db.select().from(recipes)).length).toBe(before);
     expect((await db.select().from(products)).length).toBe(productsBefore);
+  });
+});
+
+describe("R4 finished pieces go to open orders, due soonest first", () => {
+  it("3 good pieces: 2 to the order due tomorrow, 1 to the later one; quotes and undated wait", async () => {
+    const r = await recipe("Croix", 30, ["1", "2", "3"]);
+    const [item] = await db.select().from(products).where(eq(products.name, "Croix"));
+    await db.update(products).set({ salePriceUsd: 3 }).where(eq(products.id, item!.id));
+    const mk = async (dueOn: string | null, qty: number, status?: "quoted") => {
+      const id = await createOrder(db, {
+        channel: "whatsapp",
+        customerId: null,
+        newCustomerName: null,
+        dueOn,
+        currency: "USD",
+        rateToUsd: 1,
+        deliveryCharge: null,
+        deliveredBy: null,
+        notes: null,
+      });
+      if (status) await setStatus(db, id, status);
+      const line = await addLine(db, id, { productId: item!.id, quantity: qty, unitPrice: null, customization: null });
+      return line;
+    };
+    const undated = await mk(null, 2);
+    const later = await mk("2026-12-10", 2);
+    const quote = await mk("2026-12-01", 2, "quoted");
+    const soon = await mk("2026-12-02", 2);
+    const id = await startJob(db, {
+      recipeId: r.id,
+      machineId: printer,
+      filamentId: pla,
+      secondFilamentId: null,
+      firstFilamentGrams: null,
+    });
+    await finishJob(db, id, finishInput(await getJob(db, id)));
+    const reserved = async (line: number) =>
+      (await db.select().from(orderItems).where(eq(orderItems.id, line)))[0]!.qtyReserved;
+    expect([await reserved(soon), await reserved(later), await reserved(quote), await reserved(undated)]).toEqual([
+      2, 1, 0, 0,
+    ]);
   });
 });

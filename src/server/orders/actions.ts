@@ -18,7 +18,8 @@ import {
   markReceived,
   OrderError,
   recordPayment,
-  reserve,
+  takeFrom,
+  type SettableStatus,
   setStatus,
   updateCustomer,
   updateLine,
@@ -144,16 +145,14 @@ export async function deleteLineAction(orderId: number, lineId: number) {
   refresh(orderId);
 }
 
-export async function reserveAction(orderId: number) {
+/** R4 "Take N from #order". */
+export async function takeFromAction(orderId: number, lineId: number, fromLineId: number) {
   const user = await requireUser();
-  await reserve(db(), orderId, user.id);
+  await takeFrom(db(), lineId, fromLineId, user.id);
   refresh(orderId);
 }
 
-export async function setStatusAction(
-  orderId: number,
-  status: "quoted" | "confirmed" | "printing" | "ready" | "cancelled",
-) {
+export async function setStatusAction(orderId: number, status: SettableStatus) {
   const user = await requireUser();
   await setStatus(db(), orderId, status, user.id);
   refresh(orderId);

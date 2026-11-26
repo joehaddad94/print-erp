@@ -145,7 +145,6 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByLabel("Quantity").last().fill("2");
   await page.getByRole("button", { name: "Add item" }).click();
   await expect(page.getByText(`2 × ${product}`)).toBeVisible();
-  await page.getByRole("button", { name: "Reserve from stock" }).click();
   await expect(page.getByText("Reserved", { exact: true })).toBeVisible();
   await checkPage(page);
   await page.getByLabel("Driver").first().fill("Toufic");
