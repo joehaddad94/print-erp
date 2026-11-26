@@ -3,6 +3,7 @@ import { Link } from "@/components/ui/link";
 import { logoutAction } from "@/server/auth/actions";
 import { currentUser } from "@/server/auth/session";
 import { Icon } from "./icons";
+import { LivePrintCard, LivePrintStrip } from "./live-print";
 import { START_PRINT } from "./nav";
 import { OwnerSideLinks, SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
 import { RailToggle } from "./rail-toggle";
@@ -29,7 +30,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2.5 pb-3">
           <Suspense fallback={<SidebarNavList primary={<StartPrintButton />} pathname="" />}>
             <SidebarNav
-              primary={<StartPrintButton />}
+              primary={
+                <>
+                  <StartPrintButton />
+                  <Suspense fallback={null}>
+                    <LivePrintCard />
+                  </Suspense>
+                </>
+              }
               ownerSlot={
                 <Suspense fallback={null}>
                   <OwnerNav />
@@ -55,6 +63,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
+      <Suspense fallback={null}>
+        <LivePrintStrip />
+      </Suspense>
       <Suspense fallback={<TabBarList pathname="" />}>
         <TabBar />
       </Suspense>

@@ -175,6 +175,11 @@
   }
 }
 
+/* Main column plus the 320px summary panel (detail and form screens, Today). Use as lg:grid-aside. */
+@utility grid-aside {
+  grid-template-columns: minmax(0, 1fr) var(--spacing-aside);
+}
+
 /* Bottom padding that clears the phone's home indicator. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);

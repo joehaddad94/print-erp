@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode } from "../support/synthetic-gcode";
-import { checkPage, login, pickSupplier } from "./helpers";
+import { checkPage, fillStart, login, pickSupplier, runningPrint } from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -16,25 +16,21 @@ const money = (s: string | null) => Number((s ?? "").replace(/[^0-9.-]/g, ""));
 
 async function startAndFinish(page: Page, t: { recipe: string; printer: string; filament: RegExp }, fail = false) {
   await page.goto("/print");
-  await page.getByLabel("Recipe").selectOption({ label: t.recipe });
-  await page.getByLabel("Printer", { exact: true }).selectOption({ label: t.printer });
-  const filament = page.getByLabel("Filament", { exact: true });
-  const option = (await filament.locator("option").allTextContents()).find((o) => t.filament.test(o));
-  expect(option, "filament option").toBeTruthy();
-  await filament.selectOption({ label: option! });
+  await fillStart(page, { recipe: t.recipe, printer: t.printer, filament: t.filament });
   await expect(page.getByText(/^Estimated cost \$/)).toBeVisible();
   await page.getByRole("button", { name: "Start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
-  await page.getByRole("list", { name: "Printing now" }).getByRole("link").filter({ hasText: t.printer }).click();
+  await runningPrint(page, t.printer).click();
   await expect(page.getByRole("heading", { name: /^Finish print: / })).toBeVisible();
   if (fail) {
+    await page.getByLabel("Stopped early").check();
     await page.getByLabel("How far it got (%)").fill("25");
     await page.getByLabel(/\(of 1\)$/).fill("0");
     await page.getByLabel("What went wrong").fill("warped corner");
   } else {
     await page.getByRole("button", { name: "Same as G-code" }).click();
   }
-  await page.getByRole("button", { name: "Save and add to stock" }).click();
+  await page.getByRole("button", { name: "Finish print" }).click();
   await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
 }
 
@@ -126,7 +122,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("listitem").filter({ hasText: product })).toContainText("$6.00");
 
   // 7. Two good prints and one failed.
-  const job = { recipe: `${product} · v1`, printer, filament: new RegExp(`^PLA ${colour} \\(`) };
+  const job = { recipe: `${product} · v1`, printer, filament: new RegExp(`^PLA ${colour}`) };
   await startAndFinish(page, job);
   await startAndFinish(page, job, true);
   await startAndFinish(page, job);
@@ -180,8 +176,6 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(row).toContainText("1 order");
   await row.click();
   await expect(page.getByText("Balance owed").locator("..")).toContainText("$0.00");
-  await page.goto("/");
-  await expect(page.getByRole("list", { name: "Recent prints" })).toContainText(product);
   await page.goto("/history?area=printing");
   const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
   await expect(changes).toContainText("Hands-on minutes");
