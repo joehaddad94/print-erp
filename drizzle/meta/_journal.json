@@ -50,6 +50,13 @@
       "when": 1795705163792,
       "tag": "0006_r4_order_status",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795706169524,
+      "tag": "0007_r5_customer_details",
+      "breakpoints": true
     }
   ]
 }

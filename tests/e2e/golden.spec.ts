@@ -131,11 +131,12 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("listitem").filter({ hasText: box })).toContainText("10 pcs");
 
   // 8. Customer, order of 2, reserve, deliver with a driver, pay in two parts.
-  await page.goto("/customers");
+  await page.goto("/customers/new");
   await page.getByLabel("Name").fill(customer);
-  await page.getByLabel("Phone").fill("+961 76 000 000");
+  await page.getByLabel("Phone").fill("76 000 000");
   await page.getByRole("button", { name: "Add customer" }).click();
-  await expect(page.getByText(`Added ${customer}.`)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: customer })).toBeVisible();
+  await expect(page.getByText("+961 76 000 000 · customer since")).toBeVisible();
   await page.goto("/orders/new");
   await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
   await page.getByLabel("Channel").selectOption("instagram");
@@ -171,9 +172,8 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("listitem").filter({ hasText: product })).toContainText("0 pcs");
   await expect(page.getByRole("listitem").filter({ hasText: box })).toContainText("8 pcs");
   await page.goto("/customers");
-  const row = page.getByRole("link").filter({ hasText: customer });
-  await expect(row).toContainText("1 order");
-  await row.click();
+  await page.locator(":is(tr, li):visible").filter({ hasText: customer }).getByRole("link").first().click();
+  await expect(page.getByText("Delivered", { exact: true }).first().locator("..")).toContainText("1 order");
   await expect(page.getByText("Balance owed").locator("..")).toContainText("$0.00");
   await page.goto("/history?area=printing");
   const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');

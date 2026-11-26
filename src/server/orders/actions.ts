@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { rateToUsdFromLbpRate } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
+import { normalizePhone } from "@/lib/phone";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
 import {
   addLine,
@@ -46,8 +47,22 @@ const needRate = (v: { currency: string; lbpRate: number | null }, ctx: z.Refine
 // ── Customers
 const customerSchema = z.object({
   name: f.text("a name", 80),
-  phone: f.optionalText(40),
+  phone: f.optionalText(40).transform((v, ctx) => {
+    if (v == null) return null;
+    const r = normalizePhone(v);
+    if (r.ok) return r.e164;
+    ctx.addIssue({ code: "custom", message: r.error });
+    return z.NEVER;
+  }),
   handle: f.optionalText(80),
+  email: f
+    .optionalText(120)
+    .refine((v) => v == null || z.email().safeParse(v).success, "Enter an email like name@example.com"),
+  area: f.optionalText(80),
+  address: f.optionalText(300),
+  mapUrl: f
+    .optionalText(500)
+    .refine((v) => v == null || /^https?:\/\/\S+$/.test(v), "Paste the whole link, starting with https://"),
   notes: f.optionalText(),
 });
 
@@ -57,13 +72,12 @@ export async function saveCustomerAction(id: number | null, _p: FormState, fd: F
   const v = validate(customerSchema, values);
   if (!v.ok) return v.state;
   try {
-    if (id == null) await createCustomer(db(), v.data);
+    if (id == null) id = await createCustomer(db(), v.data);
     else await updateCustomer(db(), id, v.data, user.id);
   } catch (e) {
     return fail(values, e);
   }
   refresh();
-  if (id == null) return { ok: true, message: `Added ${v.data.name}.`, version: Date.now() };
   redirect(`/customers/${id}`);
 }
 
