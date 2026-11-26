@@ -173,6 +173,8 @@ function CopyButton({
   return (
     <Button
       variant={variant}
+      // Fixed width so "Copy" → "Copied" doesn't shift the row.
+      className={variant === "quiet" ? "w-24" : undefined}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(typeof text === "function" ? text() : text);
