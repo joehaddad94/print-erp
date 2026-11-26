@@ -18,8 +18,15 @@ export const orderStatusEnum = pgEnum("order_status", [
 export const customers = pgTable("customers", {
   ...baseColumns(),
   name: text("name").notNull(),
+  /** R5: E.164, e.g. +96170123456 (shown as +961 70 123 456). */
   phone: text("phone"),
+  /** Instagram or other handle. */
   handle: text("handle"),
+  email: text("email"),
+  area: text("area"),
+  address: text("address"),
+  /** A map link (Google Maps) the driver opens. */
+  mapUrl: text("map_url"),
 });
 
 /** The sale (D28). Total = sum of lines; delivery charge is the driver's (D37). */

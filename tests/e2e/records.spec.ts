@@ -27,26 +27,30 @@ test.describe("customers", () => {
   test("empty name is refused; add, open, edit, history shows old → new", async ({ page }, info) => {
     const name = `Rana ${uid(info)}`;
     await page.goto("/customers");
+    await page.getByRole("link", { name: "Add customer" }).click();
     await page.getByRole("button", { name: "Add customer" }).click();
     await expect(page.getByText("Enter a name")).toBeVisible();
 
     await page.getByLabel("Name").fill(name);
-    await page.getByLabel("Phone").fill("+961 71 111 111");
+    await page.getByLabel("Phone").fill("12");
+    await page.getByLabel("Email").fill("not an email");
+    await page.getByRole("button", { name: "Add customer" }).click();
+    await expect(page.getByText("Enter a Lebanese number like 70 123 456")).toBeVisible();
+    await expect(page.getByText("Enter an email like name@example.com")).toBeVisible();
+    await page.getByLabel("Phone").fill("071 111 111");
+    await page.getByLabel("Email").fill("rana@example.com");
     await page.getByLabel("Instagram or other").fill("@rana");
     await page.getByRole("button", { name: "Add customer" }).click();
-    await expect(page.getByText(`Added ${name}.`)).toBeVisible();
-    await expect(page.getByLabel("Name")).toHaveValue("");
-
-    const row = page.getByRole("list", { name: "Customers" }).getByRole("link").filter({ hasText: name });
-    await expect(row).toContainText("0 orders");
-    await row.click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page.getByLabel("Phone")).toHaveValue("+961 71 111 111");
     await expect(page.getByText("No orders yet")).toBeVisible();
     await checkPage(page);
 
-    await page.getByLabel("Phone").fill("+961 71 222 222");
+    await page.getByLabel("Phone").fill("71 222 222");
     await page.getByRole("button", { name: "Save customer" }).click();
-    await expect(page.getByText("phone: +961 71 111 111 → +961 71 222 222")).toBeVisible();
+    await expect(page.getByText("phone: +96171111111 → +96171222222")).toBeVisible();
+    await page.goto("/customers");
+    await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("+961 71 222 222");
   });
 
   test("a customer's page lists their orders and balance owed", async ({ page }, info) => {
@@ -63,7 +67,7 @@ test.describe("customers", () => {
     await expect(page.getByText("Balance owed").locator("..")).toContainText("$6.00");
     await expect(page.getByRole("list", { name: "Orders" })).toContainText(name);
     await page.goto("/customers");
-    await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$6.00");
+    await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("$6.00");
   });
 });
 

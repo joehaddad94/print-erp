@@ -52,7 +52,17 @@ export const PAYMENT_STATE_LABELS = { unpaid: "Unpaid", partly_paid: "Partly pai
 
 // ───────────── Customers (D30) ─────────────
 
-export type CustomerInput = { name: string; phone: string | null; handle: string | null; notes: string | null };
+export type CustomerInput = {
+  name: string;
+  /** E.164 (see lib/phone). */
+  phone: string | null;
+  handle: string | null;
+  notes: string | null;
+  email?: string | null;
+  area?: string | null;
+  address?: string | null;
+  mapUrl?: string | null;
+};
 
 export async function createCustomer(db: Db | Tx, i: CustomerInput) {
   const [c] = await db.insert(customers).values(i).returning({ id: customers.id });
@@ -71,7 +81,10 @@ export async function listCustomers(db: Db) {
       name: customers.name,
       phone: customers.phone,
       handle: customers.handle,
+      email: customers.email,
+      area: customers.area,
       orderCount: sql<number>`count(distinct ${orders.id})::int`,
+      lastOrderAt: sql<string | null>`max(${orders.createdAt})`,
       balanceOwedUsd: sql<string>`coalesce(sum(${orderBalance.balanceDueUsd}) filter (where ${orders.status} <> 'cancelled'), 0)`,
     })
     .from(customers)
@@ -90,8 +103,26 @@ export async function getCustomer(db: Db, id: number) {
     .where(and(eq(customers.id, id), isNull(customers.deletedAt)));
   if (!c) return null;
   const list = await listOrders(db, { customerId: id });
-  const owed = list.filter((o) => o.status !== "cancelled").reduce((s, o) => s + o.balanceDueUsd, 0);
-  return { ...c, orders: list, balanceOwedUsd: owed };
+  const owing = list.filter((o) => o.status !== "cancelled" && o.balanceDueUsd > 0.005);
+  const owed = owing.reduce((s, o) => s + o.balanceDueUsd, 0);
+  const delivered = list.filter((o) => o.status === "delivered");
+  // R5: profit on delivered orders, items only (D37), the same sum the order page shows.
+  const [p] = await db.execute<{ profit: string | null }>(sql`
+    select sum(oi.quantity * (oi.unit_price * o.rate_to_usd - coalesce(oi.unit_cost_usd, 0)
+             - coalesce(oi.packaging_cost_per_unit_usd, 0))) as profit
+    from orders o join order_items oi on oi.order_id = o.id and oi.deleted_at is null
+    where o.customer_id = ${id} and o.deleted_at is null and o.status = 'delivered'`);
+  const open = list.filter((o) => !["delivered", "cancelled"].includes(o.status));
+  return {
+    ...c,
+    orders: list,
+    balanceOwedUsd: owed,
+    owingOrders: owing.length,
+    deliveredUsd: delivered.reduce((s, o) => s + o.totalUsd, 0),
+    deliveredCount: delivered.length,
+    profitUsd: Number(p?.profit ?? 0),
+    openOrders: open,
+  };
 }
 
 // ───────────── Orders (D18, D21, D28, D35, D37, D45) ─────────────
