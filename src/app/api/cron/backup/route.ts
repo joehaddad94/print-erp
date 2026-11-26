@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
+import { db } from "@/db";
+import { recordBackupRun } from "@/server/backup/status";
 import { BackupRefused, storeBackup } from "@/server/backup/store";
 
 export const maxDuration = 60;
@@ -21,6 +23,7 @@ export async function GET(req: Request) {
   } catch (e) {
     const message = e instanceof BackupRefused ? e.message : "Backup failed";
     console.error("backup failed", e);
+    await recordBackupRun(db(), { ok: false, error: message }).catch(() => undefined);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

@@ -97,11 +97,8 @@ export default async function ExpensesPage({ searchParams }: PageProps<"/expense
       <Pills current={cat} base="/expenses" options={RUNNING_CATEGORIES.map((k) => [k, CATEGORY_LABELS[k]])} />
       {rows.length === 0 ? (
         <EmptyState title="No expenses yet">
-          Buying filament, packaging or a machine?{" "}
-          <Link href="/purchases/new" className="text-action hover:underline">
-            Add a purchase
-          </Link>{" "}
-          instead.
+          Running costs like the generator, internet or ads. Buying filament, packaging or a machine? Use Add purchase
+          instead, so it goes into stock.
         </EmptyState>
       ) : (
         <Panel title="Expenses" titleId="expenses" count={rows.length} flush>

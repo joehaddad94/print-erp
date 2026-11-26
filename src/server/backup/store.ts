@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { blobAccess, putFile, storageMode } from "@/server/storage";
 import { backupFiles, createBackup } from "./index";
+import { recordBackupRun } from "./status";
 
 export class BackupRefused extends Error {}
 
@@ -19,6 +20,7 @@ export async function storeBackup(now = new Date()) {
   for (const f of backupFiles(backup)) {
     written.push(await putFile(`backups/${stamp}/${f.name}`, new TextEncoder().encode(f.body), f.contentType));
   }
+  await recordBackupRun(db(), { ok: true, files: written.length });
   return {
     createdAt: backup.createdAt,
     files: written.length,

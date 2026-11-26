@@ -53,3 +53,11 @@ export const editLog = pgTable(
   },
   (t) => [index("edit_log_row_idx").on(t.tableName, t.rowId), index("edit_log_edited_at_idx").on(t.editedAt)],
 );
+
+/** R8: one row per automatic backup, so Settings can show the last one and turn red when it is late. */
+export const backupRuns = pgTable("backup_runs", {
+  ...baseColumns(),
+  ok: boolean("ok").notNull(),
+  files: integer("files").notNull().default(0),
+  error: text("error"),
+});
