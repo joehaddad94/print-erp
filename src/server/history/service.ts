@@ -11,6 +11,7 @@ import {
   orders,
   payments,
   products,
+  stockItems,
   recipes,
   suppliers,
   users,
@@ -32,7 +33,7 @@ export const AREAS = {
     label: "Printing",
     tables: ["print_jobs", "print_job_items", "print_job_filaments", "recipes", "machines"],
   },
-  stock: { label: "Stock", tables: ["stock_movements", "products", "product_parts"] },
+  stock: { label: "Stock", tables: ["stock_movements", "stock_items", "products", "product_parts"] },
   money: { label: "Money", tables: ["expenses", "suppliers"] },
   settings: { label: "Settings and people", tables: ["settings", "users"] },
 } as const;
@@ -51,6 +52,8 @@ const LINKS: Record<string, string> = {
   customers: "/customers/",
   orders: "/orders/",
 };
+/** Tables whose rows have no page of their own: link to the list. */
+const LIST_LINKS: Record<string, string> = { stock_items: "/stock" };
 
 /** Plain values that can be put back without breaking stock, reservations or costs already worked out. */
 const RESTORABLE: Record<string, { table?: PgTable; fields: string[]; undelete?: boolean }> = {
@@ -135,6 +138,7 @@ const NAMED: Record<string, { table: PgTable; col: PgColumn; id: PgColumn }> = {
   recipes: { table: recipes, col: recipes.name, id: recipes.id },
   users: { table: users, col: users.username, id: users.id },
   expenses: { table: expenses, col: expenses.description, id: expenses.id },
+  stock_items: { table: stockItems, col: stockItems.name, id: stockItems.id },
 };
 const PREFIX: Record<string, string> = {
   orders: "Order",
@@ -190,7 +194,7 @@ export async function historyFeed(db: Db, f: HistoryFilter = {}) {
         ? `${LINKS[log.tableName]}${log.rowId}`
         : log.tableName === "settings"
           ? "/settings"
-          : null,
+          : (LIST_LINKS[log.tableName] ?? null),
       what: log.action === "delete" ? "Deleted" : fieldLabel(log.field),
       before: log.action === "delete" ? item : log.oldValue,
       after: log.action === "delete" ? null : log.newValue,

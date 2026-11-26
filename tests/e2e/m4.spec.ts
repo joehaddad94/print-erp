@@ -75,18 +75,16 @@ test("J-10/J-11 mismatch warnings and a missing machine cost", async ({ page }, 
   await checkPage(page);
 });
 
-test("J-09 weigh filament: two spools, empty 140 g → measured 734 g", async ({ page }, info) => {
+test("J-09 Adjust stock, weigh the spool: 1014 g on the scale, 280 g empty → 734 g", async ({ page }, info) => {
   const s = await setup(`j09-${info.project.name}`);
-  await page.goto("/weigh");
-  await page.getByLabel("Filament").selectOption({ label: s.filament });
-  await expect(page.getByText("The app expects 1000 g on hand.")).toBeVisible();
-  await page.getByLabel("Empty spool weight").fill("140");
-  await page.getByLabel("Spool 1 on the scale").fill("612");
-  await page.getByRole("button", { name: "Add another spool" }).click();
-  await page.getByLabel("Spool 2 on the scale").fill("402");
+  await page.goto("/stock/adjust");
+  await pickIn(page, "Item", s.filament);
+  await expect(page.getByText(`${s.filament}`).first()).toBeVisible();
+  await page.getByLabel("On the scale").fill("1014");
+  await page.getByLabel("Empty spool").fill("280");
   await checkPage(page);
-  await page.getByRole("button", { name: "Save weigh-in" }).click();
-  await expect(page.getByText("Saved. Measured 734 g; stock corrected by -266 g.")).toBeVisible();
+  await page.getByRole("button", { name: "Save adjustment" }).click();
+  await expect(page.getByText(`${s.filament} set to 734 g (−266 g, weighed)`)).toBeVisible();
 });
 
 test("S-01 Start from a .gcode file: saved as a recipe when the print starts; the same file is reused", async ({

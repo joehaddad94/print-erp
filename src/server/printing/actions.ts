@@ -8,18 +8,10 @@ import { requireUser } from "@/server/auth/session";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
 import { importSchema } from "@/server/recipes/schema";
 import { ImportError } from "@/server/recipes/service";
-import {
-  editFinishedJob,
-  finishJob,
-  PrintError,
-  startJob,
-  startJobFromFile,
-  weighFilament,
-  type FinishFormInput,
-} from "./service";
+import { editFinishedJob, finishJob, PrintError, startJob, startJobFromFile, type FinishFormInput } from "./service";
 
 function refresh() {
-  for (const p of ["/", "/print", "/stock", "/machines", "/weigh", "/recipes", "/products"]) revalidatePath(p);
+  for (const p of ["/", "/print", "/stock", "/machines", "/recipes", "/products"]) revalidatePath(p);
 }
 
 const startSchema = z.object({
@@ -125,39 +117,4 @@ export async function editPrintAction(id: number, _prev: FormState, fd: FormData
   }
   refresh();
   redirect(`/print/${id}`);
-}
-
-export async function weighAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireUser();
-  const values = formValues(fd);
-  const v = validate(
-    z.object({
-      filamentId: f.id("a filament"),
-      emptySpoolG: f.number("the empty spool weight", { min: 0 }),
-      reason: f.optionalText(300),
-    }),
-    values,
-  );
-  const readings: number[] = [];
-  const fieldErrors: Record<string, string> = v.ok ? {} : { ...v.state.fieldErrors };
-  for (const [k, raw] of Object.entries(values)) {
-    if (!k.startsWith("reading-") || raw.trim() === "") continue;
-    const n = Number(raw.replace(/,/g, ""));
-    if (!(n > 0)) fieldErrors[k] = "Enter the scale reading in grams";
-    else readings.push(n);
-  }
-  if (readings.length === 0 && !fieldErrors["reading-0"]) fieldErrors["reading-0"] = "Enter at least one spool";
-  if (!v.ok || Object.keys(fieldErrors).length) return { fieldErrors, values, version: Date.now() };
-  try {
-    const adj = await weighFilament(db(), { ...v.data, readings });
-    refresh();
-    const d = Number(adj.difference.toFixed(1));
-    return {
-      ok: true,
-      message: `Saved. Measured ${Number(adj.measured.toFixed(1))} g; stock ${d === 0 ? "was right" : `corrected by ${d > 0 ? "+" : ""}${d} g`}.`,
-      version: Date.now(),
-    };
-  } catch (e) {
-    return failure(values, e instanceof PrintError ? e.message : "Couldn't save. Nothing was recorded. Try again.");
-  }
 }

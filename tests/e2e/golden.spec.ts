@@ -119,7 +119,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByLabel("Sale price").fill("6");
   await page.getByLabel("Packaging").selectOption({ label: box });
   await page.getByRole("button", { name: "Save product" }).click();
-  await expect(page.getByRole("listitem").filter({ hasText: product })).toContainText("$6.00");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: product })).toContainText("$6.00");
 
   // 7. Two good prints and one failed.
   const job = { recipe: `${product} · v1`, printer, filament: new RegExp(`^PLA ${colour}`) };
@@ -127,8 +127,8 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await startAndFinish(page, job, true);
   await startAndFinish(page, job);
   await page.goto("/stock");
-  await expect(page.getByRole("listitem").filter({ hasText: product })).toContainText("2 pcs");
-  await expect(page.getByRole("listitem").filter({ hasText: box })).toContainText("10 pcs");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: product })).toContainText("2 pcs");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: box })).toContainText("10 pcs");
 
   // 8. Customer, order of 2, reserve, deliver with a driver, pay in two parts.
   await page.goto("/customers/new");
@@ -169,8 +169,8 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
 
   // 9. Everything else agrees.
   await page.goto("/stock");
-  await expect(page.getByRole("listitem").filter({ hasText: product })).toContainText("0 pcs");
-  await expect(page.getByRole("listitem").filter({ hasText: box })).toContainText("8 pcs");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: product })).toContainText("0 pcs");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: box })).toContainText("8 pcs");
   await page.goto("/customers");
   await page.locator(":is(tr, li):visible").filter({ hasText: customer }).getByRole("link").first().click();
   await expect(page.getByText("Delivered", { exact: true }).first().locator("..")).toContainText("1 order");
