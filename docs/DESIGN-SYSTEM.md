@@ -69,16 +69,20 @@ Rules:
 
 ## 5. Layout
 
-**Desktop (1024px and wider)**
+**Desktop (1024px and wider): sidebar "B, collapsible"** (Joe, 26 Nov)
 
-- The dark sidebar is 236px wide: brand, then nav groups (Work, Catalogue, Money, Tools), then the user and sign-out pinned to the bottom.
-- Start print is the one global action. On desktop it's the compact teal button at the top of the sidebar, and on phone it's the teal + in the tab bar. No screen repeats it in its own header.
+- Dark rail with: brand and collapse button, the Start print button, then a **live print card** (progress, time left, Finish) while something prints.
+- Groups: Work (Today, Orders, Customers), Catalogue (Products, Recipes, Stock, Machines), Money (Expenses, Suppliers), then **Tools** folded (Cost calculator, Weigh filament, Assemble).
+- **Badges only when something needs you:** "N due" on Orders, and an amber dot on Stock when filament is low. No permanent counts.
+- The user menu at the bottom holds Settings, Change history and Sign out.
+- **Collapsible to a 64px icon rail:** labels show on hover, the live print becomes a progress ring, badges become dots, and Tools opens as a fly-out. It's expanded by default at 1280px and wider, and collapsed at 1024 to 1279px. The toggle button and the `[` key switch it, and the choice is remembered on each device.
+- Start print is the one global action. No screen repeats it in its own header.
 - The page header has the title, a one-line description or date, then on the right: at most one primary button plus secondary buttons.
 
 **Phone**
 
 - The top bar is dark and shows the screen title. Detail and form screens show a close or back button there instead of the brand.
-- The bottom tab bar is dark: Today, Orders, a teal Start print button, Stock, More.
+- The bottom tab bar is dark: Today, Orders, a teal Start print button, Stock, More. While something prints, a "Printing 62% · Finish" strip sits just above it.
 - On form screens, the save button is pinned above the tab bar.
 
 **Screen patterns** (every screen is one of these):
