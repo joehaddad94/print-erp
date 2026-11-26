@@ -1,12 +1,40 @@
 import { z } from "zod";
 import { f } from "@/server/form";
 
-export const EXPENSE_CATEGORIES = ["filament", "packaging", "machine", "electricity", "delivery", "other"] as const;
-export const CATEGORY_LABELS: Record<(typeof EXPENSE_CATEGORIES)[number], string> = {
+export const EXPENSE_CATEGORIES = [
+  "filament",
+  "packaging",
+  "machine",
+  "electricity",
+  "internet",
+  "ads",
+  "rent",
+  "tools",
+  "delivery",
+  "other",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+/** R7: purchases go into stock or become a machine; running costs don't. */
+export const PURCHASE_CATEGORIES = ["filament", "packaging", "machine"] as const satisfies readonly ExpenseCategory[];
+export const RUNNING_CATEGORIES = [
+  "electricity",
+  "internet",
+  "ads",
+  "rent",
+  "tools",
+  "delivery",
+  "other",
+] as const satisfies readonly ExpenseCategory[];
+export const isPurchase = (c: ExpenseCategory) => (PURCHASE_CATEGORIES as readonly string[]).includes(c);
+export const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   filament: "Filament",
   packaging: "Packaging",
   machine: "Machine or equipment",
-  electricity: "Electricity (EDL or generator)",
+  electricity: "Generator or electricity",
+  internet: "Internet",
+  ads: "Ads",
+  rent: "Rent",
+  tools: "Tools",
   delivery: "Delivery",
   other: "Other",
 };
@@ -37,6 +65,10 @@ export const expenseSchema = z
     currency: f.currency(),
     lbpRate: f.optionalNumber("the LBP rate", { positive: true }),
     supplierId: f.optionalId(),
+    /** R7 running costs: what, who was paid, monthly. */
+    description: f.optionalText(120),
+    paidTo: f.optionalText(80),
+    repeatsMonthly: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
     /** The text in the supplier search box; only used to catch a name typed but never picked. */
     supplierSearch: f.optionalText(200),
     notes: f.optionalText(),

@@ -76,29 +76,33 @@ test.describe("suppliers", () => {
     page,
   }, info) => {
     const name = `Supplier ${uid(info)}`;
-    await page.goto("/suppliers");
+    await page.goto("/suppliers/new");
     await page.getByRole("button", { name: "Add supplier" }).click();
     await expect(page.getByText("Enter a name")).toBeVisible();
     await page.getByLabel("Name").fill(name);
+    await page.getByLabel("Phone").fill("12");
     await page.getByRole("button", { name: "Add supplier" }).click();
-    await expect(page.getByText(`Added ${name}.`)).toBeVisible();
+    await expect(page.getByLabel("Phone")).toHaveAttribute("aria-invalid", "true");
+    await page.getByLabel("Phone").fill("");
+    await page.getByRole("button", { name: "Add supplier" }).click();
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 
-    await page.goto("/expenses/new");
-    await page.getByLabel("Category").selectOption("other");
+    await page.goto("/purchases/new");
+    await page.getByLabel("Category").selectOption("packaging");
     await page.getByLabel("Amount").fill("12.5");
+    await page.getByLabel("New item name").fill(`Bag ${uid(info)}`);
+    await page.getByLabel("Pieces").fill("5");
     await pickSupplier(page, name);
-    await page.getByRole("button", { name: "Save expense" }).click();
-    await expect(page).toHaveURL(/\/expenses$/);
+    await page.getByRole("button", { name: "Save purchase" }).click();
+    await expect(page).toHaveURL(/\/purchases$/);
 
     await page.goto("/suppliers");
-    await page.getByRole("link").filter({ hasText: name }).click();
-    await expect(page.getByRole("heading", { name: /Bought:/ })).toContainText("$12.50");
-    await expect(page.getByRole("list", { name: "Purchases" })).toContainText("Other");
-    await page.getByLabel("Phone or link").fill("instagram.com/shop");
+    await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
+    await expect(page.getByText("Spent in total").locator("..")).toContainText("$12.50");
+    await expect(page.getByRole("list", { name: "Purchases" })).toContainText("Packaging");
+    await page.getByLabel("Sells").fill("Bags");
     await page.getByRole("button", { name: "Save supplier" }).click();
-    await expect(page).toHaveURL(/\/suppliers$/);
-    await page.getByRole("link").filter({ hasText: name }).click();
-    await expect(page.getByText("contact: — → instagram.com/shop")).toBeVisible();
+    await expect(page.getByText("sells: — → Bags")).toBeVisible();
   });
 });
 
@@ -179,13 +183,13 @@ test.describe("machines", () => {
     page,
   }, info) => {
     const name = `Dryer ${uid(info)}`;
-    await page.goto("/expenses/new");
+    await page.goto("/purchases/new");
     await page.getByLabel("Category").selectOption("machine");
     await page.getByLabel("Amount").fill("45");
     await page.getByLabel("Name").fill(name);
     await page.getByLabel("Type").selectOption("equipment");
-    await page.getByRole("button", { name: "Save expense" }).click();
-    await expect(page).toHaveURL(/\/expenses$/);
+    await page.getByRole("button", { name: "Save purchase" }).click();
+    await expect(page).toHaveURL(/\/purchases$/);
 
     await page.goto("/machines");
     await page.getByRole("link").filter({ hasText: name }).click();

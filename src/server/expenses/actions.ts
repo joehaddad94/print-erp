@@ -5,11 +5,11 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
 import { failure, formValues, validate, type FormState } from "@/server/form";
-import { expenseSchema } from "./schema";
+import { expenseSchema, isPurchase } from "./schema";
 import { createExpense, deleteExpense, updateExpense } from "./service";
 
 function refresh() {
-  for (const p of ["/expenses", "/suppliers", "/machines", "/stock"]) revalidatePath(p);
+  for (const p of ["/expenses", "/purchases", "/suppliers", "/machines", "/stock"]) revalidatePath(p);
 }
 
 export async function createExpenseAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -23,7 +23,7 @@ export async function createExpenseAction(_prev: FormState, fd: FormData): Promi
     return failure(values, "Couldn't save. Nothing was recorded. Check your connection and try again.");
   }
   refresh();
-  redirect("/expenses");
+  redirect(isPurchase(v.data.category) ? "/purchases" : "/expenses");
 }
 
 export async function updateExpenseAction(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -37,12 +37,12 @@ export async function updateExpenseAction(id: number, _prev: FormState, fd: Form
     return failure(values, "Couldn't save. Nothing was changed. Check your connection and try again.");
   }
   refresh();
-  redirect("/expenses");
+  redirect(isPurchase(v.data.category) ? "/purchases" : "/expenses");
 }
 
 export async function deleteExpenseAction(id: number) {
   const user = await requireUser();
-  await deleteExpense(db(), id, user.id);
+  const category = await deleteExpense(db(), id, user.id);
   refresh();
-  redirect("/expenses");
+  redirect(category && isPurchase(category) ? "/purchases" : "/expenses");
 }

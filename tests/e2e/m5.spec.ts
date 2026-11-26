@@ -69,14 +69,14 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
   });
 
   // Buy filament.
-  await page.goto("/expenses/new");
+  await page.goto("/purchases/new");
   await page.getByLabel("Category").selectOption("filament");
   await page.getByLabel("Amount").fill("17.50");
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(tag);
   await page.getByLabel("Grams bought").fill("1000");
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
 
   // Import a padel-shaped file (29.22 g, 1 piece, 6,450 s), add hands-on minutes and a price.
   const product = `Padel ${tag}`;

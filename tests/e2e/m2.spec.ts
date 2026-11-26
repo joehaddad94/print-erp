@@ -5,11 +5,11 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
-async function addExpense(page: Page, fill: () => Promise<void>) {
-  await page.goto("/expenses/new");
+async function addExpense(page: Page, fill: () => Promise<void>, kind: "purchase" | "expense" = "expense") {
+  await page.goto(kind === "purchase" ? "/purchases/new" : "/expenses/new");
   await fill();
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await page.getByRole("button", { name: kind === "purchase" ? "Save purchase" : "Save expense" }).click();
+  await expect(page).toHaveURL(kind === "purchase" ? /\/purchases$/ : /\/expenses$/);
 }
 
 test("S-01 settings: save electricity price, see it in history, warning disappears", async ({ page }) => {
@@ -36,17 +36,21 @@ test("V-01 settings: a bad number shows an error under the field and keeps the t
 
 test("S-03/S-04 LBP filament purchase converts to USD and shows as a purchase", async ({ page }, info) => {
   const colour = `Black-${info.project.name}`;
-  await addExpense(page, async () => {
-    await page.getByLabel("Category").selectOption("filament");
-    await page.getByLabel("Amount").fill("1,790,000");
-    await page.getByLabel("Currency").selectOption("LBP");
-    await page.getByLabel("LBP per USD").fill("89500");
-    await page.getByLabel("Material", { exact: true }).fill("PLA");
-    await page.getByLabel("Colour", { exact: true }).fill(colour);
-    await page.getByLabel("Grams bought").fill("1000");
-  });
-  const row = page.getByRole("listitem").filter({ hasText: `PLA ${colour}` });
-  await expect(row).toContainText("Purchase");
+  await addExpense(
+    page,
+    async () => {
+      await page.getByLabel("Category").selectOption("filament");
+      await page.getByLabel("Amount").fill("1,790,000");
+      await page.getByLabel("Currency").selectOption("LBP");
+      await page.getByLabel("LBP per USD").fill("89500");
+      await page.getByLabel("Material", { exact: true }).fill("PLA");
+      await page.getByLabel("Colour", { exact: true }).fill(colour);
+      await page.getByLabel("Grams bought").fill("1000");
+    },
+    "purchase",
+  );
+  const row = page.locator(":is(tr, li):visible").filter({ hasText: `PLA ${colour}` });
+  await expect(row).toContainText("Filament");
   await expect(row).toContainText("$20.00");
   await checkPage(page);
 });
@@ -58,28 +62,29 @@ test("E-04 editing an expense shows the Edited marker and its history; E-02 dele
   await addExpense(page, async () => {
     await page.getByLabel("Category").selectOption("other");
     await page.getByLabel("Amount").fill("4");
-    await page.getByLabel("Notes").fill(note);
+    await page.getByLabel("What").fill(note);
   });
-  await page.getByRole("link").filter({ hasText: "Other" }).first().click();
+  const row = page.locator(":is(tr, li):visible").filter({ hasText: note });
+  await row.getByRole("link").first().click();
   await expect(page.getByRole("heading", { name: "Edit expense" })).toBeVisible();
   await checkPage(page);
   await page.getByLabel("Amount").fill("5");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
-  await expect(page.getByText(/✎ Edited/).first()).toBeVisible();
-  await page.getByRole("link").filter({ hasText: "Other" }).first().click();
+  await expect(row.getByText(/✎ Edited/)).toBeVisible();
+  await row.getByRole("link").first().click();
   await expect(page.getByText("amount: 4 → 5")).toBeVisible();
   await page.getByRole("button", { name: "Delete expense" }).click();
   await expect(page).toHaveURL(/\/expenses$/);
 });
 
 test("E-05 a failed save keeps every typed value", async ({ page }) => {
-  await page.goto("/expenses/new");
+  await page.goto("/purchases/new");
   await page.getByLabel("Category").selectOption("filament");
   await page.getByLabel("Material", { exact: true }).fill("PETG");
   await page.getByLabel("Colour", { exact: true }).fill("Orange");
   await page.getByLabel("Notes").fill("keep me");
-  await page.getByRole("button", { name: "Save expense" }).click();
+  await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page.getByText("Enter the amount as a number")).toBeVisible();
   await expect(page.getByText("Enter the grams bought")).toBeVisible();
   await expect(page.getByLabel("Material", { exact: true })).toHaveValue("PETG");
@@ -89,16 +94,18 @@ test("E-05 a failed save keeps every typed value", async ({ page }) => {
 test("S-03 purchase: search picks a supplier; + New supplier adds one and picks it", async ({ page }, info) => {
   const name = `Spool corner ${info.project.name}`;
   const box = page.getByRole("combobox", { name: "Supplier" });
-  await page.goto("/expenses/new");
-  await page.getByLabel("Category").selectOption("other");
+  await page.goto("/purchases/new");
+  await page.getByLabel("Category").selectOption("packaging");
   await page.getByLabel("Amount").fill("7");
+  await page.getByLabel("New item name").fill(`Tape A ${name}`);
+  await page.getByLabel("Pieces").fill("1");
 
   // The search never offers to add: a name that isn't listed is refused on save, not created.
   await box.fill(name);
   await expect(page.getByRole("listbox", { name: "Suppliers" }).getByRole("option")).toHaveCount(0);
   await expect(page.getByRole("listbox", { name: "Suppliers" })).toContainText(/No suppliers? (matches|yet)/);
   await page.getByLabel("Amount").click();
-  await page.getByRole("button", { name: "Save expense" }).click();
+  await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page.getByText(`“${name}” isn't a supplier yet.`)).toBeVisible();
   await expect(box).toHaveValue(name);
 
@@ -120,27 +127,29 @@ test("S-03 purchase: search picks a supplier; + New supplier adds one and picks 
   await page.getByLabel("Phone or link (optional)").press("Enter");
   await expect(page.getByText(`Added “${name}” and picked it.`)).toBeVisible();
   await expect(box).toHaveValue(name);
-  await expect(page).toHaveURL(/\/expenses\/new$/);
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await expect(page).toHaveURL(/\/purchases\/new$/);
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/suppliers");
-  await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$7");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("$7");
 
   // Next purchase: search finds it; adding the same name again reuses it, no duplicate.
-  await page.goto("/expenses/new");
-  await page.getByLabel("Category").selectOption("other");
+  await page.goto("/purchases/new");
+  await page.getByLabel("Category").selectOption("packaging");
   await page.getByLabel("Amount").fill("3");
+  await page.getByLabel("New item name").fill(`Tape B ${name}`);
+  await page.getByLabel("Pieces").fill("1");
   await page.getByRole("button", { name: "+ New supplier" }).click();
   await page.getByLabel("Supplier name").fill(name.toUpperCase());
   await page.getByRole("button", { name: "Save supplier" }).click();
   await expect(box).toHaveValue(name);
   await page.getByRole("button", { name: "Clear supplier" }).click();
   await pickSupplier(page, name);
-  await page.getByRole("button", { name: "Save expense" }).click();
-  await expect(page).toHaveURL(/\/expenses$/);
+  await page.getByRole("button", { name: "Save purchase" }).click();
+  await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/suppliers");
-  await expect(page.getByRole("link").filter({ hasText: name })).toHaveCount(1);
-  await expect(page.getByRole("link").filter({ hasText: name })).toContainText("$10");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toHaveCount(1);
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("$10");
 });
 
 test("S-02 machine: edit power, history shows the change, list shows hours of life", async ({ page }, info) => {
@@ -157,14 +166,19 @@ test("S-02 machine: edit power, history shows the change, list shows hours of li
   await expect(page.getByRole("link", { name: /^Ender-3 V3 SE/ })).toContainText("$0.067/h");
 });
 
-test("suppliers: add one and open its page", async ({ page }, info) => {
+test("suppliers: add one, its page shows the WhatsApp number", async ({ page }, info) => {
   const name = `Filament shop ${info.project.name}`;
-  await page.goto("/suppliers");
+  await page.goto("/suppliers/new");
   await page.getByLabel("Name").fill(name);
-  await page.getByLabel("Phone or link").fill("+961 70 000 000");
+  await page.getByLabel("Phone").fill("70 000 000");
+  await page.getByLabel("Sells").fill("PLA, PETG");
   await page.getByRole("button", { name: "Add supplier" }).click();
-  await expect(page.getByText(`Added ${name}.`)).toBeVisible();
-  await page.getByRole("link").filter({ hasText: name }).click();
-  await expect(page.getByRole("heading", { name })).toBeVisible();
+  await expect(page).toHaveURL(/\/suppliers\/\d+$/);
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+  await expect(page.getByText("PLA, PETG · +961 70 000 000")).toBeVisible();
+  await expect(page.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me\/96170000000/);
   await checkPage(page);
+  await page.goto("/suppliers");
+  await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 });
