@@ -182,8 +182,10 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByText("Balance owed").locator("..")).toContainText("$0.00");
   await page.goto("/");
   await expect(page.getByRole("list", { name: "Recent prints" })).toContainText(product);
-  await page.goto("/history?table=recipes");
-  await expect(page.getByRole("list", { name: "Changes" })).toContainText("labour minutes: — → 10");
+  await page.goto("/history?area=printing");
+  const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
+  await expect(changes).toContainText("Hands-on minutes");
+  await expect(changes).toContainText("10");
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),

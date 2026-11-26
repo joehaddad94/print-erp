@@ -15,14 +15,14 @@ const schema = z.object({
 });
 
 export async function saveSettingsAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  await requireUser();
+  const me = await requireUser();
   const values = formValues(fd);
   const v = validate(schema, values);
   if (!v.ok) return v.state;
   let changed = 0;
   for (const [key, value] of Object.entries(v.data)) {
     if (value == null) continue;
-    if (await setSetting(db(), key, value)) changed++;
+    if (await setSetting(db(), key, value, new Date(), { userId: me.id })) changed++;
   }
   revalidatePath("/settings");
   return {
