@@ -72,7 +72,7 @@ Rules:
 **Desktop (1024px and wider): sidebar "B, collapsible"** (Joe, 26 Nov)
 
 - Dark rail with: brand and collapse button, the Start print button, then a **live print card** (progress, time left, Finish) while something prints.
-- Groups: Work (Today, Orders, Customers), Catalogue (Products, Recipes, Stock, Machines), Money (Expenses, Suppliers), then **Tools** folded (Cost calculator, Weigh filament, Assemble).
+- Groups: Work (Today, Orders, Customers, Cost calculator), Catalogue (Products, Recipes, Stock, Assemble, Machines), Money (Purchases, Expenses, Suppliers). No Tools group: anything that changes stock lives in Catalogue (Joe, 26 Nov). Weigh filament is replaced by **Adjust stock** (owner only, reason required) on the Stock screen.
 - **Badges only when something needs you:** "N due" on Orders, and an amber dot on Stock when filament is low. No permanent counts.
 - The user menu at the bottom holds Settings, Change history and Sign out.
 - **Collapsible to a 64px icon rail:** labels show on hover, the live print becomes a progress ring, badges become dots, and Tools opens as a fly-out. It's expanded by default at 1280px and wider, and collapsed at 1024 to 1279px. The toggle button and the `[` key switch it, and the choice is remembered on each device.
