@@ -32,6 +32,7 @@ const STATIC = [
   "/stock/adjust",
   "/assemble",
   "/history",
+  "/costs",
   "/history?area=sales",
   "/settings",
   "/more",

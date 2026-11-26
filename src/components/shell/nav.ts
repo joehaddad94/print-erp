@@ -50,6 +50,7 @@ export const NAV: NavGroup[] = [
     label: "Account",
     items: [
       { href: "/settings", label: "Settings", icon: "settings", milestone: "M2" },
+      { href: "/costs", label: "How costs work", icon: "info", milestone: "R9", owner: true },
       { href: "/history", label: "Change history", icon: "history", milestone: "M6", owner: true },
     ],
   },
