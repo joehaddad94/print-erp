@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { failureMethod, labourMinutesPerPiece, machineCostPerHour, type MissingInput } from "@/lib/cost";
 import { softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
+import { allocate } from "@/server/orders/allocate";
 import { currentSettings } from "@/server/settings/service";
 import { currentAverage, onHand, recordMovement, replayAverages } from "@/server/stock/ledger";
 import type { ImportInput } from "@/server/recipes/schema";
@@ -529,6 +530,8 @@ async function writeLines(tx: Tx, job: Job, result: Extract<FinishResult, { comp
         labourMinutesPerUnit: line.line.labourMinutesPerUnit,
       });
   }
+  // R4: finished pieces go to the open orders that need them, due soonest first.
+  for (const productId of new Set(job.items.map((l) => l.line.productId))) await allocate(tx, productId);
 }
 
 /**
@@ -600,6 +603,7 @@ export async function editFinishedJob(db: Db, jobId: number, input: FinishFormIn
       touched.add(stockId);
     }
     for (const id of touched) await replayAverages(tx, id);
+    for (const productId of new Set(job.items.map((l) => l.line.productId))) await allocate(tx, productId, userId);
     return result;
   });
 }

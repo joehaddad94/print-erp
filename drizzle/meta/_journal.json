@@ -43,6 +43,13 @@
       "when": 1795701792185,
       "tag": "0005_edit_log_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795705163792,
+      "tag": "0006_r4_order_status",
+      "breakpoints": true
     }
   ]
 }
