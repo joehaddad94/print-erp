@@ -3,37 +3,13 @@
 import { Link } from "@/components/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { Badge, Button, Callout, Card, Field, Input } from "@/components/ui";
-import { cn } from "@/lib/cn";
-import { GcodeFormatError, gramsMatch, parseGcodeFile, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
-import { findDuplicateAction, importRecipeAction } from "@/server/recipes/actions";
+import { Button, Callout, Card, Field } from "@/components/ui";
+import { SUPPORTED_SLICERS } from "@/lib/gcode";
+import { importRecipeAction } from "@/server/recipes/actions";
 import type { BlobUploadFlavor, StorageMode } from "@/server/storage";
-import { formatDuration } from "@/lib/format";
-import { sha256OfFile, takeHandedOffFile, uploadGcode } from "./gcode-client";
-
-type ProductOption = { id: number; label: string };
-type Row = { objectName: string | null; label: string; productId: string; newName: string; qty: string; grams: string };
-type Duplicate = { id: number; name: string; version: number };
-
-const num = (s: string) => Number(s.replace(/,/g, ""));
-const round = (n: number | null, dp = 3) => (n == null ? "" : Number(n.toFixed(dp)).toString());
-
-/** Plate rows pre-filled from the file's object lines (D40.2); one object type → grams typed for you. */
-function rowsFor(parsed: ParsedGcode, previous: { objectName: string | null; productId: number }[]): Row[] {
-  const total = parsed.totalGrams ?? 0;
-  const objects = parsed.objects.length ? parsed.objects : [{ rawName: "", displayName: "Item", count: 1 }];
-  return objects.map((o) => {
-    const prev = previous.find((p) => p.objectName && p.objectName === o.rawName);
-    return {
-      objectName: o.rawName || null,
-      label: o.displayName,
-      productId: prev ? String(prev.productId) : "",
-      newName: prev ? "" : o.displayName,
-      qty: String(o.count),
-      grams: objects.length === 1 && total > 0 ? round(total / o.count) : "",
-    };
-  });
-}
+import { takeHandedOffFile, uploadGcode } from "./gcode-client";
+import { ImportDetails } from "./import-details";
+import { useGcodeImport, type ProductOption, type RecipeGroup } from "./use-gcode-import";
 
 /**
  * Import a .gcode as a recipe or a new version of one (D14, D17). The file is read in the
@@ -52,115 +28,41 @@ export function ImportForm({
   flavor: BlobUploadFlavor;
   products: ProductOption[];
   tolerance: { grams: number; pct: number };
-  group?: { recipeGroup: string; name: string; items: { objectName: string | null; productId: number }[] };
+  group?: RecipeGroup;
 }) {
   const router = useRouter();
   const fileId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [parsed, setParsed] = useState<ParsedGcode | null>(null);
-  const [rows, setRows] = useState<Row[]>([]);
-  const [name, setName] = useState(group?.name ?? "");
-  const [changeNote, setChangeNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [duplicate, setDuplicate] = useState<Duplicate | null>(null);
-  const [busy, setBusy] = useState<null | "reading" | "uploading" | "saving">(null);
-  // Values the file didn't state (worked out by the app): Joe confirms or types over them.
-  const [totalGrams, setTotalGrams] = useState("");
-  const [minutes, setMinutes] = useState("");
-
-  async function choose(f: File | null) {
-    setError(null);
-    setDuplicate(null);
-    setParsed(null);
-    setFile(f);
-    if (!f) return;
-    setBusy("reading");
-    try {
-      const [p, sha] = await Promise.all([parseGcodeFile(f), sha256OfFile(f)]);
-      if (p.totalGrams == null) throw new GcodeFormatError("The file has no total grams. Export it again.");
-      setParsed(p);
-      setTotalGrams(round(p.totalGrams, 2));
-      setMinutes(p.estimatedSeconds != null ? String(Math.round(p.estimatedSeconds / 60)) : "");
-      setRows(rowsFor(p, group?.items ?? []));
-      if (!group && !name) setName(p.objects[0]?.displayName ?? f.name.replace(/\.gcode$/i, ""));
-      setDuplicate(await findDuplicateAction(sha));
-    } catch (e) {
-      setError(e instanceof GcodeFormatError ? e.message : "This file couldn't be read as G-code.");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const imp = useGcodeImport({ tolerance, initialGroup: group });
+  const [busy, setBusy] = useState<null | "uploading" | "saving">(null);
 
   useEffect(() => {
     // Runs once on mount: picks up a file handed over by the cost calculator (an external store),
     // read asynchronously like any other file.
     // Also picks up a file chosen before the page finished loading (slow phones).
     const handed = takeHandedOffFile() ?? fileInput.current?.files?.[0];
-    if (handed) void Promise.resolve(handed).then(choose);
+    if (handed) void Promise.resolve(handed).then(imp.choose);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const update = (i: number, patch: Partial<Row>) =>
-    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
-  const gramsEstimated = !!parsed?.estimated.totalGrams;
-  const timeEstimated = !!parsed?.estimated.estimatedSeconds;
-  const plateGrams = gramsEstimated ? num(totalGrams) : (parsed?.totalGrams ?? NaN);
-  const confirmedOk = (!gramsEstimated || num(totalGrams) > 0) && (!timeEstimated || num(minutes) > 0);
-
-  /** Typing a new total moves a single item's grams with it, as on first read. */
-  function changeTotal(v: string) {
-    setTotalGrams(v);
-    if (rows.length === 1 && num(v) > 0 && num(rows[0]!.qty) > 0)
-      setRows([{ ...rows[0]!, grams: round(num(v) / num(rows[0]!.qty)) }]);
-  }
-
-  const filled = rows.every((r) => num(r.qty) > 0 && num(r.grams) > 0 && (r.productId || r.newName.trim()));
-  const check =
-    plateGrams > 0
-      ? gramsMatch(
-          rows.map((r) => ({ qty: num(r.qty) || 0, gramsPerPiece: num(r.grams) || 0 })),
-          plateGrams,
-          tolerance,
-        )
-      : null;
-  const canSave = !!file && !!parsed && !duplicate && filled && !!check?.ok && confirmedOk && !!name.trim() && !busy;
+  const canSave = imp.ready && !busy;
 
   async function save() {
-    if (!file || !parsed || !canSave) return;
-    setError(null);
+    if (!imp.file || !canSave) return;
+    imp.setError(null);
     try {
       setBusy("uploading");
-      const fileUrl = await uploadGcode(file, mode, access, flavor);
+      const fileUrl = await uploadGcode(imp.file, mode, access, flavor);
       setBusy("saving");
-      const res = await importRecipeAction({
-        fileUrl,
-        fileName: file.name,
-        name: name.trim(),
-        recipeGroup: group?.recipeGroup ?? null,
-        changeNote: changeNote.trim() || null,
-        confirmed: {
-          totalGrams: gramsEstimated ? num(totalGrams) : null,
-          estimatedSeconds: timeEstimated ? num(minutes) * 60 : null,
-        },
-        items: rows.map((r) => ({
-          productId: r.productId ? Number(r.productId) : null,
-          newProductName: r.productId ? null : r.newName.trim(),
-          newProductKind: "product",
-          objectName: r.objectName,
-          qty: num(r.qty),
-          gramsPerPiece: num(r.grams),
-        })),
-      });
+      const res = await importRecipeAction(imp.payload(fileUrl));
       if (res.saved) {
         router.push(`/recipes/${res.saved.id}`);
         return;
       }
-      setDuplicate(res.duplicateOf ?? null);
-      setError(res.error ?? "Couldn't save.");
+      imp.setDuplicate(res.duplicateOf ?? null);
+      imp.setError(res.error ?? "Couldn't save.");
     } catch {
-      setError("The upload failed. Nothing was saved. Check your connection and try again.");
+      imp.setError("The upload failed. Nothing was saved. Check your connection and try again.");
     } finally {
       setBusy(null);
     }
@@ -175,164 +77,29 @@ export function ImportForm({
             id={fileId}
             type="file"
             accept=".gcode"
-            onChange={(e) => void choose(e.target.files?.[0] ?? null)}
+            onChange={(e) => void imp.choose(e.target.files?.[0] ?? null)}
             className="control px-3 py-2.5 text-sm text-ink"
           />
         </Field>
-        {busy === "reading" ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
-        {error ? <Callout tone="danger">{error}</Callout> : null}
-        {duplicate ? (
+        {imp.reading ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
+        {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
+        {imp.duplicate ? (
           <Callout tone="warning" title="Same file">
             This file is already{" "}
             <Link
               className="inline-flex min-h-tap items-center font-semibold underline"
-              href={`/recipes/${duplicate.id}`}
+              href={`/recipes/${imp.duplicate.id}`}
             >
-              {duplicate.name} v{duplicate.version}
+              {imp.duplicate.name} v{imp.duplicate.version}
             </Link>
             . Nothing to import.
           </Callout>
         ) : null}
       </Card>
 
-      {parsed ? (
+      {imp.parsed ? (
         <>
-          <Card className="flex flex-col gap-3">
-            <h2 className="text-lg font-bold">From the file</h2>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Spec label="Filament">
-                {round(parsed.totalGrams ?? 0, 2)} g{gramsEstimated ? <EstimatedTag /> : null}
-              </Spec>
-              <Spec label="Estimated time">
-                {formatDuration(parsed.estimatedSeconds)}
-                {timeEstimated ? <EstimatedTag /> : null}
-              </Spec>
-              <Spec label="Material">{parsed.material ?? "—"}</Spec>
-              <Spec label="Printer">{parsed.printerModel ?? "—"}</Spec>
-              <Spec label="Nozzle">{parsed.nozzleMm != null ? `${parsed.nozzleMm} mm` : "—"}</Spec>
-              <Spec label="Layer height">{parsed.layerHeightMm != null ? `${parsed.layerHeightMm} mm` : "—"}</Spec>
-              <Spec label="Slicer">
-                {[parsed.slicerName, parsed.slicerVersion].filter(Boolean).join(" ") || "Unknown"}
-              </Spec>
-            </dl>
-          </Card>
-
-          {gramsEstimated || timeEstimated ? (
-            <Card className="flex flex-col gap-4">
-              <Callout tone="warning" title="Check the estimated values">
-                This file doesn&apos;t state{" "}
-                {gramsEstimated && timeEstimated ? "the grams or the time" : gramsEstimated ? "the grams" : "the time"},
-                so the app worked {gramsEstimated && timeEstimated ? "them" : "it"} out. Type the slicer&apos;s number
-                if you have it.
-              </Callout>
-              <div className="grid grid-cols-2 gap-3">
-                {gramsEstimated ? (
-                  <Field id={`${fileId}-total-grams`} label="Filament per plate (g)" hint={parsed.estimated.totalGrams}>
-                    <Input
-                      id={`${fileId}-total-grams`}
-                      inputMode="decimal"
-                      value={totalGrams}
-                      onChange={(e) => changeTotal(e.target.value)}
-                    />
-                  </Field>
-                ) : null}
-                {timeEstimated ? (
-                  <Field id={`${fileId}-minutes`} label="Print time (minutes)" hint={parsed.estimated.estimatedSeconds}>
-                    <Input
-                      id={`${fileId}-minutes`}
-                      inputMode="numeric"
-                      value={minutes}
-                      onChange={(e) => setMinutes(e.target.value)}
-                    />
-                  </Field>
-                ) : null}
-              </div>
-            </Card>
-          ) : null}
-
-          <Card className="flex flex-col gap-4">
-            <Field id={`${fileId}-recipe-name`} label="Recipe name">
-              <Input
-                id={`${fileId}-recipe-name`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={!!group}
-              />
-            </Field>
-            {group ? (
-              <Field id={`${fileId}-change-note`} label="What changed" hint="Saved with this version.">
-                <Input
-                  id={`${fileId}-change-note`}
-                  value={changeNote}
-                  onChange={(e) => setChangeNote(e.target.value)}
-                />
-              </Field>
-            ) : null}
-          </Card>
-
-          <Card className="flex flex-col gap-4">
-            <h2 className="text-lg font-bold">Items on the plate</h2>
-            {rows.map((r, i) => (
-              <fieldset key={i} className="flex flex-col gap-3 rounded-md border border-border p-3">
-                <legend className="px-1 text-sm font-semibold">{r.label}</legend>
-                <Field id={`${fileId}-item-${i}-product`} label="Product or part">
-                  <select
-                    id={`${fileId}-item-${i}-product`}
-                    value={r.productId}
-                    onChange={(e) => update(i, { productId: e.target.value })}
-                    className="control px-3 text-md text-ink"
-                  >
-                    <option value="">New product…</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {r.productId ? null : (
-                  <Field id={`${fileId}-item-${i}-new`} label="New product name">
-                    <Input
-                      id={`${fileId}-item-${i}-new`}
-                      value={r.newName}
-                      onChange={(e) => update(i, { newName: e.target.value })}
-                    />
-                  </Field>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <Field id={`${fileId}-item-${i}-qty`} label="Pieces on plate">
-                    <Input
-                      id={`${fileId}-item-${i}-qty`}
-                      inputMode="numeric"
-                      value={r.qty}
-                      onChange={(e) => update(i, { qty: e.target.value })}
-                    />
-                  </Field>
-                  <Field id={`${fileId}-item-${i}-grams`} label="Grams per piece">
-                    <Input
-                      id={`${fileId}-item-${i}-grams`}
-                      inputMode="decimal"
-                      value={r.grams}
-                      onChange={(e) => update(i, { grams: e.target.value })}
-                    />
-                  </Field>
-                </div>
-              </fieldset>
-            ))}
-            {check ? (
-              <p
-                role="status"
-                className={cn("text-sm font-semibold", check.ok ? "text-success" : "text-danger")}
-                data-testid="grams-check"
-              >
-                {check.ok
-                  ? `Items add up to ${round(check.sum, 2)} g of ${round(plateGrams, 2)} g.`
-                  : `Items add up to ${round(check.sum, 2)} g but the ${gramsEstimated ? "plate" : "file"} uses ${round(plateGrams, 2)} g: ` +
-                    `${check.gap > 0 ? "+" : ""}${round(check.gap, 2)} g (allowed ±${round(check.allowed, 2)} g).`}
-              </p>
-            ) : null}
-          </Card>
-
+          <ImportDetails imp={imp} idPrefix={fileId} products={products} />
           <Button block disabled={!canSave} onClick={() => void save()}>
             {busy === "uploading"
               ? "Uploading…"
@@ -344,23 +111,6 @@ export function ImportForm({
           </Button>
         </>
       ) : null}
-    </div>
-  );
-}
-
-function EstimatedTag() {
-  return (
-    <span className="ms-2">
-      <Badge tone="warning">Estimated</Badge>
-    </span>
-  );
-}
-
-function Spec({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="font-semibold">{children}</dd>
     </div>
   );
 }

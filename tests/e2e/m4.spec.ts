@@ -1,10 +1,11 @@
 import { expect, test } from "./test";
 import { eq } from "drizzle-orm";
-import { printJobs } from "@/db/schema";
+import { printJobs, recipes } from "@/db/schema";
 import { startJob } from "@/server/printing/service";
 import { withDb } from "./db";
 import { checkPage, login } from "./helpers";
 import { setup } from "./seed";
+import { syntheticGcode } from "../support/synthetic-gcode";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -89,4 +90,44 @@ test("J-09 weigh filament: two spools, empty 140 g → measured 734 g", async ({
   await checkPage(page);
   await page.getByRole("button", { name: "Save weigh-in" }).click();
   await expect(page.getByText("Saved. Measured 734 g; stock corrected by -266 g.")).toBeVisible();
+});
+
+test("S-01 Start from a .gcode file: saved as a recipe when the print starts; the same file is reused", async ({
+  page,
+}, info) => {
+  const s = await setup(`s01-${info.project.name}`);
+  const tag = `s01-${info.project.name}-${Date.now()}`;
+  const file = {
+    name: `croix-${tag}.gcode`,
+    mimeType: "text/x-gcode",
+    buffer: Buffer.from(syntheticGcode({ objects: [{ name: `croix-${tag}.stl`, ids: ["1", "2"] }], totalGrams: 20 })),
+  };
+  await page.goto("/print");
+  await page.getByRole("button", { name: ".gcode file" }).click();
+  await page.getByLabel("G-code file").setInputFiles(file);
+  await expect(page.getByLabel("Recipe name")).toHaveValue(`croix-${tag}`);
+  await expect(page.getByTestId("grams-check")).toContainText("Items add up to 20 g of 20 g.");
+  await page.getByLabel("Printer", { exact: true }).selectOption({ label: s.printer });
+  // Several PLA filaments are in stock, so none is picked for a new file (Joe, Nov 26).
+  await expect(page.getByLabel("Filament", { exact: true })).toHaveValue("");
+  await page.getByLabel("Filament", { exact: true }).selectOption({ label: `${s.filament} (1000 g left)` });
+  await checkPage(page);
+  await page.getByRole("button", { name: "Save recipe and start print" }).click();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  const saved = await withDb((db) =>
+    db
+      .select()
+      .from(recipes)
+      .where(eq(recipes.name, `croix-${tag}`)),
+  );
+  expect(saved).toHaveLength(1);
+  const [job] = await withDb((db) => db.select().from(printJobs).where(eq(printJobs.machineId, s.printerId)));
+  expect(job!.recipeId).toBe(saved[0]!.id);
+
+  // The identical file again: Start uses the saved recipe and saves no copy.
+  await page.goto("/print");
+  await page.getByRole("button", { name: ".gcode file" }).click();
+  await page.getByLabel("G-code file").setInputFiles(file);
+  await expect(page.getByRole("status").filter({ hasText: "Already saved" })).toContainText(`croix-${tag} v1`);
+  await expect(page.getByLabel("Recipe name")).toHaveCount(0);
 });
