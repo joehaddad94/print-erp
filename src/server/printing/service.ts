@@ -17,6 +17,8 @@ import { failureMethod, labourMinutesPerPiece, machineCostPerHour, type MissingI
 import { softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
 import { currentSettings } from "@/server/settings/service";
 import { currentAverage, onHand, recordMovement, replayAverages } from "@/server/stock/ledger";
+import type { ImportInput } from "@/server/recipes/schema";
+import { prepareImport, saveImport } from "@/server/recipes/service";
 import { computeFinish, type FinishResult, type JobForFinish } from "./compute";
 
 type Db = PostgresJsDatabase<typeof schema>;
@@ -129,6 +131,8 @@ export async function startOptions(db: Db) {
           qty: recipeItems.qtyOnPlate,
           gramsPerPiece: recipeItems.gramsPerPiece,
           name: products.name,
+          productId: recipeItems.productId,
+          objectName: recipeItems.objectName,
         })
         .from(recipeItems)
         .innerJoin(products, eq(products.id, recipeItems.productId))
@@ -149,6 +153,7 @@ export async function startOptions(db: Db) {
       id: r.id,
       name: r.name,
       version: r.version,
+      recipeGroup: r.recipeGroup,
       plateGrams: r.gramsOverride ?? r.totalGrams ?? 0,
       estimatedSeconds: r.estimatedSeconds,
       material: r.material,
@@ -157,7 +162,13 @@ export async function startOptions(db: Db) {
       allowancePct: r.wasteAllowancePctOverride,
       items: items
         .filter((i) => i.recipeId === r.id)
-        .map((i) => ({ name: i.name, qty: i.qty, gramsPerPiece: i.gramsPerPiece })),
+        .map((i) => ({
+          name: i.name,
+          qty: i.qty,
+          gramsPerPiece: i.gramsPerPiece,
+          productId: i.productId,
+          objectName: i.objectName,
+        })),
     })),
     printers: machineRows.map((m) => {
       const job = busy.get(m.id);
@@ -192,7 +203,12 @@ export type StartInput = {
 
 /** D33/D34: Start inserts the job with no finished_at and snapshots today's inputs (rule 4). */
 export async function startJob(db: Db, input: StartInput, now = new Date()): Promise<number> {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => startJobIn(tx, input, now));
+}
+
+/** Start inside the caller's transaction (Start-from-file saves the recipe in the same one). */
+export async function startJobIn(tx: Tx, input: StartInput, now = new Date()): Promise<number> {
+  {
     const [r] = await tx
       .select()
       .from(recipes)
@@ -282,6 +298,23 @@ export async function startJob(db: Db, input: StartInput, now = new Date()): Pro
       });
     }
     return job!.id;
+  }
+}
+
+/**
+ * Start from a .gcode file (Joe, Nov 26): the file becomes a recipe (or a new version of one)
+ * only if the print starts. Both happen in one transaction, so a refused Start saves nothing.
+ */
+export async function startJobFromFile(
+  db: Db,
+  input: { recipe: ImportInput; start: Omit<StartInput, "recipeId"> },
+  now = new Date(),
+): Promise<{ jobId: number; recipeId: number }> {
+  const prepared = await prepareImport(db, input.recipe);
+  return db.transaction(async (tx) => {
+    const r = await saveImport(tx, prepared);
+    const jobId = await startJobIn(tx, { ...input.start, recipeId: r.id }, now);
+    return { jobId, recipeId: r.id };
   });
 }
 

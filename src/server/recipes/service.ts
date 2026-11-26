@@ -3,7 +3,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { products, recipeItems, recipes } from "@/db/schema";
 import { GcodeFormatError, gramsMatch, parseGcodeFile, type ParsedGcode } from "@/lib/gcode";
-import { updateLogged } from "@/server/edits/engine";
+import { updateLogged, type Tx } from "@/server/edits/engine";
 import { currentSettings } from "@/server/settings/service";
 import { isOwnStorageUrl, putFile, readStoredFile, sha256Hex } from "@/server/storage";
 import type { ImportInput, OverridesInput } from "./schema";
@@ -34,7 +34,7 @@ export async function gramsTolerance(db: Db): Promise<Tolerance> {
 }
 
 /** R-06: an identical file (same SHA-256) already imported as a live recipe version. */
-export async function findBySha(db: Db, sha: string) {
+export async function findBySha(db: Db | Tx, sha: string) {
   const [r] = await db
     .select({ id: recipes.id, name: recipes.name, version: recipes.version })
     .from(recipes)
@@ -55,6 +55,18 @@ function fmt(n: number) {
  * old versions are never changed (D9, D15).
  */
 export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: number; version: number }> {
+  const prepared = await prepareImport(db, input);
+  return db.transaction((tx) => saveImport(tx, prepared));
+}
+
+export type PreparedImport = Awaited<ReturnType<typeof prepareImport>>;
+
+/**
+ * The slow, read-only half of an import (fetch the stored file, hash, parse, grams check,
+ * thumbnail), done outside any transaction. Start-from-file (Nov 26) runs it before its own
+ * transaction, then saves the recipe and starts the job together.
+ */
+export async function prepareImport(db: Db, input: ImportInput) {
   if (!isOwnStorageUrl(input.fileUrl)) throw new ImportError("The upload didn't arrive. Choose the file again.");
   const bytes = await readStoredFile(input.fileUrl);
   if (!bytes) throw new ImportError("The upload didn't arrive. Choose the file again.");
@@ -101,7 +113,18 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
     ? await putFile(`thumbnails/${sha.slice(0, 16)}.png`, Buffer.from(thumb.base64Png, "base64"), "image/png")
     : null;
 
-  return db.transaction(async (tx) => {
+  return { input, bytesLength: bytes.byteLength, sha, parsed, estimatedValues, thumbnailBlobUrl };
+}
+
+/** The write half of an import: one version and its items, inside the caller's transaction. */
+export async function saveImport(
+  tx: Tx,
+  { input, bytesLength, sha, parsed, estimatedValues, thumbnailBlobUrl }: PreparedImport,
+): Promise<{ id: number; version: number }> {
+  {
+    // The same file may have been saved since prepareImport looked (two taps, two tabs).
+    const dup = await findBySha(tx, sha);
+    if (dup) throw new ImportError(`This is the same file as ${dup.name} v${dup.version}.`, undefined, dup);
     let version = 1;
     let recipeGroup: string | undefined;
     if (input.recipeGroup) {
@@ -142,7 +165,7 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
         changeNote: input.changeNote,
         fileBlobUrl: input.fileUrl,
         fileName: input.fileName,
-        fileSizeBytes: bytes.byteLength,
+        fileSizeBytes: bytesLength,
         fileSha256: sha,
         parser: parsed.parser,
         parserVersion: parsed.parserVersion,
@@ -173,7 +196,7 @@ export async function importRecipe(db: Db, input: ImportInput): Promise<{ id: nu
       })),
     );
     return { id: r!.id, version: r!.version };
-  });
+  }
 }
 
 /** Current version of every recipe, newest first. */

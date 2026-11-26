@@ -3,7 +3,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { adjustments, editLog, machines, printJobs, settings, stockItems, stockMovements } from "@/db/schema";
+import {
+  adjustments,
+  editLog,
+  machines,
+  printJobs,
+  products,
+  recipes,
+  settings,
+  stockItems,
+  stockMovements,
+} from "@/db/schema";
 import { seed } from "@/db/seed";
 import { expenseSchema } from "@/server/expenses/schema";
 import { createExpense } from "@/server/expenses/service";
@@ -13,6 +23,7 @@ import {
   getJob,
   PrintError,
   startJob,
+  startJobFromFile,
   weighFilament,
   type FinishFormInput,
 } from "@/server/printing/service";
@@ -316,5 +327,53 @@ describe("J-09 weigh filament", () => {
     expect(await db.select().from(adjustments)).toHaveLength(1);
     const [f] = await db.select().from(stockItems).where(eq(stockItems.id, pla));
     expect(f!.emptySpoolWeightG).toBe(140);
+  });
+});
+
+describe("S-01 Start from a .gcode file (Nov 26)", () => {
+  const start = () => ({ machineId: printer, filamentId: pla, secondFilamentId: null, firstFilamentGrams: null });
+  async function fileInput(name: string, grams: number, recipeGroup: string | null = null) {
+    const text = syntheticGcode({
+      objects: [{ name: `${name}.stl`, ids: ["1"] }],
+      totalGrams: grams,
+      timeSeconds: 3600 + fileN++,
+    });
+    const fileUrl = await putLocal(`${name}.gcode`, new TextEncoder().encode(text));
+    return importSchema.parse({
+      fileUrl,
+      fileName: `${name}.gcode`,
+      name,
+      recipeGroup,
+      changeNote: null,
+      items: [{ productId: null, newProductName: name, objectName: `${name}.stl`, qty: 1, gramsPerPiece: grams }],
+    });
+  }
+
+  it("saves the file as a recipe and starts the print together", async () => {
+    const res = await startJobFromFile(db, { recipe: await fileInput("Croix", 12), start: start() });
+    const job = (await getJob(db, res.jobId))!;
+    expect(job.recipe.id).toBe(res.recipeId);
+    expect(job.recipe.version).toBe(1);
+    close(job.filaments[0]!.line.gramsUsed, 12);
+  });
+
+  it("can save the file as a new version of a saved recipe", async () => {
+    const v1 = await recipe("Hook", 10, ["1"]);
+    const [r1] = await db.select().from(recipes).where(eq(recipes.id, v1.id));
+    const res = await startJobFromFile(db, { recipe: await fileInput("Hook", 11, r1!.recipeGroup), start: start() });
+    const [r2] = await db.select().from(recipes).where(eq(recipes.id, res.recipeId));
+    expect(r2!.version).toBe(2);
+    expect(r2!.isCurrent).toBe(true);
+  });
+
+  it("a refused Start (busy printer) saves no recipe and no product", async () => {
+    await startJobFromFile(db, { recipe: await fileInput("First", 5), start: start() });
+    const before = (await db.select().from(recipes)).length;
+    const productsBefore = (await db.select().from(products)).length;
+    await expect(startJobFromFile(db, { recipe: await fileInput("Second", 5), start: start() })).rejects.toThrow(
+      /is busy/,
+    );
+    expect((await db.select().from(recipes)).length).toBe(before);
+    expect((await db.select().from(products)).length).toBe(productsBefore);
   });
 });

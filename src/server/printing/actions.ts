@@ -6,10 +6,20 @@ import { z } from "zod";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
-import { editFinishedJob, finishJob, PrintError, startJob, weighFilament, type FinishFormInput } from "./service";
+import { importSchema } from "@/server/recipes/schema";
+import { ImportError } from "@/server/recipes/service";
+import {
+  editFinishedJob,
+  finishJob,
+  PrintError,
+  startJob,
+  startJobFromFile,
+  weighFilament,
+  type FinishFormInput,
+} from "./service";
 
 function refresh() {
-  for (const p of ["/", "/print", "/stock", "/machines", "/weigh"]) revalidatePath(p);
+  for (const p of ["/", "/print", "/stock", "/machines", "/weigh", "/recipes", "/products"]) revalidatePath(p);
 }
 
 const startSchema = z.object({
@@ -20,15 +30,36 @@ const startSchema = z.object({
   firstFilamentGrams: f.optionalNumber("the first filament's grams", { positive: true }),
 });
 
+/**
+ * Start print. With a `recipeImport` field (JSON, sent after the browser uploaded a .gcode),
+ * the file is saved as a recipe and the print started together (Nov 26).
+ */
 export async function startPrintAction(_prev: FormState, fd: FormData): Promise<FormState> {
   await requireUser();
-  const values = formValues(fd);
-  const v = validate(startSchema, values);
-  if (!v.ok) return v.state;
+  const { recipeImport, ...values } = formValues(fd);
   try {
-    await startJob(db(), v.data);
+    if (recipeImport) {
+      const v = validate(startSchema.omit({ recipeId: true }), values);
+      if (!v.ok) return v.state;
+      let json: unknown;
+      try {
+        json = JSON.parse(recipeImport);
+      } catch {
+        return failure(values, "Choose the file again.");
+      }
+      const recipe = importSchema.safeParse(json);
+      if (!recipe.success) return failure(values, recipe.error.issues[0]?.message ?? "Check the items on the plate.");
+      await startJobFromFile(db(), { recipe: recipe.data, start: v.data });
+    } else {
+      const v = validate(startSchema, values);
+      if (!v.ok) return v.state;
+      await startJob(db(), v.data);
+    }
   } catch (e) {
-    return failure(values, e instanceof PrintError ? e.message : "Couldn't start. Nothing was saved. Try again.");
+    return failure(
+      values,
+      e instanceof PrintError || e instanceof ImportError ? e.message : "Couldn't start. Nothing was saved. Try again.",
+    );
   }
   refresh();
   redirect("/");
