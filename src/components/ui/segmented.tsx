@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Segmented choice for 2 to 4 options (USD/LBP, Ran to the end/Stopped early).
- * Real radio inputs, so it works in a plain <form> and with the keyboard (arrows) without JS.
+ * Real radio inputs (invisible, covering each option so the tap target is the whole option), so it works in a plain <form> and with the keyboard (arrows) without JS.
  */
 export function Segmented({
   name,
@@ -22,14 +22,14 @@ export function Segmented({
       <legend className="pb-1.5 text-sm font-medium text-ink-soft">{legend}</legend>
       <div className="inline-flex w-full rounded-md bg-surface-muted p-0.5 sm:w-auto">
         {options.map((o) => (
-          <label key={o.value} className="flex-1 sm:flex-none">
+          <label key={o.value} className="relative flex-1 sm:flex-none">
             <input
               type="radio"
               name={name}
               value={o.value}
               defaultChecked={o.value === (defaultValue ?? options[0]?.value)}
               onChange={onChange ? () => onChange(o.value) : undefined}
-              className="peer sr-only"
+              className="peer absolute inset-0 size-full cursor-pointer opacity-0"
             />
             <span
               className={cn(
