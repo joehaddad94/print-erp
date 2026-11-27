@@ -649,3 +649,53 @@ export function sellableProducts(db: Db) {
     .where(and(eq(products.kind, "product"), isNull(products.deletedAt)))
     .orderBy(asc(products.name));
 }
+
+/**
+ * New order (prototype /orders/new): the order and its items in one save. Quoted holds no stock;
+ * Confirmed reserves what's free right away and the rest shows as "need to print" (R4, D21).
+ */
+export async function createOrderWithLines(
+  db: Db,
+  i: OrderInput & { status: "quoted" | "confirmed" },
+  lines: { productId: number; quantity: number; unitPrice: number | null }[],
+) {
+  return db.transaction(async (tx) => {
+    const customerId =
+      i.customerId ??
+      (i.newCustomerName
+        ? await createCustomer(tx, { name: i.newCustomerName, phone: null, handle: null, notes: null })
+        : null);
+    const [o] = await tx
+      .insert(orders)
+      .values({
+        channel: i.channel,
+        customerId,
+        dueOn: i.dueOn,
+        currency: i.currency,
+        rateToUsd: i.rateToUsd,
+        deliveryCharge: i.deliveryCharge,
+        deliveredBy: i.deliveredBy,
+        notes: i.notes,
+        status: i.status,
+      })
+      .returning({ id: orders.id });
+    for (const l of lines) {
+      const [p] = await tx
+        .select()
+        .from(products)
+        .where(and(eq(products.id, l.productId), isNull(products.deletedAt)));
+      if (!p) throw new OrderError("One of the items was deleted. Remove it and try again.");
+      if (p.kind === "part") throw new OrderError(`${p.name} is a part and can't be sold on its own.`);
+      if (p.salePriceUsd == null) throw new OrderError(`Set a sale price for ${p.name} first`, `/products/${p.id}`);
+      await tx.insert(orderItems).values({
+        orderId: o!.id,
+        productId: p.id,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice ?? p.salePriceUsd / i.rateToUsd,
+        customization: null,
+      });
+    }
+    if (i.status === "confirmed") await reserveLines(tx, o!.id);
+    return o!.id;
+  });
+}

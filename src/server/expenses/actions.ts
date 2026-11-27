@@ -23,7 +23,7 @@ export async function createExpenseAction(_prev: FormState, fd: FormData): Promi
     return failure(values, "Couldn't save. Nothing was recorded. Check your connection and try again.");
   }
   refresh();
-  redirect(isPurchase(v.data.category) ? "/purchases" : "/expenses");
+  redirect(v.data.category === "machine" ? "/machines" : isPurchase(v.data.category) ? "/purchases" : "/expenses");
 }
 
 export async function updateExpenseAction(id: number, _prev: FormState, fd: FormData): Promise<FormState> {

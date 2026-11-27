@@ -1,27 +1,36 @@
-import { ExpenseForm } from "@/components/expenses/expense-form";
-import { Card, PageHeader } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { PurchaseForm } from "@/components/expenses/purchase-form";
+import { PageHeader } from "@/components/ui";
+import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
 import { createExpenseAction } from "@/server/expenses/actions";
+import { purchaseStockOptions } from "@/server/expenses/service";
 import { expenseFormOptions } from "../../expenses/options";
 
-/** R7 Add purchase: filament, packaging or a machine. Adds stock (or the machine) in the same save. */
+/** Add purchase (prototype /purchases/new): filament or packaging into stock. Machines: /machines/new. */
 export default async function NewPurchasePage({ searchParams }: PageProps<"/purchases/new">) {
   await requireUser();
   const preset = (await searchParams).category;
-  const category = preset === "machine" || preset === "filament" || preset === "packaging" ? preset : undefined;
-  const opts = await expenseFormOptions();
+  if (preset === "machine") redirect("/machines/new");
+  const [opts, stock] = await Promise.all([expenseFormOptions(), purchaseStockOptions(db())]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
-    <div className="flex max-w-content flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <PageHeader back={{ href: "/purchases", label: "Purchases" }} title="Add purchase" />
-      <Card>
-        <ExpenseForm
-          kind="purchase"
-          action={createExpenseAction}
-          defaults={{ spentOn: today, currency: "USD", lbpRate: opts.lbpRate ?? "", ...(category ? { category } : {}) }}
-          {...opts}
-        />
-      </Card>
+      <PurchaseForm
+        action={createExpenseAction}
+        defaults={{
+          spentOn: today,
+          currency: "USD",
+          lbpRate: opts.lbpRate ?? "",
+          paymentMethod: "cash",
+          ...(preset === "packaging" ? { category: "packaging" } : {}),
+        }}
+        stock={stock}
+        suppliers={opts.suppliers}
+        brands={opts.brands}
+        lbpRate={opts.lbpRate}
+      />
     </div>
   );
 }

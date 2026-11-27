@@ -1,6 +1,6 @@
 import { Link } from "@/components/ui/link";
 import { StartForm } from "@/components/printing/start-form";
-import { Card, EmptyState, PageHeader, buttonClass } from "@/components/ui";
+import { EmptyState, PageHeader, buttonClass } from "@/components/ui";
 import { db } from "@/db";
 import { requireUser } from "@/server/auth/session";
 import { startOptions } from "@/server/printing/service";
@@ -13,8 +13,8 @@ export default async function StartPrintPage({ searchParams }: PageProps<"/print
   // Start can take a .gcode directly (Nov 26), unless file storage isn't connected on Vercel.
   const fileAvailable = !(process.env.VERCEL && fileOpts.mode === "local");
   return (
-    <div className="flex max-w-content flex-col gap-6">
-      <PageHeader title="Start print" />
+    <div className="flex flex-col gap-5">
+      <PageHeader title="Start print" description="Pick what you are printing. Cost is worked out as you go." />
       {options.recipes.length === 0 && !fileAvailable ? (
         <EmptyState title="No recipes yet">
           <Link href="/recipes/import" className={buttonClass("primary")}>
@@ -25,18 +25,16 @@ export default async function StartPrintPage({ searchParams }: PageProps<"/print
         <EmptyState title="No active printer">Add one under Machines.</EmptyState>
       ) : options.filaments.length === 0 ? (
         <EmptyState title="No filament yet">
-          <Link href="/expenses/new" className={buttonClass("primary")}>
+          <Link href="/purchases/new" className={buttonClass("primary")}>
             Add a filament purchase
           </Link>
         </EmptyState>
       ) : (
-        <Card>
-          <StartForm
-            options={options}
-            file={{ ...fileOpts, available: fileAvailable }}
-            initialRecipeId={typeof recipe === "string" ? recipe : undefined}
-          />
-        </Card>
+        <StartForm
+          options={options}
+          file={{ ...fileOpts, available: fileAvailable }}
+          initialRecipeId={typeof recipe === "string" ? recipe : undefined}
+        />
       )}
     </div>
   );

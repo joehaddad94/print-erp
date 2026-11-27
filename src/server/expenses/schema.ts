@@ -68,6 +68,11 @@ export const expenseSchema = z
     /** R7 running costs: what, who was paid, monthly. */
     description: f.optionalText(120),
     paidTo: f.optionalText(80),
+    /** How it was paid (prototype "Paid with"). Optional: older rows have none. */
+    paymentMethod: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.enum(["cash", "whish", "omt", "bank_transfer", "card", "other"]).optional(),
+    ),
     repeatsMonthly: z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean()),
     /** The text in the supplier search box; only used to catch a name typed but never picked. */
     supplierSearch: f.optionalText(200),
@@ -88,6 +93,12 @@ export const expenseSchema = z
     machineName: f.optionalText(80),
     machineType: z.enum(["printer", "equipment"]).optional(),
     machineModel: f.optionalText(80),
+    /** Add machine (prototype /machines/new): its specs are saved on the new machine in the same step. */
+    machineNozzleMm: f.optionalNumber("the nozzle size", { positive: true }),
+    machineBedXMm: f.optionalNumber("the bed width", { positive: true }),
+    machineBedYMm: f.optionalNumber("the bed depth", { positive: true }),
+    machineLifeHours: f.optionalNumber("the expected life", { positive: true }),
+    machinePowerKw: f.optionalNumber("the average power", { positive: true }),
   })
   .superRefine(
     (v, ctx) => {

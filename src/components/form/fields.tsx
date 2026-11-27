@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, type InputHTMLAttributes, type ReactNode } from "react";
-import { Field, Input } from "@/components/ui";
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Field, Input, Segmented } from "@/components/ui";
 import { AffixInput } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 import { useFieldState } from "./action-form";
@@ -22,13 +22,26 @@ export function TextField({
   label,
   hint,
   optional,
+  prefix,
   ...rest
-}: Base & Omit<InputHTMLAttributes<HTMLInputElement>, "name" | "defaultValue">) {
+}: Base & { prefix?: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "name" | "defaultValue" | "prefix">) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
     <Field id={id} label={label} hint={hint} error={error} optional={optional}>
-      <Input key={version} id={id} name={name} defaultValue={defaultValue} invalid={!!error} {...rest} />
+      {prefix ? (
+        <AffixInput
+          key={version}
+          id={id}
+          name={name}
+          defaultValue={defaultValue}
+          invalid={!!error}
+          prefix={prefix}
+          {...rest}
+        />
+      ) : (
+        <Input key={version} id={id} name={name} defaultValue={defaultValue} invalid={!!error} {...rest} />
+      )}
     </Field>
   );
 }
@@ -113,7 +126,7 @@ export function SelectField({
   );
 }
 
-export function TextareaField({ name, label, hint, optional }: Base) {
+export function TextareaField({ name, label, hint, optional, placeholder }: Base & { placeholder?: string }) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
@@ -124,30 +137,71 @@ export function TextareaField({ name, label, hint, optional }: Base) {
         name={name}
         rows={3}
         defaultValue={defaultValue}
-        className="control px-3 py-2 text-ink"
+        placeholder={placeholder}
+        className="control px-3 py-2 text-ink placeholder:text-ink-muted"
       />
     </Field>
   );
 }
 
-/** USD/LBP choice plus the day's LBP rate when LBP is picked (D43). */
-export function CurrencyFields({ lbpRateDefault }: { lbpRateDefault?: string }) {
-  const { defaultValue } = useFieldState("currency");
+/** A segmented choice inside an ActionForm (prototype `.seg`): keeps the typed value after a failed save. */
+export function SegmentedField({
+  name,
+  label,
+  options,
+  hint,
+  onValueChange,
+}: {
+  name: string;
+  label: string;
+  options: readonly { value: string; label: string }[];
+  hint?: ReactNode;
+  onValueChange?: (v: string) => void;
+}) {
+  const { defaultValue, error, version } = useFieldState(name);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <SelectField
-        name="currency"
-        label="Currency"
-        options={[
-          { value: "USD", label: "USD" },
-          { value: "LBP", label: "LBP" },
-        ]}
+    <div className="flex flex-col gap-1.5">
+      <Segmented
+        key={version}
+        name={name}
+        legend={label}
+        options={options}
+        defaultValue={defaultValue || options[0]?.value}
+        onChange={onValueChange}
       />
-      <NumberField
-        name="lbpRate"
-        label="LBP per USD"
-        hint={defaultValue === "LBP" || !lbpRateDefault ? "Only for LBP" : `Settings: ${lbpRateDefault}`}
-      />
+      {error ? <p className="text-sm font-medium text-danger">{error}</p> : null}
+      {hint && !error ? <p className="text-xs text-ink-muted">{hint}</p> : null}
     </div>
+  );
+}
+
+/** USD/LBP as a segmented choice; the day's LBP rate shows only for LBP, pre-filled from Settings (D43). */
+export function CurrencyFields({ lbpRateDefault, beside }: { lbpRateDefault?: string; beside?: ReactNode }) {
+  const { defaultValue } = useFieldState("currency");
+  const [currency, setCurrency] = useState(defaultValue || "USD");
+  return (
+    <>
+      <div className={beside ? "grid items-start gap-3 sm:grid-cols-2" : "contents"}>
+        {beside}
+        <SegmentedField
+          name="currency"
+          label="Currency"
+          options={[
+            { value: "USD", label: "USD" },
+            { value: "LBP", label: "LBP" },
+          ]}
+          onValueChange={setCurrency}
+        />
+      </div>
+      <div hidden={currency !== "LBP"}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <NumberField
+            name="lbpRate"
+            label="LBP per USD"
+            hint={lbpRateDefault ? "Pre-filled from Settings." : "Today's rate."}
+          />
+        </div>
+      </div>
+    </>
   );
 }

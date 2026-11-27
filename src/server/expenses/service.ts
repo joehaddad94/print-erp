@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
-import { expenses, machines, stockItems, stockMovements, suppliers } from "@/db/schema";
+import { expenses, machines, stockAvailable, stockItems, stockMovements, suppliers } from "@/db/schema";
 import { rateToUsdFromLbpRate } from "@/lib/money";
 import { lastEdited, softDeleteLogged, updateLogged } from "@/server/edits/engine";
-import { recordMovement, replayAverages } from "@/server/stock/ledger";
+import { currentAverage, recordMovement, replayAverages } from "@/server/stock/ledger";
 import { isPurchase, type ExpenseInput } from "./schema";
 
 type Db = PostgresJsDatabase<typeof schema>;
@@ -65,6 +65,7 @@ export async function createExpense(db: Db, i: ExpenseInput) {
         notes: i.notes,
         description: i.description,
         paidTo: i.paidTo,
+        paymentMethod: i.paymentMethod ?? null,
         repeatsMonthly: i.repeatsMonthly,
         brand: await canonicalBrand(tx, i),
       })
@@ -128,7 +129,11 @@ export async function createExpense(db: Db, i: ExpenseInput) {
           purchaseAmount: i.amount,
           purchaseCurrency: i.currency,
           purchaseRateToUsd: rateToUsd,
-          expectedLifeHours: (i.machineType ?? "equipment") === "printer" ? 3000 : null,
+          expectedLifeHours: i.machineLifeHours ?? ((i.machineType ?? "equipment") === "printer" ? 3000 : null),
+          avgPowerKw: i.machinePowerKw,
+          nozzleMm: i.machineNozzleMm,
+          bedXMm: i.machineBedXMm == null ? null : Math.round(i.machineBedXMm),
+          bedYMm: i.machineBedYMm == null ? null : Math.round(i.machineBedYMm),
         })
         .returning();
       await tx.update(expenses).set({ machineId: machine!.id }).where(eq(expenses.id, expense!.id));
@@ -158,6 +163,7 @@ export async function updateExpense(db: Db, id: number, i: ExpenseInput, userId?
         notes: i.notes,
         description: i.description,
         paidTo: i.paidTo,
+        paymentMethod: i.paymentMethod ?? null,
         repeatsMonthly: i.repeatsMonthly,
         brand: await canonicalBrand(tx, i, id),
       },
@@ -262,4 +268,24 @@ export function filamentsAndPackaging(db: Db) {
     .from(stockItems)
     .where(and(isNull(stockItems.deletedAt)))
     .orderBy(asc(stockItems.name));
+}
+
+/**
+ * Add purchase "What did you buy?" (prototype /purchases/new): filament and packaging items with
+ * what is on hand and today's average cost per unit, so the form can show "Average after".
+ */
+export async function purchaseStockOptions(db: Db) {
+  const rows = await db
+    .select({
+      id: stockItems.id,
+      name: stockItems.name,
+      type: stockItems.type,
+      material: stockItems.material,
+      onHand: sql<number>`coalesce(${stockAvailable.onHand}, 0)`.mapWith(Number),
+    })
+    .from(stockItems)
+    .leftJoin(stockAvailable, eq(stockAvailable.stockItemId, stockItems.id))
+    .where(and(isNull(stockItems.deletedAt), inArray(stockItems.type, ["filament", "consumable"])))
+    .orderBy(asc(stockItems.name));
+  return Promise.all(rows.map(async (r) => ({ ...r, avgCostUsd: await currentAverage(db, r.id) })));
 }

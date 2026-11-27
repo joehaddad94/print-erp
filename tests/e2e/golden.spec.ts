@@ -3,7 +3,17 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode } from "../support/synthetic-gcode";
-import { checkPage, editInline, fillStart, login, pickSupplier, runningPrint } from "./helpers";
+import {
+  checkPage,
+  costPanel,
+  editInline,
+  fillStart,
+  login,
+  newStockItem,
+  pickIn,
+  pickSupplier,
+  runningPrint,
+} from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -17,7 +27,7 @@ const money = (s: string | null) => Number((s ?? "").replace(/[^0-9.-]/g, ""));
 async function startAndFinish(page: Page, t: { recipe: string; printer: string; filament: RegExp }, fail = false) {
   await page.goto("/print");
   await fillStart(page, { recipe: t.recipe, printer: t.printer, filament: t.filament });
-  await expect(page.getByText(/^Estimated cost \$/)).toBeVisible();
+  await expect(costPanel(page)).toContainText(/Job cost\s*\$\d/);
   await page.getByRole("button", { name: "Start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await runningPrint(page, t.printer).click();
@@ -58,15 +68,14 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("heading", { level: 1, name: supplier })).toBeVisible();
 
   // 3. Buy a printer, then fill in its power and life.
-  await page.goto("/purchases/new");
-  await page.getByLabel("Category").selectOption("machine");
-  await page.getByLabel("Amount").fill("200");
-  await page.getByLabel("Name").fill(printer);
-  await page.getByLabel("Type").selectOption("printer");
+  await page.goto("/machines/new");
+  await page.getByLabel("Purchase cost").fill("200");
+  await page.getByLabel("Name", { exact: true }).fill(printer);
+  await page.getByRole("radio", { name: "Printer" }).check();
   await page.getByLabel("Model").fill("Creality Ender-3 V3 SE");
   await pickSupplier(page, supplier);
-  await page.getByRole("button", { name: "Save purchase" }).click();
-  await expect(page).toHaveURL(/\/purchases$/);
+  await page.getByRole("button", { name: "Save machine" }).click();
+  await expect(page).toHaveURL(/\/machines$/);
   await page.goto("/machines");
   await page.locator(":is(tr, li):visible").filter({ hasText: printer }).getByRole("link").first().click();
   await page.getByLabel("Average power").fill("0.12");
@@ -77,19 +86,19 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
 
   // 4. Filament (1 kg, $17.50) and 10 boxes ($5) from the supplier.
   await page.goto("/purchases/new");
-  await page.getByLabel("Category").selectOption("filament");
-  await page.getByLabel("Amount").fill("17.50");
+  await newStockItem(page, "Filament");
+  await page.getByLabel("Total paid").fill("17.50");
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(colour);
-  await page.getByLabel("Grams bought").fill("1000");
+  await page.getByLabel("Quantity").fill("1000");
   await pickSupplier(page, supplier);
   await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/purchases/new");
-  await page.getByLabel("Category").selectOption("packaging");
-  await page.getByLabel("Amount").fill("5");
+  await newStockItem(page, "Packaging");
+  await page.getByLabel("Total paid").fill("5");
   await page.getByLabel("New item name").fill(box);
-  await page.getByLabel("Pieces").fill("10");
+  await page.getByLabel("Quantity").fill("10");
   await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/suppliers");
@@ -142,8 +151,8 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await expect(page.getByRole("heading", { level: 1, name: customer })).toBeVisible();
   await expect(page.getByText("+961 76 000 000 · customer since")).toBeVisible();
   await page.goto("/orders/new");
-  await page.getByLabel("Customer", { exact: true }).selectOption({ label: customer });
-  await page.getByLabel("Channel").selectOption("instagram");
+  await pickIn(page, "Customer", customer);
+  await page.getByRole("radio", { name: "Instagram" }).check();
   await page.getByRole("button", { name: "Create order" }).click();
   await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
   await page.getByLabel("Product").selectOption({ label: `${product} · $6.00` });

@@ -76,7 +76,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                 Adjust stock
               </Link>
             ) : null}
-            <Link href="/expenses/new" className={buttonClass("primary")}>
+            <Link href="/purchases/new" className={buttonClass("primary")}>
               <Icon name="plus" size={15} />
               Buy
             </Link>

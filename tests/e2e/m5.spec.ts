@@ -3,7 +3,7 @@ import { machines, products } from "@/db/schema";
 import { setSetting } from "@/server/settings/service";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, editInline, fillStart, login, runningPrint } from "./helpers";
+import { checkPage, editInline, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 
 async function newOrder(page: Page, customer: string) {
   await page.goto("/orders/new");
-  await page.getByLabel("New customer name").fill(customer);
+  await newCustomerOnOrder(page, customer);
   await page.getByRole("button", { name: "Create order" }).click();
   await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
 }
@@ -70,11 +70,11 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
 
   // Buy filament.
   await page.goto("/purchases/new");
-  await page.getByLabel("Category").selectOption("filament");
-  await page.getByLabel("Amount").fill("17.50");
+  await newStockItem(page, "Filament");
+  await page.getByLabel("Total paid").fill("17.50");
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(tag);
-  await page.getByLabel("Grams bought").fill("1000");
+  await page.getByLabel("Quantity").fill("1000");
   await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page).toHaveURL(/\/purchases$/);
 

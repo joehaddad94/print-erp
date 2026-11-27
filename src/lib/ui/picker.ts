@@ -14,6 +14,8 @@ export type PickerItem = {
   disabled?: boolean;
   /** Short label on the right, e.g. "Low". */
   badge?: string;
+  /** Heading the row is listed under after the recent group (e.g. "Filament", "Packaging"). */
+  group?: string;
 };
 
 export type PickerGroup = { label: string; items: PickerItem[] };
@@ -40,6 +42,14 @@ export function groupItems(
   const rest = hits
     .filter((i) => !recentIds.includes(i.id))
     .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base", numeric: true }));
+  if (rest.some((i) => i.group)) {
+    // Grouped lists keep the groups in the order they first appear in `items`.
+    const order = [...new Set(items.map((i) => i.group ?? ""))];
+    return [
+      { label: recentLabel, items: recent },
+      ...order.map((g) => ({ label: g, items: rest.filter((i) => (i.group ?? "") === g) })),
+    ].filter((g) => g.items.length);
+  }
   return [
     { label: recentLabel, items: recent },
     { label: recent.length ? "All" : "", items: rest },

@@ -102,7 +102,10 @@ export async function pickIn(page: Page, label: string, item: string | RegExp) {
 
 /** R3 Start print: recipe picker, printer card, filament picker (filament as a label or pattern). */
 export async function fillStart(page: Page, s: { recipe?: string; printer: string; filament?: string | RegExp }) {
-  if (s.recipe) await pickIn(page, "Recipe", s.recipe);
+  if (s.recipe) {
+    await page.getByRole("radio", { name: "Saved recipe" }).check();
+    await pickIn(page, "Recipe", s.recipe);
+  }
   await page.getByRole("radio", { name: new RegExp(`^${escapeRe(s.printer)}`) }).check();
   if (s.filament) await pickIn(page, "Filament", s.filament);
 }
@@ -125,4 +128,25 @@ export async function editInline(page: Page, label: string, value: string, opts:
     await box.fill(value);
     await box.press("Enter");
   }
+}
+
+/** New order: type a name in the Customer search and choose "+ New customer". */
+export async function newCustomerOnOrder(page: Page, name: string) {
+  const group = page.getByRole("group", { name: "Customer", exact: true });
+  await group.getByRole("combobox").fill(name);
+  await group.getByRole("option", { name: "New customer" }).click();
+  await expect(page.getByLabel("New customer name")).toHaveValue(name);
+}
+
+/** Add purchase: "+ New stock item" at the bottom of "What did you buy?", then Filament or Packaging. */
+export async function newStockItem(page: Page, type: "Filament" | "Packaging") {
+  const group = page.getByRole("group", { name: "What did you buy?", exact: true });
+  await group.getByRole("combobox").click();
+  await group.getByRole("option", { name: "New stock item" }).click();
+  await page.getByRole("radio", { name: type, exact: true }).check();
+}
+
+/** Start print's "Cost of this print" panel. */
+export function costPanel(page: Page) {
+  return page.getByRole("region", { name: "Cost of this print" });
 }

@@ -12,6 +12,7 @@ import {
   addLine,
   createCustomer,
   createOrder,
+  createOrderWithLines,
   deleteLine,
   deleteOrder,
   deletePayment,
@@ -100,6 +101,59 @@ export async function saveOrderAction(id: number | null, _p: FormState, fd: Form
     return fail(values, e);
   }
   refresh(orderId!);
+  redirect(`/orders/${orderId}`);
+}
+
+const newLinesSchema = z.preprocess(
+  (v) => {
+    try {
+      return typeof v === "string" && v ? JSON.parse(v) : [];
+    } catch {
+      return [];
+    }
+  },
+  z.array(
+    z.object({
+      productId: z.number().int().positive(),
+      quantity: z.number({ error: "Enter how many" }).int("Enter a whole number").positive("Enter at least 1"),
+      unitPrice: z.number().min(0, "The price can't be negative").nullable(),
+    }),
+    { error: "Check the items" },
+  ),
+);
+
+const newOrderSchema = z
+  .object({
+    channel: z.enum(["whatsapp", "instagram", "in_person", "other"]),
+    status: z.enum(["quoted", "confirmed"]),
+    customerId: f.optionalId(),
+    newCustomerName: f.optionalText(80),
+    dueOn: z.preprocess((v) => (v === "" ? null : v), z.iso.date({ error: "Enter the due date as a date" }).nullable()),
+    currency: f.currency(),
+    lbpRate: f.optionalNumber("the LBP rate", { positive: true }),
+    notes: f.optionalText(),
+    lines: newLinesSchema,
+  })
+  .superRefine(needRate);
+
+/** New order (prototype /orders/new): customer, items, status and details in one save. */
+export async function createOrderAction(_p: FormState, fd: FormData): Promise<FormState> {
+  await requireUser();
+  const values = formValues(fd);
+  const v = validate(newOrderSchema, values);
+  if (!v.ok) return v.state;
+  const { lines, ...d } = v.data;
+  let orderId: number;
+  try {
+    orderId = await createOrderWithLines(
+      db(),
+      { ...d, rateToUsd: lbp(d), deliveryCharge: null, deliveredBy: null },
+      lines,
+    );
+  } catch (e) {
+    return fail(values, e);
+  }
+  refresh(orderId);
   redirect(`/orders/${orderId}`);
 }
 

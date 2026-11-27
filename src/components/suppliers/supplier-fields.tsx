@@ -1,29 +1,33 @@
 import { TextareaField, TextField } from "@/components/form/fields";
-import { PHONE_HINT } from "@/lib/phone";
 
-/** R7 supplier details: phone saved as +961…, the rest optional. */
-export function SupplierFields() {
+/** Add supplier (prototype /suppliers/new): phone saved as +961…, the same format as customers. */
+export function SupplierFields({ create = false }: { create?: boolean }) {
   return (
     <>
-      <TextField name="name" label="Name" autoComplete="off" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField name="phone" label="Phone" inputMode="tel" placeholder="70 123 456" hint={PHONE_HINT} />
-        <TextField name="sells" label="Sells" placeholder="PLA, PETG, boxes" hint="Optional." />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField name="email" label="Email" inputMode="email" placeholder="shop@example.com" hint="Optional." />
-        <TextField name="website" label="Website or page" inputMode="url" placeholder="https://…" hint="Optional." />
-      </div>
-      <TextField name="area" label="Area" placeholder="Dora" hint="Optional." />
-      <TextareaField name="address" label="Address" hint="Optional." />
+      <TextField name="name" label="Name" autoComplete="off" placeholder="Spool corner" />
       <TextField
-        name="mapUrl"
-        label="Map pin"
-        inputMode="url"
-        placeholder="https://maps.app.goo.gl/…"
-        hint="Optional. Paste the shop's location link."
+        name="phone"
+        label="Phone"
+        inputMode="tel"
+        prefix={create ? "+961" : undefined}
+        placeholder="76 400 400"
+        hint="Saved as +961 76 400 400, the same format as customers."
       />
-      <TextareaField name="notes" label="Notes" hint="Optional." />
+      <TextField
+        name="sells"
+        label="What they sell"
+        optional
+        placeholder="Filament, boxes"
+        hint="Helps search: typing “boxes” finds them."
+      />
+      <TextField name="email" label="Email" optional inputMode="email" placeholder="orders@example.com" />
+      <TextField name="website" label="Website or Instagram" optional placeholder="spoolcorner.com or @handle" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField name="area" label="Area" optional placeholder="Dekwaneh" />
+      </div>
+      <TextareaField name="address" label="Address" optional placeholder="Street, building, landmark" />
+      <TextField name="mapUrl" label="Map pin" optional inputMode="url" placeholder="Paste a Google Maps link" />
+      <TextareaField name="notes" label="Notes" optional placeholder="Delivery days, minimum order…" />
     </>
   );
 }

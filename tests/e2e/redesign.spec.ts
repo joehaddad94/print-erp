@@ -4,7 +4,7 @@ import { stockFor } from "@/server/assembly/service";
 import { recordMovement } from "@/server/stock/ledger";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, fillStart, login, runningPrint } from "./helpers";
+import { checkPage, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -99,7 +99,7 @@ test("R4 a sooner order takes the reserved piece from a later one", async ({ pag
   await login(page);
   const order = async (due?: string) => {
     await page.goto("/orders/new");
-    await page.getByLabel("New customer name").fill(`Take ${t} ${due ?? "later"}`);
+    await newCustomerOnOrder(page, `Take ${t} ${due ?? "later"}`);
     if (due) await page.getByLabel("Due").fill(due);
     await page.getByRole("button", { name: "Create order" }).click();
     await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
@@ -149,11 +149,11 @@ test("R9 How costs work walks a real print through all seven steps", async ({ pa
   });
   await login(page);
   await page.goto("/purchases/new");
-  await page.getByLabel("Category").selectOption("filament");
-  await page.getByLabel("Amount").fill("18");
+  await newStockItem(page, "Filament");
+  await page.getByLabel("Total paid").fill("18");
   await page.getByLabel("Material", { exact: true }).fill("PLA");
   await page.getByLabel("Colour", { exact: true }).fill(`Costs ${t}`);
-  await page.getByLabel("Grams bought").fill("1000");
+  await page.getByLabel("Quantity").fill("1000");
   await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/recipes/import");
