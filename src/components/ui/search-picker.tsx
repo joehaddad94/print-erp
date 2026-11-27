@@ -22,6 +22,9 @@ export function SearchPicker({
   placeholder = "Search",
   empty = "Nothing matches.",
   onChange,
+  hint,
+  createLabel,
+  onCreate,
 }: {
   name: string;
   label: string;
@@ -36,6 +39,10 @@ export function SearchPicker({
   placeholder?: string;
   empty?: string;
   onChange?: (id: string | null) => void;
+  hint?: React.ReactNode;
+  /** A last row such as "+ New stock item": closes the list and calls onCreate with the typed text. */
+  createLabel?: string;
+  onCreate?: (query: string) => void;
 }) {
   const uid = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -138,7 +145,7 @@ export function SearchPicker({
               aria-label={label}
               className="absolute inset-x-0 z-30 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-overlay"
             >
-              {flat.length === 0 ? <p className="px-3 py-2.5 text-sm text-ink-muted">{empty}</p> : null}
+              {flat.length === 0 && !onCreate ? <p className="px-3 py-2.5 text-sm text-ink-muted">{empty}</p> : null}
               {groups.map((g) => (
                 <div key={g.label || "all"} role="group" aria-label={g.label || "All"}>
                   {g.label ? (
@@ -179,6 +186,22 @@ export function SearchPicker({
                   })}
                 </div>
               ))}
+              {onCreate && createLabel ? (
+                <div
+                  role="option"
+                  aria-selected={false}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setOpen(false);
+                    onCreate(query);
+                    setQuery("");
+                  }}
+                  className="mt-1 flex min-h-control cursor-pointer items-center gap-2 rounded-sm border-t border-border px-3 font-medium text-action hover:bg-action-soft"
+                >
+                  <Icon name="plus" size={15} />
+                  {createLabel}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -188,6 +211,7 @@ export function SearchPicker({
           {error}
         </p>
       ) : null}
+      {hint && !error ? <p className="text-xs text-ink-muted">{hint}</p> : null}
     </div>
   );
 }

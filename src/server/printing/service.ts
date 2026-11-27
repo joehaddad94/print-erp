@@ -178,6 +178,8 @@ export async function startOptions(db: Db) {
         name: m.name,
         model: m.model,
         nozzleMm: m.nozzleMm,
+        bedXMm: m.bedXMm,
+        bedYMm: m.bedYMm,
         powerKw: m.avgPowerKw,
         costPerHourUsd: machineCost(m),
         busy: job ? { jobId: job.id, recipeName: job.recipeName, startedAt: job.startedAt } : null,

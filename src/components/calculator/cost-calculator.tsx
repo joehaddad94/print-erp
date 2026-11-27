@@ -170,7 +170,7 @@ export function CostCalculator({ inputs, packaging }: { inputs: CostInputs; pack
             />
           ) : (
             <Callout tone="warning">
-              No active printer. <Link href="/purchases/new?category=machine">Add machine</Link>
+              No active printer. <Link href="/machines/new">Add machine</Link>
             </Callout>
           )}
           {file && parsed ? (

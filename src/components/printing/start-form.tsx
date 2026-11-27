@@ -7,7 +7,9 @@ import { NumberField, SelectField } from "@/components/form/fields";
 import { uploadGcode } from "@/components/recipes/gcode-client";
 import { ImportDetails } from "@/components/recipes/import-details";
 import { num, useGcodeImport, type ProductOption, type RecipeGroup } from "@/components/recipes/use-gcode-import";
-import { Button, Callout, Field } from "@/components/ui";
+import { Callout, Card, CostLine, CostTotal, FileDrop, Panel, Segmented } from "@/components/ui";
+import { Icon } from "@/components/shell/icons";
+import { PrinterChoice } from "./printer-choice";
 import { SearchPicker } from "@/components/ui/search-picker";
 import { LOW_FILAMENT_G } from "@/lib/filament";
 import { jobCost, unitCost, type MissingInput } from "@/lib/cost";
@@ -85,7 +87,7 @@ export function StartForm({
   const groups = groupsOf(options.recipes);
   const picked =
     initialRecipeId && options.recipes.some((r) => String(r.id) === initialRecipeId) ? initialRecipeId : "";
-  const [source, setSource] = useState<"recipe" | "file">(options.recipes.length ? "recipe" : "file");
+  const [source, setSource] = useState<"recipe" | "file">(picked || !fileOpts.available ? "recipe" : "file");
   const [recipeId, setRecipeId] = useState(picked);
   const [printerId, setPrinterId] = useState(free.length === 1 ? String(free[0]!.id) : "");
   /** undefined = picked for you from the recipe's material; "" = cleared by you. */
@@ -189,6 +191,64 @@ export function StartForm({
     return startPrintAction(prev, fd);
   }
 
+  const perPiece =
+    estimate?.complete && recipe && recipe.items.length === 1
+      ? unitCost({
+          share: estimate.total,
+          planned: recipe.items[0]!.qty,
+          good: recipe.items[0]!.qty,
+          method: options.method,
+          allowancePct: allowance,
+        })
+      : null;
+  const hours = (recipe?.estimatedSeconds ?? 0) / 3600;
+  const pieces = recipe ? recipe.items.reduce((n, x) => n + x.qty, 0) : 0;
+
+  const costPanel = (
+    <Panel title="Cost of this print" titleId="start-cost">
+      <div aria-live="polite">
+        {!recipe ? (
+          <p className="text-sm text-ink-muted">Choose what to print.</p>
+        ) : estimate?.complete ? (
+          <dl className="flex flex-col">
+            <CostLine
+              label={`Filament · ${Number(recipe.plateGrams.toFixed(1))} g × ${usd(filament!.costPerGramUsd!)}`}
+              value={usd(estimate.filament)}
+            />
+            <CostLine
+              label={`Electricity · ${Number(hours.toFixed(2))} h × ${printer!.powerKw} kW × ${usd(options.kwhPriceUsd!)}`}
+              value={usd(estimate.electricity)}
+            />
+            <CostLine label={`Machine wear · ${Number(hours.toFixed(2))} h`} value={usd(estimate.wear)} />
+            <CostTotal label="Job cost" value={usd(estimate.total)} />
+            {perPiece != null ? (
+              <CostLine
+                strong
+                label={
+                  <>
+                    Per piece ({pieces} on the plate)
+                    {options.method === "allowance" ? (
+                      <span className="block text-xs font-normal text-ink-muted">
+                        incl. {allowance}% failure allowance
+                      </span>
+                    ) : null}
+                  </>
+                }
+                value={usd(perPiece)}
+              />
+            ) : (
+              <CostLine label="On the plate" value={recipe.items.map((x) => `${x.qty} × ${x.name}`).join(", ")} />
+            )}
+          </dl>
+        ) : estimate ? (
+          <MissingList missing={estimate.missing} printerId={printer?.id} />
+        ) : (
+          <p className="text-sm text-ink-muted">Choose a printer and filament to see the cost.</p>
+        )}
+      </div>
+    </Panel>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       {options.printers
@@ -214,29 +274,21 @@ export function StartForm({
         <ActionForm
           action={start}
           submitLabel={fromFile ? "Save recipe and start print" : "Start print"}
+          cancelHref="/"
           defaults={{ machineId: printerId, filamentId: autoFilament }}
-          className="grid items-start gap-5 lg:grid-aside"
+          aside={costPanel}
         >
-          <div className="flex min-w-0 flex-col gap-4">
-            <Field id={`${fileId}-source`} label="Print from">
-              <div id={`${fileId}-source`} role="group" className="grid grid-cols-2 gap-2">
-                <Button
-                  variant={source === "recipe" ? "primary" : "secondary"}
-                  aria-pressed={source === "recipe"}
-                  disabled={options.recipes.length === 0}
-                  onClick={() => setSource("recipe")}
-                >
-                  Saved recipe
-                </Button>
-                <Button
-                  variant={source === "file" ? "primary" : "secondary"}
-                  aria-pressed={source === "file"}
-                  onClick={() => setSource("file")}
-                >
-                  .gcode file
-                </Button>
-              </div>
-            </Field>
+          <Card className="flex flex-col gap-4">
+            <Segmented
+              name={`${fileId}-source`}
+              legend="Print from"
+              defaultValue={source}
+              options={[
+                { value: "file", label: "G-code file" },
+                { value: "recipe", label: "Saved recipe" },
+              ]}
+              onChange={(v) => setSource(v as "file" | "recipe")}
+            />
 
             {source === "recipe" ? (
               <WithError name="recipeId">
@@ -246,15 +298,18 @@ export function StartForm({
                     defaultId={picked || undefined}
                     label="Recipe"
                     placeholder="Search recipes"
+                    hint="Search by recipe, product or material. Recently printed show first."
+                    recentLabel="Recently printed"
                     items={options.recipes.map((r) => ({
                       id: String(r.id),
                       label: `${r.name} · v${r.version}`,
-                      sub: `${Number(r.plateGrams.toFixed(1))} g · ${formatDuration(r.estimatedSeconds)} · ${r.items
-                        .map((i) => `${i.qty} × ${i.name}`)
-                        .join(", ")}`,
+                      sub: `${r.items.map((i) => `${i.qty} × ${i.name}`).join(", ")} · ${r.material ?? ""} · ${Number(
+                        r.plateGrams.toFixed(1),
+                      )} g · ${formatDuration(r.estimatedSeconds)}`,
                       keywords: r.material ?? undefined,
                     }))}
                     recentIds={options.recentRecipeIds.map(String)}
+                    empty="No recipe matches. Use the G-code file tab to add it."
                     error={recipeError}
                     onChange={(id) => {
                       setRecipeId(id ?? "");
@@ -269,28 +324,29 @@ export function StartForm({
               </Callout>
             ) : (
               <>
-                <Field
+                <FileDrop
                   id={`${fileId}-gcode`}
                   label="G-code file"
+                  accept=".gcode"
+                  file={imp.file ?? null}
+                  status={
+                    imp.reading
+                      ? "reading…"
+                      : imp.parsed
+                        ? `${imp.parsed.slicerName ?? "Unknown slicer"} · read OK`
+                        : undefined
+                  }
                   hint={`Saved as a recipe when the print starts. Plain .gcode from ${SUPPORTED_SLICERS}.`}
-                >
-                  <input
-                    id={`${fileId}-gcode`}
-                    type="file"
-                    accept=".gcode"
-                    onChange={(e) => {
-                      setFilamentId(undefined);
-                      void imp.choose(e.target.files?.[0] ?? null);
-                    }}
-                    className="control px-3 py-2.5 text-sm text-ink"
-                  />
-                </Field>
-                {imp.reading ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
+                  onFile={(f) => {
+                    setFilamentId(undefined);
+                    void imp.choose(f);
+                  }}
+                />
                 {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
                 {imp.duplicate && dupRecipe ? (
                   <>
                     <input type="hidden" name="recipeId" value={dupRecipe.id} />
-                    <Callout tone="info" title="Already saved">
+                    <Callout tone="success" title="Already saved.">
                       This file is{" "}
                       <Link
                         className="inline-flex min-h-control items-center font-semibold underline"
@@ -298,7 +354,7 @@ export function StartForm({
                       >
                         {dupRecipe.name} v{dupRecipe.version}
                       </Link>
-                      . Start uses it; no copy is saved.
+                      . Start uses it, and no copy is saved.
                     </Callout>
                   </>
                 ) : imp.duplicate ? (
@@ -318,74 +374,72 @@ export function StartForm({
                 ) : null}
               </>
             )}
+          </Card>
 
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="pb-1.5 text-sm font-medium text-ink-soft">Printer</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {free.map((p) => (
-                  <label
-                    key={p.id}
-                    className="relative flex min-h-control cursor-pointer items-center gap-3 rounded-md border border-border-strong bg-surface px-3 py-2 has-checked:border-action has-checked:bg-action-soft"
-                  >
-                    <input
-                      type="radio"
-                      name="machineId"
-                      value={p.id}
-                      checked={printerId === String(p.id)}
-                      onChange={() => setPrinterId(String(p.id))}
-                      className="peer absolute inset-0 size-full cursor-pointer opacity-0"
-                    />
-                    <span
-                      aria-hidden
-                      className="grid size-4 shrink-0 place-items-center rounded-full border border-border-strong peer-checked:border-action peer-focus-visible:outline-2 peer-focus-visible:outline-action peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-action"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{p.name}</span>
-                      <span className="block truncate text-sm text-ink-muted">
-                        {[p.model, p.nozzleMm != null ? `${p.nozzleMm} mm nozzle` : null].filter(Boolean).join(" · ") ||
-                          "Free"}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
+          <Card className="flex flex-col gap-4">
+            <h2 className="text-xs font-semibold tracking-wider text-ink-muted uppercase">Machine and filament</h2>
+            <div className="flex flex-col gap-1.5">
+              <PrinterChoice
+                name="machineId"
+                printers={options.printers.map((p) => ({ ...p, busy: !!p.busy }))}
+                value={printerId}
+                onChange={setPrinterId}
+              />
+              <p className="text-xs text-ink-muted">
+                {free.length === 1 && options.printers.length === 1
+                  ? "Your only active printer, so it is picked for you. A busy printer cannot be picked."
+                  : "A busy printer cannot be picked."}
+              </p>
               <WithError name="machineId">
                 {(e) => (e ? <p className="text-sm font-medium text-danger">{e}</p> : null)}
               </WithError>
-            </fieldset>
+            </div>
 
             <WithError name="filamentId">
               {(filamentError) => (
                 <SearchPicker
                   name="filamentId"
                   label="Filament"
-                  placeholder="Search filament"
+                  placeholder="Search material or colour"
                   value={autoFilament}
                   onChange={(id) => setFilamentId(id ?? "")}
                   recentIds={matching}
-                  recentLabel={recipe?.material ? `Matches ${recipe.material}` : undefined}
+                  recentLabel={recipe?.material ? `Matches the file · ${recipe.material}` : undefined}
                   error={autoFilament ? undefined : filamentError}
+                  hint={
+                    fromFile && !autoFilament && recipe?.material
+                      ? `More than one filament (or none) in stock is ${recipe.material}. Choose the one on the printer.`
+                      : "Filament that matches the file is listed first."
+                  }
                   items={options.filaments.map((f) => ({
                     id: String(f.id),
                     label: f.name,
-                    sub: `${Math.round(f.onHand)} g left${f.material ? ` · ${f.material}` : ""}`,
-                    badge: f.onHand <= 0 ? "Out" : f.onHand < LOW_FILAMENT_G ? "Low" : undefined,
+                    sub: [
+                      f.onHand > 0 ? `${Math.round(f.onHand).toLocaleString("en-US")} g left` : "Out of stock",
+                      f.costPerGramUsd != null ? `${usd(f.costPerGramUsd * 1000)}/kg` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · "),
+                    keywords: f.material ?? undefined,
+                    badge: f.onHand <= 0 ? undefined : f.onHand < LOW_FILAMENT_G ? "Low" : undefined,
                     disabled: f.onHand <= 0,
                   }))}
+                  empty="No filament matches. Buy it under Add purchase."
                 />
               )}
             </WithError>
-            {fromFile && !autoFilament && recipe?.material ? (
+            {recipe ? (
               <p className="-mt-2 text-sm text-ink-muted">
-                More than one filament (or none) in stock is {recipe.material}. Choose the one on the printer.
+                {Number(recipe.plateGrams.toFixed(1))} g from the file. Weigh or correct it at Finish.
               </p>
             ) : null}
 
-            <details className="rounded-md border border-border px-3" open={!!secondId}>
-              <summary className="flex min-h-control cursor-pointer items-center text-sm font-medium text-ink-soft">
-                Second filament (colour change)
+            <details className="group" open={!!secondId}>
+              <summary className="flex min-h-control cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-action">
+                <Icon name="chevron" size={14} className="transition-transform group-open:rotate-90" />
+                Add a second filament (colour change)
               </summary>
-              <div className="flex flex-col gap-3 pb-3">
+              <div className="flex flex-col gap-3 pt-2">
                 <SelectField
                   name="secondFilamentId"
                   label="Second filament"
@@ -413,49 +467,7 @@ export function StartForm({
                   </Callout>
                 ))
               : null}
-          </div>
-
-          <aside
-            aria-label="Estimate"
-            className="flex flex-col gap-2 self-start rounded-lg border border-border bg-bg p-4 text-sm lg:sticky lg:top-4"
-            aria-live="polite"
-          >
-            <h2 className="text-md font-semibold">Estimate</h2>
-            {recipe ? (
-              <>
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-                  <dt className="text-ink-muted">Filament</dt>
-                  <dd className="text-right tabular-nums">{Number(recipe.plateGrams.toFixed(2))} g</dd>
-                  <dt className="text-ink-muted">Time</dt>
-                  <dd className="text-right tabular-nums">{formatDuration(recipe.estimatedSeconds)}</dd>
-                  <dt className="text-ink-muted">On the plate</dt>
-                  <dd className="text-right">{recipe.items.map((i) => `${i.qty} × ${i.name}`).join(", ")}</dd>
-                </dl>
-                {estimate?.complete ? (
-                  <p className="border-t border-border pt-2 font-semibold">
-                    Estimated cost {usd(estimate.total)}
-                    {recipe.items.length === 1
-                      ? ` · ${usd(
-                          unitCost({
-                            share: estimate.total,
-                            planned: recipe.items[0]!.qty,
-                            good: recipe.items[0]!.qty,
-                            method: options.method,
-                            allowancePct: allowance,
-                          })!,
-                        )} per piece`
-                      : ""}
-                  </p>
-                ) : estimate ? (
-                  <MissingList missing={estimate.missing} printerId={printer?.id} />
-                ) : (
-                  <p className="text-ink-muted">Choose a printer and filament to see the cost.</p>
-                )}
-              </>
-            ) : (
-              <p className="text-ink-muted">Choose what to print.</p>
-            )}
-          </aside>
+          </Card>
         </ActionForm>
       )}
     </div>
@@ -472,7 +484,7 @@ function MissingList({ missing, printerId }: { missing: MissingInput[]; printerI
     electricity_price: ["Set the electricity price", "/settings"],
     machine_power: ["Set the printer's power", `/machines/${printerId ?? ""}`],
     machine_cost: ["Set the printer's purchase cost", `/machines/${printerId ?? ""}`],
-    filament_cost: ["Add a purchase of this filament", "/expenses/new"],
+    filament_cost: ["Add a purchase of this filament", "/purchases/new"],
   };
   return (
     <div>

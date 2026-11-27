@@ -191,7 +191,7 @@ export async function needsYou(db: Db, now = new Date()): Promise<NeedsYou[]> {
         tone: "warning",
         title: `${f.name} is low`,
         reason: `${Math.max(0, Math.round(g))} g left`,
-        action: { label: "Buy", href: "/expenses/new" },
+        action: { label: "Buy", href: "/purchases/new" },
         href: "/stock",
       });
   }

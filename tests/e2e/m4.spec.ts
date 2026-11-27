@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { printJobs, recipes } from "@/db/schema";
 import { startJob } from "@/server/printing/service";
 import { withDb } from "./db";
-import { checkPage, fillStart, login, pickIn, runningPrint } from "./helpers";
+import { checkPage, costPanel, fillStart, login, pickIn, runningPrint } from "./helpers";
 import { setup } from "./seed";
 import { syntheticGcode } from "../support/synthetic-gcode";
 
@@ -18,7 +18,8 @@ test("J-01/J-02 golden path on the phone: Start → Finish with untouched time �
   await page.goto("/print");
   await checkPage(page);
   await fillStart(page, { recipe: s.recipe, printer: s.printer, filament: s.filament });
-  await expect(page.getByText("Estimated cost $0.77 · $0.87 per piece")).toBeVisible();
+  await expect(costPanel(page)).toContainText(/Job cost\s*\$0\.77/);
+  await expect(costPanel(page)).toContainText(/Per piece \(\d+ on the plate\).*\$0\.87/);
   await page.getByRole("button", { name: "Start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await runningPrint(page, s.printer).click();
@@ -59,7 +60,7 @@ test("J-03 busy printer: Start shows the busy message and a Finish link", async 
   const busy = page.getByRole("status").filter({ hasText: s.printer });
   await expect(busy).toContainText(`Busy: Holder j03-${info.project.name}`);
   await expect(busy.getByRole("link", { name: "Finish this print" })).toHaveAttribute("href", `/print/${jobId}`);
-  await expect(page.getByRole("radio", { name: new RegExp(`^${s.printer}`) })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: new RegExp(`^${s.printer}`) })).toBeDisabled();
 });
 
 test("J-10/J-11 mismatch warnings and a missing machine cost", async ({ page }, info) => {
@@ -98,8 +99,8 @@ test("S-01 Start from a .gcode file: saved as a recipe when the print starts; th
     buffer: Buffer.from(syntheticGcode({ objects: [{ name: `croix-${tag}.stl`, ids: ["1", "2"] }], totalGrams: 20 })),
   };
   await page.goto("/print");
-  await page.getByRole("button", { name: ".gcode file" }).click();
-  await page.getByLabel("G-code file", { exact: true }).setInputFiles(file);
+  await page.getByRole("radio", { name: "G-code file" }).check();
+  await page.locator('input[type="file"]').setInputFiles(file);
   await expect(page.getByLabel("Recipe name")).toHaveValue(`croix-${tag}`);
   await expect(page.getByTestId("grams-check")).toContainText("Items add up to 20 g of 20 g.");
   await fillStart(page, { printer: s.printer });
@@ -121,8 +122,8 @@ test("S-01 Start from a .gcode file: saved as a recipe when the print starts; th
 
   // The identical file again: Start uses the saved recipe and saves no copy.
   await page.goto("/print");
-  await page.getByRole("button", { name: ".gcode file" }).click();
-  await page.getByLabel("G-code file", { exact: true }).setInputFiles(file);
+  await page.getByRole("radio", { name: "G-code file" }).check();
+  await page.locator('input[type="file"]').setInputFiles(file);
   await expect(page.getByRole("status").filter({ hasText: "Already saved" })).toContainText(`croix-${tag} v1`);
   await expect(page.getByLabel("Recipe name")).toHaveCount(0);
 });

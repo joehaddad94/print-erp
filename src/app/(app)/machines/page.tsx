@@ -74,7 +74,7 @@ export default async function MachinesPage() {
         title="Machines"
         description="Your printers. The price you paid is recorded as a purchase."
         action={
-          <Link href="/purchases/new?category=machine" className={buttonClass("primary")}>
+          <Link href="/machines/new" className={buttonClass("primary")}>
             <Icon name="plus" size={16} />
             Add machine
           </Link>

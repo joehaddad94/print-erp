@@ -1,7 +1,17 @@
 import { expect, test, type Page } from "./test";
 import { products } from "@/db/schema";
 import { addPart } from "@/server/assembly/service";
-import { checkPage, editInline, fillStart, login, pickIn, pickSupplier, runningPrint } from "./helpers";
+import {
+  checkPage,
+  editInline,
+  fillStart,
+  login,
+  newCustomerOnOrder,
+  newStockItem,
+  pickIn,
+  pickSupplier,
+  runningPrint,
+} from "./helpers";
 import { withDb } from "./db";
 import { setup } from "./seed";
 
@@ -17,7 +27,7 @@ const uid = (info: { project: { name: string } }) => `${info.project.name}-${Dat
 
 async function newOrder(page: Page, customer: string) {
   await page.goto("/orders/new");
-  await page.getByLabel("New customer name").fill(customer);
+  await newCustomerOnOrder(page, customer);
   await page.getByRole("button", { name: "Create order" }).click();
   await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
   return Number((await page.getByRole("heading", { name: /^Order #\d+$/ }).textContent())!.replace(/\D/g, ""));
@@ -39,7 +49,7 @@ test.describe("customers", () => {
     await expect(page.getByText("Enter an email like name@example.com")).toBeVisible();
     await page.getByLabel("Phone").fill("071 111 111");
     await page.getByLabel("Email").fill("rana@example.com");
-    await page.getByLabel("Instagram or other").fill("@rana");
+    await page.getByLabel("Instagram").fill("@rana");
     await page.getByRole("button", { name: "Add customer" }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByLabel("Phone")).toHaveValue("+961 71 111 111");
@@ -88,10 +98,10 @@ test.describe("suppliers", () => {
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 
     await page.goto("/purchases/new");
-    await page.getByLabel("Category").selectOption("packaging");
-    await page.getByLabel("Amount").fill("12.5");
+    await newStockItem(page, "Packaging");
+    await page.getByLabel("Total paid").fill("12.5");
     await page.getByLabel("New item name").fill(`Bag ${uid(info)}`);
-    await page.getByLabel("Pieces").fill("5");
+    await page.getByLabel("Quantity").fill("5");
     await pickSupplier(page, name);
     await page.getByRole("button", { name: "Save purchase" }).click();
     await expect(page).toHaveURL(/\/purchases$/);
@@ -100,7 +110,7 @@ test.describe("suppliers", () => {
     await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
     await expect(page.getByText("Spent in total").locator("..")).toContainText("$12.50");
     await expect(page.getByRole("list", { name: "Purchases" })).toContainText("Packaging");
-    await page.getByLabel("Sells").fill("Bags");
+    await page.getByLabel("What they sell").fill("Bags");
     await page.getByRole("button", { name: "Save supplier" }).click();
     await expect(page.getByText("sells: — → Bags")).toBeVisible();
   });
@@ -187,13 +197,12 @@ test.describe("machines", () => {
     page,
   }, info) => {
     const name = `Dryer ${uid(info)}`;
-    await page.goto("/purchases/new");
-    await page.getByLabel("Category").selectOption("machine");
-    await page.getByLabel("Amount").fill("45");
-    await page.getByLabel("Name").fill(name);
-    await page.getByLabel("Type").selectOption("equipment");
-    await page.getByRole("button", { name: "Save purchase" }).click();
-    await expect(page).toHaveURL(/\/purchases$/);
+    await page.goto("/machines/new");
+    await page.getByLabel("Purchase cost").fill("45");
+    await page.getByLabel("Name", { exact: true }).fill(name);
+    await page.getByRole("radio", { name: "Equipment" }).check();
+    await page.getByRole("button", { name: "Save machine" }).click();
+    await expect(page).toHaveURL(/\/machines$/);
 
     await page.goto("/machines");
     await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
@@ -259,7 +268,8 @@ test.describe("orders", () => {
     await page.getByRole("button", { name: "Record payment" }).click();
     await expect(page.getByText("The amount can't be 0. A refund is negative.")).toBeVisible();
     await page.getByLabel("Amount").fill("447,500");
-    await page.getByLabel("Currency").last().selectOption("LBP");
+    const payForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Record payment" }) });
+    await payForm.getByRole("radio", { name: "LBP" }).check();
     await page.getByLabel("LBP per USD").last().fill("");
     await page.getByRole("button", { name: "Record payment" }).click();
     await expect(page.getByText("Enter today's LBP per USD rate")).toBeVisible();
@@ -270,7 +280,7 @@ test.describe("orders", () => {
     await expect(page.getByText("Partly paid").first()).toBeVisible();
 
     await page.getByLabel("Amount").fill("-1");
-    await page.getByLabel("Currency").last().selectOption("USD");
+    await payForm.getByRole("radio", { name: "USD" }).check();
     await page.getByRole("button", { name: "Record payment" }).click();
     await expect(page.getByText(/^Refund /)).toBeVisible();
     await expect(page.getByText("Received").locator("..")).toContainText("$4.00");
