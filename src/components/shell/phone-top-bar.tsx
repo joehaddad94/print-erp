@@ -15,6 +15,8 @@ const SCREENS = [...ALL_ITEMS, { ...START_PRINT, phone: true }];
 export function phoneBack(pathname: string): { href: string; label: string } | null {
   if (pathname === "/" || pathname === "/more") return null;
   const parts = pathname.split("/").filter(Boolean);
+  // A print (finish or finished) is reached from Today, like the desktop back link.
+  if (parts[0] === "print" && parts.length > 1) return { href: "/", label: "Today" };
   const own = SCREENS.find((s) => s.href === pathname);
   if (own) return own.phone ? null : { href: "/more", label: "More" };
   for (let n = parts.length - 1; n > 0; n--) {

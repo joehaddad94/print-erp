@@ -26,23 +26,26 @@ test("J-01/J-02 golden path on the phone: Start → Finish with untouched time �
   await expect(page.getByRole("heading", { name: /Finish print/ })).toBeVisible();
   await checkPage(page);
   await expect(page.getByText(/G-code estimate, not checked/)).toBeVisible();
-  await expect(page.getByTestId("live-cost")).toContainText("Job cost $0.77");
+  await expect(page.getByTestId("live-cost")).toContainText(/Job cost\s*\$0\.77/);
   await page.getByRole("button", { name: "Finish print" }).click();
-  await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
-  await expect(page.getByText("Job cost $0.77").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: / ×\d+$/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Cost" })).toContainText(/Job cost\s*\$0\.77/);
   await expect(page.getByText("Estimated grams").first()).toBeVisible();
+  await checkPage(page);
   const [job] = await withDb((db) => db.select().from(printJobs).where(eq(printJobs.machineId, s.printerId)));
   expect(job!.hoursSource).toBe("gcode_estimate");
 
   // J-02 on the same job's edit form: the chip confirms, typing makes it "entered".
+  await page.getByRole("link", { name: "Edit" }).click();
   await page.getByRole("button", { name: "Same as G-code" }).click();
   await expect(page.getByText(/Same as G-code \(confirmed\)/)).toBeVisible();
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("hours source: gcode_estimate → confirmed")).toBeVisible();
-  await page.getByLabel("Print time (hours)").fill("2");
+  await expect(page.getByText(/hours source gcode_estimate → confirmed/)).toBeVisible();
+  await page.getByRole("link", { name: "Edit" }).click();
+  await page.getByLabel("Print time").fill("2");
   await expect(page.getByText(/Entered by you/)).toBeVisible();
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("hours source: confirmed → entered")).toBeVisible();
+  await expect(page.getByText(/hours source confirmed → entered/)).toBeVisible();
 });
 
 test("J-03 busy printer: Start shows the busy message and a Finish link", async ({ page }, info) => {

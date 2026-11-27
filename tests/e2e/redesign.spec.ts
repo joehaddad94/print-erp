@@ -181,7 +181,7 @@ test("R9 How costs work walks a real print through all seven steps", async ({ pa
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await runningPrint(page, printer).click();
   await page.getByRole("button", { name: "Finish print" }).click();
-  await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
+  await expect(page.getByRole("heading", { name: / ×\d+$/ })).toBeVisible();
 
   await page.goto("/costs");
   const steps = page.getByRole("list", { name: "Steps" });

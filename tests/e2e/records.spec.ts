@@ -327,22 +327,22 @@ test.describe("prints", () => {
     await page.getByRole("button", { name: "Start print" }).click();
     await runningPrint(page, s.printer).click();
 
-    await page.getByLabel("Print time (hours)").fill("");
+    await page.getByLabel("Print time").fill("");
     await page.getByLabel("Stopped early").check();
-    await page.getByLabel("How far it got (%)").fill("140");
+    await page.getByLabel("How far it got").fill("140");
     await page.getByRole("button", { name: "Finish print" }).click();
     await expect(page.getByText("Enter the print time as a number")).toBeVisible();
     await expect(page.getByText("How far it got must be at most 100")).toBeVisible();
 
-    await page.getByLabel("Print time (hours)").fill("0.7");
-    await page.getByLabel("How far it got (%)").fill("40");
+    await page.getByLabel("Print time").fill("0.7");
+    await page.getByLabel("How far it got").fill("40");
     await page.getByLabel(/\(of 1\)$/).fill("0");
     await page.getByLabel("Power cut during the print").check();
     await page.getByLabel("What went wrong").fill("power cut, layer shift");
-    await expect(page.getByTestId("live-cost")).toContainText("nothing good");
+    await expect(page.getByTestId("live-cost")).toContainText("nothing to stock");
     await page.getByRole("button", { name: "Finish print" }).click();
-    await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
-    await expect(page.getByText(/waste \$/).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: / ×\d+$/ })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Cost" })).toContainText(/Waste\s*\$/);
     await page.goto("/stock");
     await expect(page.locator(":is(tr, li):visible").filter({ hasText: s.recipe.replace(" · v1", "") })).toHaveCount(0);
   });

@@ -115,7 +115,7 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
     await runningPrint(page, `Printer ${tag}`).click();
     await page.getByRole("button", { name: "Finish print" }).click();
-    await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
+    await expect(page.getByRole("heading", { name: / ×\d+$/ })).toBeVisible();
   }
 
   // Order 2 at $5, reserve, deliver, pay $4 then $6.
