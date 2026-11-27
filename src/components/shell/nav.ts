@@ -14,7 +14,8 @@ export type NavItem = {
   phone?: boolean;
   owner?: boolean;
 };
-export type NavGroup = { label: string; items: NavItem[] };
+/** `menu`: shown in the user menu under your name (desktop) and on More (phone), not in the sidebar list. */
+export type NavGroup = { label: string; items: NavItem[]; menu?: boolean };
 
 export const START_PRINT = { href: "/print", label: "Start print" } as const;
 
@@ -48,6 +49,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: "Account",
+    menu: true,
     items: [
       { href: "/settings", label: "Settings", icon: "settings", milestone: "M2" },
       { href: "/costs", label: "How costs work", icon: "info", milestone: "R9", owner: true },
@@ -57,6 +59,8 @@ export const NAV: NavGroup[] = [
 ];
 
 export const ALL_ITEMS = NAV.flatMap((g) => g.items);
+export const SIDEBAR = NAV.filter((g) => !g.menu);
+export const MENU_ITEMS = NAV.filter((g) => g.menu).flatMap((g) => g.items);
 export const findSection = (slug: string) => ALL_ITEMS.find((i) => i.href === `/${slug}`);
 
 /** Which nav item a path belongs to: "/" only matches itself; "/orders/12" matches "/orders". */

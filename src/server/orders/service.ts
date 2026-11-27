@@ -83,6 +83,9 @@ export async function listCustomers(db: Db) {
       handle: customers.handle,
       email: customers.email,
       area: customers.area,
+      address: customers.address,
+      mapUrl: customers.mapUrl,
+      notes: customers.notes,
       orderCount: sql<number>`count(distinct ${orders.id})::int`,
       lastOrderAt: sql<string | null>`max(${orders.createdAt})`,
       balanceOwedUsd: sql<string>`coalesce(sum(${orderBalance.balanceDueUsd}) filter (where ${orders.status} <> 'cancelled'), 0)`,
@@ -204,6 +207,9 @@ export async function listOrders(db: Db, filter: { customerId?: number } = {}) {
       needToPrint: sql<number>`(select coalesce(sum(oi.quantity - oi.qty_reserved), 0)::int from order_items oi
         where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
       lineCount: sql<number>`(select count(*)::int from order_items oi
+        where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
+      itemsText: sql<string | null>`(select string_agg(oi.quantity || ' × ' || p.name, ', ' order by oi.id)
+        from order_items oi join products p on p.id = oi.product_id
         where oi.order_id = "orders"."id" and oi.deleted_at is null)`,
     })
     .from(orders)

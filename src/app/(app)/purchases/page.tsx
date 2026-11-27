@@ -1,15 +1,17 @@
 import { Icon } from "@/components/shell/icons";
 import { StatStrip } from "@/components/money/month-stats";
-import { Pills } from "@/components/money/pills";
 import {
   Badge,
+  ColumnsMenu,
   DataTable,
   EditedMarker,
   EmptyState,
+  FilterBar,
   Money,
   PageHeader,
   Panel,
   buttonClass,
+  matches,
   type Column,
 } from "@/components/ui";
 import { Link } from "@/components/ui/link";
@@ -28,10 +30,12 @@ const month = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bei
 /** R7 Purchases: what goes into stock or becomes a machine. Its cost reaches profit when you print and sell. */
 export default async function PurchasesPage({ searchParams }: PageProps<"/purchases">) {
   await requireUser();
-  const c = (await searchParams).category;
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q : undefined;
   const all = (await listExpenses(db())).filter((e) => e.isPurchase);
-  const cat = PURCHASE_CATEGORIES.find((x) => x === c);
-  const rows = cat ? all.filter((e) => e.category === cat) : all;
+  const cat = PURCHASE_CATEGORIES.find((x) => x === sp.category);
+  const found = all.filter((e) => matches(q, e.boughtName, e.brand, e.supplierName, e.notes, e.description));
+  const rows = cat ? found.filter((e) => e.category === cat) : found;
   const now = all.filter((e) => e.spentOn.startsWith(month()));
   const sum = (xs: Row[]) => xs.reduce((s, e) => s + e.amount * e.rateToUsd, 0);
   const of = (k: Row["category"]) => now.filter((e) => e.category === k);
@@ -100,8 +104,34 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
           { label: "Machines", value: usd(sum(of("machine"))) },
         ]}
       />
-      <Pills current={cat} base="/purchases" options={PURCHASE_CATEGORIES.map((k) => [k, CATEGORY_LABELS[k]])} />
-      {rows.length === 0 ? (
+      {all.length ? (
+        <FilterBar
+          base="/purchases"
+          q={q}
+          param="category"
+          current={cat}
+          placeholder="Search item or supplier"
+          right={
+            <span className="hidden lg:block">
+              <ColumnsMenu
+                tableId="purchases"
+                bordered
+                pinned={["date"]}
+                columns={columns.map(({ key, header }) => ({ key, header }))}
+              />
+            </span>
+          }
+          options={[
+            { key: "", label: "All", count: found.length },
+            ...PURCHASE_CATEGORIES.map((k) => ({
+              key: k,
+              label: k === "machine" ? "Machines" : CATEGORY_LABELS[k],
+              count: found.filter((e) => e.category === k).length,
+            })),
+          ]}
+        />
+      ) : null}
+      {all.length === 0 ? (
         <EmptyState title="No purchases yet">Filament, packaging and machines you buy show up here.</EmptyState>
       ) : (
         <Panel title="Purchases" titleId="purchases" count={rows.length} flush>
@@ -109,6 +139,8 @@ export default async function PurchasesPage({ searchParams }: PageProps<"/purcha
             id="purchases"
             label="Purchases"
             wide
+            menuOutside
+            empty={q ? `Nothing matches “${q}”.` : "None of this kind yet."}
             columns={columns}
             rows={rows}
             rowKey={(e) => e.id}
