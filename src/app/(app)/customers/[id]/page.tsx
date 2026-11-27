@@ -17,7 +17,7 @@ import { formatMoney } from "@/lib/money";
 import { formatPhone, whatsappUrl } from "@/lib/phone";
 import { requireUser } from "@/server/auth/session";
 import { updateCustomerFieldAction } from "@/server/orders/actions";
-import { getCustomer, shownStatus } from "@/server/orders/service";
+import { getCustomer, owesMoney, shownStatus } from "@/server/orders/service";
 import { MapPinLink } from "@/components/ui/map-pin-link";
 
 const usd = (n: number) => formatMoney(n, "USD");
@@ -68,7 +68,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
       header: "Balance",
       numeric: true,
       cell: (o) =>
-        o.balanceDueUsd > 0.005 && o.status !== "cancelled" ? (
+        owesMoney(o) ? (
           <span className="font-semibold">{usd(o.balanceDueUsd)}</span>
         ) : (
           <span className="text-ink-muted">{usd(0)}</span>
@@ -125,8 +125,7 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
               rowHref={(o) => `/orders/${o.id}`}
               phoneRow={(o) => ({
                 title: `#${o.id} · ${day(o.createdAt)}`,
-                trailing:
-                  o.balanceDueUsd > 0.005 && o.status !== "cancelled" ? `${usd(o.balanceDueUsd)} due` : usd(o.totalUsd),
+                trailing: owesMoney(o) ? `${usd(o.balanceDueUsd)} due` : usd(o.totalUsd),
                 badge: <Badge tone={tone(o)}>{shownStatus(o)}</Badge>,
               })}
             />

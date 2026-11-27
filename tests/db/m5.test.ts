@@ -204,7 +204,7 @@ describe("Y-01/Y-02/Y-03 payments", () => {
 });
 
 describe("Y-04 customer balance", () => {
-  it("balance owed = sum of their orders' balance due; cancelled orders don't count", async () => {
+  it("balance owed = sum of their orders' balance due; cancelled orders and quotes don't count", async () => {
     const a = await createOrder(db, order());
     const [o] = await db.select().from(orders).where(eq(orders.id, a));
     await addLine(db, a, { productId: holder, quantity: 2, unitPrice: null, customization: null });
@@ -214,8 +214,14 @@ describe("Y-04 customer balance", () => {
     const c = await createOrder(db, order({ customerId: o!.customerId, newCustomerName: null }));
     await addLine(db, c, { productId: holder, quantity: 1, unitPrice: null, customization: null });
     await setStatus(db, c, "cancelled");
-    expect((await getCustomer(db, o!.customerId!))!.balanceOwedUsd).toBe(13);
+    // A quote isn't owed yet (Joe, Nov 27).
+    const q = await createOrder(db, order({ customerId: o!.customerId, newCustomerName: null }));
+    await addLine(db, q, { productId: holder, quantity: 1, unitPrice: 50, customization: null });
+    await setStatus(db, q, "quoted");
+    const cust = (await getCustomer(db, o!.customerId!))!;
+    expect(cust.balanceOwedUsd).toBe(13);
+    expect(cust.owingOrders).toBe(2);
     expect((await listCustomers(db))[0]!.balanceOwedUsd).toBe(13);
-    expect(await db.select().from(orderItems)).toHaveLength(3);
+    expect(await db.select().from(orderItems)).toHaveLength(4);
   });
 });

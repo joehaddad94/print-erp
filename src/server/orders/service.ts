@@ -73,6 +73,10 @@ export async function updateCustomer(db: Db, id: number, i: CustomerInput, userI
   return db.transaction((tx) => updateLogged(tx, customers, id, i, { userId }));
 }
 
+/** A quote isn't owed yet (Joe, Nov 27): only confirmed, ready and delivered orders count. */
+export const owesMoney = (o: { status: OrderStatus; balanceDueUsd: number }) =>
+  o.status !== "cancelled" && o.status !== "quoted" && o.balanceDueUsd > 0.005;
+
 /** Y-04: balance owed = sum of the balance due on their open and delivered orders. */
 export async function listCustomers(db: Db) {
   const rows = await db
@@ -88,7 +92,7 @@ export async function listCustomers(db: Db) {
       notes: customers.notes,
       orderCount: sql<number>`count(distinct ${orders.id})::int`,
       lastOrderAt: sql<string | null>`max(${orders.createdAt})`,
-      balanceOwedUsd: sql<string>`coalesce(sum(${orderBalance.balanceDueUsd}) filter (where ${orders.status} <> 'cancelled'), 0)`,
+      balanceOwedUsd: sql<string>`coalesce(sum(${orderBalance.balanceDueUsd}) filter (where ${orders.status} not in ('cancelled', 'quoted')), 0)`,
     })
     .from(customers)
     .leftJoin(orders, and(eq(orders.customerId, customers.id), isNull(orders.deletedAt)))
@@ -106,7 +110,7 @@ export async function getCustomer(db: Db, id: number) {
     .where(and(eq(customers.id, id), isNull(customers.deletedAt)));
   if (!c) return null;
   const list = await listOrders(db, { customerId: id });
-  const owing = list.filter((o) => o.status !== "cancelled" && o.balanceDueUsd > 0.005);
+  const owing = list.filter((o) => owesMoney(o));
   const owed = owing.reduce((s, o) => s + o.balanceDueUsd, 0);
   const delivered = list.filter((o) => o.status === "delivered");
   // R5: profit on delivered orders, items only (D37), the same sum the order page shows.
