@@ -35,6 +35,7 @@ export function ListRow({
         {badge ? <div className="pt-1">{badge}</div> : null}
       </div>
       {trailing ? <div className="shrink-0 text-right tabular-nums">{trailing}</div> : null}
+      {href ? <Icon name="chevron" size={16} className="-mr-1 shrink-0 text-ink-muted" /> : null}
     </div>
   );
   return (

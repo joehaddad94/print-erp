@@ -1,11 +1,12 @@
 import { Suspense, type ReactNode } from "react";
 import { Link } from "@/components/ui/link";
-import { logoutAction } from "@/server/auth/actions";
 import { currentUser } from "@/server/auth/session";
 import { Icon } from "./icons";
 import { LivePrintCard, LivePrintStrip } from "./live-print";
 import { START_PRINT } from "./nav";
-import { OwnerSideLinks, SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
+import { SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
+import { UserMenu } from "./user-menu";
+import { PhoneTopBar } from "./phone-top-bar";
 import { RailToggle } from "./rail-toggle";
 import { ShopName } from "./shop-name";
 
@@ -39,11 +40,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Suspense>
                 </>
               }
-              ownerSlot={
-                <Suspense fallback={null}>
-                  <OwnerNav />
-                </Suspense>
-              }
             />
           </Suspense>
         </div>
@@ -55,9 +51,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-rail px-4 lg:hidden">
-        <Link href="/" className="flex min-h-control items-center gap-2.5">
-          <Brand />
-        </Link>
+        <Suspense
+          fallback={
+            <Link href="/" className="flex min-h-control items-center gap-2.5">
+              <Brand />
+            </Link>
+          }
+        >
+          <PhoneTopBar brand={<Brand />} />
+        </Suspense>
       </header>
 
       <main id="content" className="w-full max-w-page min-w-0 px-4 pt-5 pb-28 sm:px-6 lg:px-8 lg:pt-6 lg:pb-12">
@@ -102,33 +104,10 @@ function Brand() {
   );
 }
 
-async function OwnerNav() {
-  const user = await currentUser();
-  return user?.role === "owner" ? <OwnerSideLinks /> : null;
-}
-
 async function UserBadge() {
   const user = await currentUser();
   if (!user) return null;
-  return (
-    <div className="flex items-center gap-2.5 px-2 lg:rail-collapsed:justify-center">
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rail-active text-xs font-semibold text-rail-strong uppercase">
-        {user.username.slice(0, 1)}
-      </span>
-      <p className="min-w-0 flex-1 truncate text-sm font-medium text-rail-strong lg:rail-collapsed:sr-only">
-        {user.username}
-      </p>
-      <form action={logoutAction} className="lg:rail-collapsed:hidden">
-        <button
-          type="submit"
-          className="flex min-h-control cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm font-medium text-rail-ink hover:bg-rail-active hover:text-rail-strong"
-        >
-          <Icon name="logout" size={16} />
-          Sign out
-        </button>
-      </form>
-    </div>
-  );
+  return <UserMenu username={user.username} owner={user.role === "owner"} />;
 }
 
 function UserBadgeSkeleton() {

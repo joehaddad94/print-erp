@@ -186,7 +186,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.goto("/customers");
   await page.locator(":is(tr, li):visible").filter({ hasText: customer }).getByRole("link").first().click();
   await expect(page.getByText("Delivered", { exact: true }).first().locator("..")).toContainText("1 order");
-  await expect(page.getByText("Owes you").locator("..")).toContainText("$0.00");
+  await expect(page.getByText("Owes you", { exact: true }).locator("..")).toContainText("$0.00");
   await page.goto("/history?area=printing");
   const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
   await expect(changes).toContainText("Hands-on minutes");

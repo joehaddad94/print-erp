@@ -77,7 +77,7 @@ test.describe("customers", () => {
     await expect(page.getByText("Line added.")).toBeVisible();
     await page.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByText("Owes you").locator("..")).toContainText("$6.00");
+    await expect(page.getByText("Owes you", { exact: true }).locator("..")).toContainText("$6.00");
     await expect(page.locator(':is(table, ul)[aria-label="Orders"]:visible')).toContainText("$6.00");
     await page.goto("/customers");
     await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("$6.00");
@@ -145,7 +145,7 @@ test.describe("products", () => {
     await row.getByRole("link").first().click();
     await editInline(page, "Sale price", "-1");
     await expect(page.getByText("The sale price must be at least 0")).toBeVisible();
-    await page.keyboard.press("Escape");
+    await page.getByRole("textbox", { name: "sale price", exact: true }).press("Escape");
     await editInline(page, "Sale price", "9");
     await expect(page.getByRole("button", { name: /^sale price: \$9\.00/ })).toBeVisible();
     await page.goto("/products");

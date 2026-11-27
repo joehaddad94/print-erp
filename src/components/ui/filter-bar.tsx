@@ -74,29 +74,31 @@ export function FilterBar({
       {placeholder ? (
         <SearchBox q={q} placeholder={placeholder} label={searchLabel ?? placeholder} keep={{ [param]: current }} />
       ) : null}
-      <nav aria-label="Show" className="flex flex-wrap gap-1.5">
-        {options.map((o) => {
-          const on = (current ?? "") === o.key;
-          return (
-            <Link
-              key={o.key || "all"}
-              href={href(o.key)}
-              aria-current={on ? "page" : undefined}
-              className={cn(
-                "flex min-h-control min-w-tap items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium",
-                on
-                  ? "border-ink bg-ink text-surface"
-                  : "border-border-strong bg-surface text-ink-soft hover:bg-surface-muted",
-              )}
-            >
-              {o.label}
-              {o.count != null ? (
-                <span className={cn("text-xs tabular-nums", on ? "opacity-80" : "text-ink-muted")}>{o.count}</span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </nav>
+      {options.length ? (
+        <nav aria-label="Show" className="flex flex-wrap gap-1.5">
+          {options.map((o) => {
+            const on = (current ?? "") === o.key;
+            return (
+              <Link
+                key={o.key || "all"}
+                href={href(o.key)}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "flex min-h-control min-w-tap items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium",
+                  on
+                    ? "border-ink bg-ink text-surface"
+                    : "border-border-strong bg-surface text-ink-soft hover:bg-surface-muted",
+                )}
+              >
+                {o.label}
+                {o.count != null ? (
+                  <span className={cn("text-xs tabular-nums", on ? "opacity-80" : "text-ink-muted")}>{o.count}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
       {right ? <div className="ml-auto">{right}</div> : null}
     </div>
   );
