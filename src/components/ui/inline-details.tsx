@@ -15,6 +15,11 @@ export type InlineRow = {
   inputMode?: "text" | "decimal" | "numeric" | "email" | "tel";
   wide?: boolean;
   placeholder?: string;
+  display?: string;
+  /** Shown before the value, e.g. an "Open in Maps" link. */
+  before?: ReactNode;
+  /** Small muted line under the value, e.g. "since 12 Nov". */
+  after?: ReactNode;
 };
 
 type Save = (field: string, value: string) => Promise<{ ok: true; value?: string } | { ok: false; error: string }>;
@@ -26,7 +31,7 @@ type Save = (field: string, value: string) => Promise<{ ok: true; value?: string
 export function InlineDetails({ rows, save, footer }: { rows: InlineRow[]; save: Save; footer?: ReactNode }) {
   return (
     <div className="flex flex-col gap-3">
-      <dl className="flex flex-col">
+      <dl className="flex flex-col divide-y divide-border">
         {rows.map((r) => (
           <Row key={r.field} row={r} save={save} />
         ))}
@@ -46,6 +51,7 @@ function Row({ row, save }: { row: InlineRow; save: Save }) {
         {row.note ? <span className="block text-xs">{row.note}</span> : null}
       </dt>
       <dd className="text-right text-md">
+        {row.before}
         <InlineEdit
           label={row.label.toLowerCase()}
           value={row.value}
@@ -56,7 +62,9 @@ function Row({ row, save }: { row: InlineRow; save: Save }) {
           inputMode={row.inputMode}
           wide={row.wide}
           placeholder={row.placeholder}
+          display={row.display}
         />
+        {row.after ? <span className="block text-xs text-ink-muted">{row.after}</span> : null}
       </dd>
     </div>
   );

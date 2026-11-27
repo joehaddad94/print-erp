@@ -15,7 +15,7 @@ export default async function NewExpensePage() {
         kind="expense"
         cancelHref="/expenses"
         action={createExpenseAction}
-        defaults={{ spentOn: today, currency: "USD", lbpRate: opts.lbpRate ?? "", paymentMethod: "cash" }}
+        defaults={{ spentOn: today, currency: opts.currency, lbpRate: opts.lbpRate ?? "", paymentMethod: "cash" }}
         {...opts}
       />
     </div>

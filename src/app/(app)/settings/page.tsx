@@ -1,32 +1,37 @@
-import { ActionForm } from "@/components/form/action-form";
-import { NumberField } from "@/components/form/fields";
 import { PeoplePanel } from "@/components/people/people-panel";
 import { FullBackupButton } from "@/components/settings/full-backup";
-import { Badge, Callout, PageHeader, Panel, buttonClass, formatWhen } from "@/components/ui";
+import { Badge, Callout, InlineDetails, PageHeader, Panel, buttonClass, formatWhen } from "@/components/ui";
 import { Link } from "@/components/ui/link";
 import { db } from "@/db";
 import { listPeople } from "@/server/auth/service";
 import { isOwner, requireUser } from "@/server/auth/session";
-import { saveSettingsAction } from "@/server/settings/actions";
+import { updateSettingAction } from "@/server/settings/actions";
 import { backupStatus, BACKUP_LATE_DAYS } from "@/server/backup/status";
-import { SETTING_KEYS, currentSettings, settingHistory } from "@/server/settings/service";
+import { SETTING_KEYS, appDefaults, currentSettings, settingHistory, type SettingKey } from "@/server/settings/service";
 
+const COSTS: Record<SettingKey, { label: string; note: string; prefix?: string; suffix?: string }> = {
+  electricity_kwh_price: { label: "Electricity per kWh", note: "EDL and generator averaged", prefix: "$" },
+  usd_lbp_rate: { label: "LBP per USD", note: "Pre-fills the rate on LBP entries" },
+  failure_allowance_pct: { label: "Failure allowance", note: "Used until enough prints are logged", suffix: "%" },
+  failure_actual_after_prints: { label: "Use real failures after", note: "Prints logged", suffix: " prints" },
+};
+const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Beirut" });
+
+/** Settings (prototype /settings): click-to-edit costs and defaults, people, account, backup. */
 export default async function SettingsPage() {
   const me = await requireUser();
   const owner = isOwner(me);
   const people = owner ? await listPeople(db()) : [];
   const current = await currentSettings(db());
-  const defaults = Object.fromEntries(
-    Object.keys(SETTING_KEYS).map((k) => [k, current[k] == null ? "" : String(current[k])]),
-  );
   const histories = await Promise.all(Object.keys(SETTING_KEYS).map((k) => settingHistory(db(), k)));
   const backup = owner ? await backupStatus(db()) : null;
+  const defs = await appDefaults(db());
 
   return (
     <div className="flex max-w-content flex-col gap-6">
       <PageHeader
         title="Settings"
-        description="Cost settings apply to new prints only. Past prints keep the values they used."
+        description="Click any value to change it. Cost settings apply to new prints only; past prints keep the values they used."
       />
       {current.electricity_kwh_price == null ? (
         <Callout tone="warning" title="Electricity price not set">
@@ -34,19 +39,81 @@ export default async function SettingsPage() {
         </Callout>
       ) : null}
       <Panel title="Costs" titleId="settings-costs">
-        <ActionForm action={saveSettingsAction} defaults={defaults} submitLabel="Save settings">
-          {Object.entries(SETTING_KEYS).map(([key, meta], i) => {
-            const since = histories[i]![0]?.validFrom;
-            return (
-              <NumberField
-                key={key}
-                name={key}
-                label={meta.label}
-                hint={since ? `${meta.hint} Since ${formatWhen(since)}.` : meta.hint}
-              />
-            );
+        <InlineDetails
+          save={updateSettingAction}
+          rows={(Object.keys(SETTING_KEYS) as SettingKey[]).map((key, i) => {
+            const meta = COSTS[key];
+            const [latest, ...earlier] = histories[i]!;
+            return {
+              field: key,
+              label: meta.label,
+              note: meta.note,
+              value: current[key] == null ? "" : String(current[key]),
+              prefix: meta.prefix,
+              display:
+                key === "usd_lbp_rate" && typeof current[key] === "number"
+                  ? current[key].toLocaleString("en-US")
+                  : undefined,
+              suffix: meta.suffix,
+              inputMode: "decimal" as const,
+              placeholder: "Set it",
+              after: latest ? (
+                <>
+                  since {day(latest.validFrom)}
+                  {earlier.length && owner ? (
+                    <>
+                      {" · "}
+                      <Link
+                        href="/history?area=settings"
+                        className="inline-flex min-h-tap items-center text-action hover:underline lg:min-h-6"
+                      >
+                        {earlier.length} earlier
+                      </Link>
+                    </>
+                  ) : null}
+                </>
+              ) : undefined,
+            };
           })}
-        </ActionForm>
+        />
+      </Panel>
+      <Panel title="Defaults" titleId="settings-defaults">
+        <InlineDetails
+          save={updateSettingAction}
+          rows={[
+            {
+              field: "default_currency",
+              label: "Currency for new entries",
+              value: defs.currency,
+              options: [
+                { value: "USD", label: "USD" },
+                { value: "LBP", label: "LBP" },
+              ],
+            },
+            {
+              field: "phone_country",
+              label: "Phone country",
+              note: "Numbers typed without + use this",
+              value: defs.phoneCountry,
+              options: [{ value: "LB", label: "Lebanon +961" }],
+            },
+            {
+              field: "low_filament_g",
+              label: "Warn when filament is below",
+              note: "Each stock item can override it",
+              value: String(defs.lowFilamentG),
+              suffix: " g",
+              inputMode: "decimal",
+            },
+            {
+              field: "shop_name",
+              label: "Shop name",
+              note: "Shown in the sidebar and on the sign-in page",
+              value: defs.shopName,
+              wide: true,
+            },
+          ]}
+        />
       </Panel>
       {owner ? (
         <Panel title="People" titleId="settings-people" count={people.length} flush>
@@ -112,21 +179,6 @@ export default async function SettingsPage() {
           </div>
         </Panel>
       ) : null}
-      <Panel title="Recent setting changes" titleId="settings-history" flush>
-        <ul className="divide-y divide-border text-sm">
-          {Object.entries(SETTING_KEYS).flatMap(([, meta], i) =>
-            histories[i]!.slice(0, 5).map((row) => (
-              <li key={row.id} className="flex justify-between gap-3 px-3 py-2">
-                <span>{meta.label}</span>
-                <span className="text-right tabular-nums">
-                  <span className="font-semibold">{String(row.value)}</span>
-                  <span className="block text-xs text-ink-muted">from {formatWhen(row.validFrom)}</span>
-                </span>
-              </li>
-            )),
-          )}
-        </ul>
-      </Panel>
     </div>
   );
 }

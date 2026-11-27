@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { suppliers } from "@/db/schema";
-import { normalizePhone } from "@/lib/phone";
+import { formatPhone, normalizePhone } from "@/lib/phone";
 import { requireUser } from "@/server/auth/session";
 import { contact } from "@/server/contact-fields";
 import { updateLogged } from "@/server/edits/engine";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
-import { findOrCreateSupplier, looksLikePhone } from "./service";
+import { saveInlineField, type InlineResult } from "@/server/inline";
+import { findOrCreateSupplier, getSupplier, looksLikePhone } from "./service";
 
 const schema = z.object({
   name: f.text("a name", 80),
@@ -41,6 +42,33 @@ export async function saveSupplierAction(id: number | null, _prev: FormState, fd
   }
   revalidatePath("/suppliers");
   redirect(`/suppliers/${savedId}`);
+}
+
+/** Supplier page: one click-to-edit detail, validated like the form and logged (D13). */
+export async function updateSupplierFieldAction(id: number, field: string, raw: string): Promise<InlineResult> {
+  const user = await requireUser();
+  const sup = await getSupplier(db(), id);
+  if (!sup) return { ok: false, error: "This supplier was deleted." };
+  const current = {
+    name: sup.name,
+    phone: sup.phone,
+    sells: sup.sells,
+    email: sup.email,
+    website: sup.website,
+    area: sup.area,
+    address: sup.address,
+    mapUrl: sup.mapUrl,
+    notes: sup.notes,
+  };
+  const res = await saveInlineField(schema, current, field, raw, (data) =>
+    db().transaction((tx) => updateLogged(tx, suppliers, id, data, { userId: user.id })),
+  );
+  if (res.ok && field === "phone") res.value = formatPhone(res.value ?? null);
+  if (res.ok) {
+    revalidatePath(`/suppliers/${id}`);
+    revalidatePath("/suppliers");
+  }
+  return res;
 }
 
 export type QuickSupplierResult =

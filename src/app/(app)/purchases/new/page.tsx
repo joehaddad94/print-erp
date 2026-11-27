@@ -7,10 +7,14 @@ import { createExpenseAction } from "@/server/expenses/actions";
 import { purchaseStockOptions } from "@/server/expenses/service";
 import { expenseFormOptions } from "../../expenses/options";
 
-/** Add purchase (prototype /purchases/new): filament or packaging into stock. Machines: /machines/new. */
+/**
+ * Add purchase (prototype /purchases/new): filament or packaging into stock. Machines: /machines/new.
+ * ?supplier=<id> pre-picks the supplier (from their page).
+ */
 export default async function NewPurchasePage({ searchParams }: PageProps<"/purchases/new">) {
   await requireUser();
-  const preset = (await searchParams).category;
+  const sp = await searchParams;
+  const preset = sp.category;
   if (preset === "machine") redirect("/machines/new");
   const [opts, stock] = await Promise.all([expenseFormOptions(), purchaseStockOptions(db())]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
@@ -21,9 +25,10 @@ export default async function NewPurchasePage({ searchParams }: PageProps<"/purc
         action={createExpenseAction}
         defaults={{
           spentOn: today,
-          currency: "USD",
+          currency: opts.currency,
           lbpRate: opts.lbpRate ?? "",
           paymentMethod: "cash",
+          ...(typeof sp.supplier === "string" ? { supplierId: sp.supplier } : {}),
           ...(preset === "packaging" ? { category: "packaging" } : {}),
         }}
         stock={stock}

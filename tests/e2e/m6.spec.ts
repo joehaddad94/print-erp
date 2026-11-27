@@ -74,3 +74,31 @@ test("T-01 Today shows what needs you and what is due this week", async ({ page 
   ).toBeVisible();
   await checkPage(page);
 });
+
+test("New stock item: an opening count with its price shows in Stock; below its own level it shows Low", async ({
+  page,
+}, info) => {
+  const colour = `Opening ${info.project.name}${Date.now() % 100000}`;
+  await page.goto("/stock/new");
+  await page.getByLabel("Colour").fill(colour);
+  await page.getByLabel("Quantity now").fill("750");
+  await page.getByRole("button", { name: "Create stock item" }).click();
+  await expect(page.getByText("Enter the price paid, so prints using it have a cost")).toBeVisible();
+  await expect(page.getByLabel("Colour")).toHaveValue(colour);
+  await page.getByLabel("Price paid").fill("19");
+  await page.getByLabel("Warn me below").fill("800");
+  await page.getByRole("button", { name: "Create stock item" }).click();
+  await expect(page).toHaveURL(/\/stock\?adjusted=/);
+  await expect(page.getByText(`PLA ${colour} added to stock`)).toBeVisible();
+  await page.getByRole("link", { name: /^Filament/ }).click();
+  const row = page.locator(":is(tr, li):visible").filter({ hasText: `PLA ${colour}` });
+  await expect(row).toContainText("750 g");
+  await expect(row).toContainText("$19.00/kg");
+  await expect(row).toContainText("Low");
+
+  // The same name twice is refused.
+  await page.goto("/stock/new");
+  await page.getByLabel("Colour").fill(colour);
+  await page.getByRole("button", { name: "Create stock item" }).click();
+  await expect(page.getByText(`“PLA ${colour}” is already in stock.`)).toBeVisible();
+});

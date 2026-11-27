@@ -57,9 +57,8 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
 
   // 1. Settings.
   await page.goto("/settings");
-  await page.getByLabel("Electricity price per kWh (USD)").fill("0.64");
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText(/^Saved\.|Nothing changed\./)).toBeVisible();
+  await editInline(page, "Electricity per kWh", "0.64");
+  await expect(page.getByRole("button", { name: "electricity per kwh: $0.64. Change" })).toBeVisible();
 
   // 2. Supplier.
   await page.goto("/suppliers/new");
@@ -187,7 +186,7 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.goto("/customers");
   await page.locator(":is(tr, li):visible").filter({ hasText: customer }).getByRole("link").first().click();
   await expect(page.getByText("Delivered", { exact: true }).first().locator("..")).toContainText("1 order");
-  await expect(page.getByText("Balance owed").locator("..")).toContainText("$0.00");
+  await expect(page.getByText("Owes you").locator("..")).toContainText("$0.00");
   await page.goto("/history?area=printing");
   const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
   await expect(changes).toContainText("Hands-on minutes");
