@@ -4,7 +4,7 @@ import { stockFor } from "@/server/assembly/service";
 import { recordMovement } from "@/server/stock/ledger";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
+import { checkPage, editInline, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -70,8 +70,7 @@ test("R2 Restore puts a customer's old name back, as a new line in Change histor
   await page.getByLabel("Name").fill(`Before ${t}`);
   await page.getByRole("button", { name: "Add customer" }).click();
   await expect(page.getByRole("heading", { level: 1, name: `Before ${t}` })).toBeVisible();
-  await page.getByLabel("Name").fill(`After ${t}`);
-  await page.getByRole("button", { name: "Save customer" }).click();
+  await editInline(page, "Name", `After ${t}`);
   await expect(page.getByRole("heading", { level: 1, name: `After ${t}` })).toBeVisible();
 
   await page.goto("/history?area=sales");

@@ -38,7 +38,7 @@ export default async function NewMachinePage() {
           category: "machine",
           machineType: "printer",
           spentOn: today,
-          currency: "USD",
+          currency: opts.currency,
           lbpRate: opts.lbpRate ?? "",
           paymentMethod: "cash",
           machineLifeHours: "3000",

@@ -2,7 +2,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { stockItems } from "@/db/schema";
-import { LOW_FILAMENT_G } from "@/lib/filament";
+import { LOW_FILAMENT_G, isLow } from "@/lib/filament";
+import { appDefaults } from "@/server/settings/service";
 import { listOrders } from "@/server/orders/service";
 import { runningJobs } from "@/server/printing/service";
 import { onHand } from "@/server/stock/ledger";
@@ -98,10 +99,11 @@ export async function needsYou(db: Db, now = new Date()): Promise<NeedsYou[]> {
     listOrders(db),
     runningJobs(db),
     db
-      .select({ id: stockItems.id, name: stockItems.name })
+      .select({ id: stockItems.id, name: stockItems.name, reorderLevel: stockItems.reorderLevel })
       .from(stockItems)
       .where(and(eq(stockItems.type, "filament"), isNull(stockItems.deletedAt))),
   ]);
+  const { lowFilamentG } = await appDefaults(db);
   const out: (NeedsYou & { rank: number })[] = [];
   const who = (o: { id: number; customerName: string | null }) => `#${o.id} · ${o.customerName ?? "No customer"}`;
   const due = (d: string | null) =>
@@ -184,7 +186,7 @@ export async function needsYou(db: Db, now = new Date()): Promise<NeedsYou[]> {
   }
   for (const f of filaments) {
     const g = await onHand(db, f.id);
-    if (g < LOW_FILAMENT_G)
+    if (isLow({ type: "filament", onHand: g, reorderLevel: f.reorderLevel }, lowFilamentG))
       out.push({
         key: `low-${f.id}`,
         rank: 7,

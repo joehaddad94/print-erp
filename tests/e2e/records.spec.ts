@@ -52,13 +52,16 @@ test.describe("customers", () => {
     await page.getByLabel("Instagram").fill("@rana");
     await page.getByRole("button", { name: "Add customer" }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByLabel("Phone")).toHaveValue("+961 71 111 111");
+    await expect(page.getByRole("button", { name: "phone: +961 71 111 111. Change" })).toBeVisible();
     await expect(page.getByText("No orders yet")).toBeVisible();
     await checkPage(page);
 
-    await page.getByLabel("Phone").fill("71 222 222");
-    await page.getByRole("button", { name: "Save customer" }).click();
-    await expect(page.getByText("phone: +96171111111 → +96171222222")).toBeVisible();
+    await editInline(page, "Phone", "71 222 222");
+    await expect(page.getByRole("button", { name: "phone: +961 71 222 222. Change" })).toBeVisible();
+    await page.goto("/history?area=sales");
+    await expect(
+      page.locator(":is(tr, li):visible").filter({ hasText: name }).filter({ hasText: "+96171222222" }).first(),
+    ).toBeVisible();
     await page.goto("/customers");
     await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("+961 71 222 222");
   });
@@ -74,8 +77,8 @@ test.describe("customers", () => {
     await expect(page.getByText("Line added.")).toBeVisible();
     await page.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(page.getByText("Balance owed").locator("..")).toContainText("$6.00");
-    await expect(page.getByRole("list", { name: "Orders" })).toContainText(name);
+    await expect(page.getByText("Owes you").locator("..")).toContainText("$6.00");
+    await expect(page.locator(':is(table, ul)[aria-label="Orders"]:visible')).toContainText("$6.00");
     await page.goto("/customers");
     await expect(page.locator(":is(tr, li):visible").filter({ hasText: name })).toContainText("$6.00");
   });
@@ -109,10 +112,13 @@ test.describe("suppliers", () => {
     await page.goto("/suppliers");
     await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
     await expect(page.getByText("Spent in total").locator("..")).toContainText("$12.50");
-    await expect(page.getByRole("list", { name: "Purchases" })).toContainText("Packaging");
-    await page.getByLabel("What they sell").fill("Bags");
-    await page.getByRole("button", { name: "Save supplier" }).click();
-    await expect(page.getByText("sells: — → Bags")).toBeVisible();
+    await expect(page.locator(':is(table, ul)[aria-label="Purchases"]:visible')).toContainText("$12.50");
+    await editInline(page, "Sells", "Bags");
+    await expect(page.getByRole("button", { name: "sells: Bags. Change" })).toBeVisible();
+    await page.goto("/history?area=money");
+    await expect(
+      page.locator(":is(tr, li):visible").filter({ hasText: name }).filter({ hasText: "Bags" }).first(),
+    ).toBeVisible();
   });
 });
 

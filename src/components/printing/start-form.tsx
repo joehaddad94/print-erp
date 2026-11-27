@@ -11,7 +11,6 @@ import { Callout, Card, CostLine, CostTotal, FileDrop, Panel, Segmented } from "
 import { Icon } from "@/components/shell/icons";
 import { PrinterChoice } from "./printer-choice";
 import { SearchPicker } from "@/components/ui/search-picker";
-import { LOW_FILAMENT_G } from "@/lib/filament";
 import { jobCost, unitCost, type MissingInput } from "@/lib/cost";
 import { formatDuration } from "@/lib/format";
 import { printerModelsMatch, SUPPORTED_SLICERS, type ParsedGcode } from "@/lib/gcode";
@@ -421,7 +420,7 @@ export function StartForm({
                       .filter(Boolean)
                       .join(" · "),
                     keywords: f.material ?? undefined,
-                    badge: f.onHand <= 0 ? undefined : f.onHand < LOW_FILAMENT_G ? "Low" : undefined,
+                    badge: f.onHand > 0 && f.low ? "Low" : undefined,
                     disabled: f.onHand <= 0,
                   }))}
                   empty="No filament matches. Buy it under Add purchase."

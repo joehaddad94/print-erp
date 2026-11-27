@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { ShopName } from "@/components/shell/shop-name";
 import { Icon } from "@/components/shell/icons";
 import { Card } from "@/components/ui";
 import { LoginForm } from "./login-form";
@@ -13,7 +15,11 @@ export default function LoginPage() {
           <span className="grid size-8 place-items-center rounded-md bg-action text-action-ink">
             <Icon name="machines" size={18} />
           </span>
-          <h1 className="text-lg font-semibold">Print Shop</h1>
+          <h1 className="text-lg font-semibold">
+            <Suspense fallback="Print Shop">
+              <ShopName />
+            </Suspense>
+          </h1>
         </div>
         <LoginForm />
       </Card>

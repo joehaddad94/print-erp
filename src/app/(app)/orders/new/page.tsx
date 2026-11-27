@@ -19,7 +19,7 @@ export default async function NewOrderPage({ searchParams }: PageProps<"/orders/
         defaults={{
           channel: "whatsapp",
           status: "confirmed",
-          currency: "USD",
+          currency: opts.currency,
           lbpRate: opts.lbpRate ?? "",
           customerId: typeof customer === "string" ? customer : "",
         }}

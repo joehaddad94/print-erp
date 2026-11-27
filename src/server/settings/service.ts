@@ -2,6 +2,7 @@ import { and, desc, eq, lte } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
 import { editLog, settings } from "@/db/schema";
+import { LOW_FILAMENT_G } from "@/lib/filament";
 
 type Db = PostgresJsDatabase<typeof schema>;
 
@@ -23,6 +24,25 @@ export const SETTING_KEYS = {
 } as const;
 
 export type SettingKey = keyof typeof SETTING_KEYS;
+
+/** Settings › Defaults: what new entries and screens start from. Not dated cost inputs. */
+export type AppDefaults = { currency: "USD" | "LBP"; phoneCountry: "LB"; lowFilamentG: number; shopName: string };
+export const DEFAULTS: AppDefaults = {
+  currency: "USD",
+  phoneCountry: "LB",
+  lowFilamentG: LOW_FILAMENT_G,
+  shopName: "Print Shop",
+};
+
+export async function appDefaults(db: Db): Promise<AppDefaults> {
+  const s = await currentSettings(db);
+  return {
+    currency: s.default_currency === "LBP" ? "LBP" : "USD",
+    phoneCountry: "LB",
+    lowFilamentG: typeof s.low_filament_g === "number" ? s.low_filament_g : DEFAULTS.lowFilamentG,
+    shopName: typeof s.shop_name === "string" && s.shop_name.trim() ? s.shop_name : DEFAULTS.shopName,
+  };
+}
 
 /** Value of each key valid at `at` (latest valid_from ≤ at). Missing keys are absent. */
 export async function currentSettings(db: Db, at = new Date()): Promise<Partial<Record<string, unknown>>> {

@@ -21,6 +21,7 @@ export function InlineEdit({
   wide,
   options,
   placeholder,
+  display,
 }: {
   /** Names the value for screen readers, e.g. "price each". */
   label: string;
@@ -34,12 +35,15 @@ export function InlineEdit({
   options?: { value: string; label: string }[];
   /** Shown (muted) when the value is empty. Default "Add". */
   placeholder?: string;
+  /** Shown instead of a set value, e.g. "Change" for a long map link. */
+  display?: string;
 }) {
   const [state, send] = useReducer(editReducer, value, initialEdit);
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
-  const shown = (v: string) => (options ? (options.find((o) => o.value === v)?.label ?? v) : v);
+  const shown = (v: string) =>
+    v && display ? display : options ? (options.find((o) => o.value === v)?.label ?? v) : v;
 
   // Entering "saving" happens once per edit (the reducer ignores a second Enter or blur), so this runs once.
   const draft = state.mode === "saving" ? state.draft : null;

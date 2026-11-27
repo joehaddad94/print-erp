@@ -8,6 +8,8 @@ import { db } from "@/db";
 import { rateToUsdFromLbpRate } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
 import { f, failure, formValues, validate, type FormState } from "@/server/form";
+import { saveInlineField, type InlineResult } from "@/server/inline";
+import { formatPhone } from "@/lib/phone";
 import {
   addLine,
   createCustomer,
@@ -17,6 +19,7 @@ import {
   deleteOrder,
   deletePayment,
   deliver,
+  getCustomer,
   markReceived,
   OrderError,
   recordPayment,
@@ -70,6 +73,32 @@ export async function saveCustomerAction(id: number | null, _p: FormState, fd: F
   }
   refresh();
   redirect(`/customers/${id}`);
+}
+
+/** Customer page: one click-to-edit detail, validated like the form and logged (D13). */
+export async function updateCustomerFieldAction(id: number, field: string, raw: string): Promise<InlineResult> {
+  const user = await requireUser();
+  const c = await getCustomer(db(), id);
+  if (!c) return { ok: false, error: "This customer was deleted." };
+  const current = {
+    name: c.name,
+    phone: c.phone,
+    handle: c.handle,
+    email: c.email,
+    area: c.area,
+    address: c.address,
+    mapUrl: c.mapUrl,
+    notes: c.notes,
+  };
+  const res = await saveInlineField(customerSchema, current, field, raw, (data) =>
+    updateCustomer(db(), id, data, user.id),
+  );
+  if (res.ok && field === "phone") res.value = formatPhone(res.value ?? null);
+  if (res.ok) {
+    revalidatePath(`/customers/${id}`);
+    revalidatePath("/customers");
+  }
+  return res;
 }
 
 // ── Orders

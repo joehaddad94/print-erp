@@ -7,6 +7,7 @@ import { LivePrintCard, LivePrintStrip } from "./live-print";
 import { START_PRINT } from "./nav";
 import { OwnerSideLinks, SidebarNav, SidebarNavList, TabBar, TabBarList } from "./nav-links";
 import { RailToggle } from "./rail-toggle";
+import { ShopName } from "./shop-name";
 
 /**
  * App shell. Desktop (≥1024px): fixed left sidebar. Phone: top bar + bottom tabs.
@@ -92,7 +93,11 @@ function Brand() {
       <span className="grid size-7 place-items-center rounded-md bg-action text-action-ink">
         <Icon name="machines" size={16} />
       </span>
-      <span className="flex-1 text-md font-semibold text-rail-strong lg:rail-collapsed:sr-only">Print Shop</span>
+      <span className="flex-1 text-md font-semibold text-rail-strong lg:rail-collapsed:sr-only">
+        <Suspense fallback="Print Shop">
+          <ShopName />
+        </Suspense>
+      </span>
     </>
   );
 }

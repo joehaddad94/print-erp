@@ -1,31 +1,80 @@
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/form/action-form";
-import { CustomerFields } from "@/components/customers/customer-fields";
-import { OrderRows } from "@/components/orders/order-rows";
 import { Icon } from "@/components/shell/icons";
-import { EmptyState, HistoryList, PageHeader, Panel, buttonClass } from "@/components/ui";
+import {
+  Badge,
+  DataTable,
+  EmptyState,
+  InlineDetails,
+  PageHeader,
+  Panel,
+  StatStrip,
+  buttonClass,
+} from "@/components/ui";
+import type { Column } from "@/components/ui";
 import { Link } from "@/components/ui/link";
 import { db } from "@/db";
-import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/money";
 import { formatPhone, whatsappUrl } from "@/lib/phone";
 import { requireUser } from "@/server/auth/session";
-import { historyFor } from "@/server/edits/engine";
-import { saveCustomerAction } from "@/server/orders/actions";
-import { getCustomer } from "@/server/orders/service";
+import { updateCustomerFieldAction } from "@/server/orders/actions";
+import { getCustomer, shownStatus } from "@/server/orders/service";
+import { MapPinLink } from "@/components/ui/map-pin-link";
 
 const usd = (n: number) => formatMoney(n, "USD");
 const s = (v: string | null) => v ?? "";
+const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Beirut" });
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
-/** R5 customer: what they owe and bought at a glance, their orders, details, history. */
+type Order = NonNullable<Awaited<ReturnType<typeof getCustomer>>>["orders"][number];
+const tone = (o: Order) =>
+  o.status === "delivered"
+    ? "success"
+    : o.status === "cancelled"
+      ? "neutral"
+      : o.status === "quoted"
+        ? "neutral"
+        : "info";
+const needs = (o: Order) => o.needToPrint > 0 && !["quoted", "cancelled", "delivered"].includes(o.status);
+
+/** Customer (prototype /customers/1): what they owe and bought, their orders, click-to-edit details. */
 export default async function CustomerPage({ params }: PageProps<"/customers/[id]">) {
   await requireUser();
   const id = Number((await params).id);
   const c = Number.isInteger(id) ? await getCustomer(db(), id) : null;
   if (!c) notFound();
-  const history = await historyFor(db(), "customers", id);
   const since = c.createdAt.toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "Asia/Beirut" });
   const next = c.openOrders[0];
+  const first = c.name.split(" ")[0];
+  const columns: Column<Order>[] = [
+    {
+      key: "order",
+      header: "Order",
+      cell: (o) => `#${o.id}`,
+    },
+    { key: "date", header: "Date", cell: (o) => day(o.createdAt) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (o) => (
+        <span className="flex flex-wrap gap-1">
+          <Badge tone={tone(o)}>{shownStatus(o)}</Badge>
+          {needs(o) ? <Badge tone="danger">Need to print {o.needToPrint}</Badge> : null}
+        </span>
+      ),
+    },
+    { key: "total", header: "Total", numeric: true, cell: (o) => usd(o.totalUsd) },
+    {
+      key: "balance",
+      header: "Balance",
+      numeric: true,
+      cell: (o) =>
+        o.balanceDueUsd > 0.005 && o.status !== "cancelled" ? (
+          <span className="font-semibold">{usd(o.balanceDueUsd)}</span>
+        ) : (
+          <span className="text-ink-muted">{usd(0)}</span>
+        ),
+    },
+  ];
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
@@ -33,93 +82,82 @@ export default async function CustomerPage({ params }: PageProps<"/customers/[id
         title={c.name}
         description={[formatPhone(c.phone), `customer since ${since}`].filter(Boolean).join(" · ")}
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 *:flex-1 sm:*:flex-none">
             {c.phone ? (
               <a href={whatsappUrl(c.phone)} target="_blank" rel="noreferrer" className={buttonClass("secondary")}>
                 <Icon name="phone" size={15} />
                 WhatsApp
               </a>
             ) : null}
-            <Link href="/orders/new" className={buttonClass("secondary")}>
+            <Link href={`/orders/new?customer=${id}`} className={buttonClass("secondary")}>
               <Icon name="plus" size={15} />
               New order
             </Link>
           </div>
         }
       />
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-        <Stat label="Balance owed" value={usd(c.balanceOwedUsd)} warn={c.balanceOwedUsd > 0.005}>
-          on {c.owingOrders} order{c.owingOrders === 1 ? "" : "s"}
-        </Stat>
-        <Stat label="Delivered" value={usd(c.deliveredUsd)}>
-          {c.deliveredCount} order{c.deliveredCount === 1 ? "" : "s"}
-        </Stat>
-        <Stat label="Profit from them" value={usd(c.profitUsd)}>
-          on delivered orders
-        </Stat>
-        <Stat label="Open" value={String(c.openOrders.length)}>
-          {next ? `#${next.id}${next.dueOn ? ` · due ${next.dueOn}` : ""}` : "none"}
-        </Stat>
-      </dl>
+      <StatStrip
+        items={[
+          {
+            label: "Owes you",
+            value: usd(c.balanceOwedUsd),
+            warn: c.balanceOwedUsd > 0.005,
+            note: `on ${plural(c.owingOrders, "order")}`,
+          },
+          { label: "Delivered", value: usd(c.deliveredUsd), note: plural(c.deliveredCount, "order") },
+          { label: `Profit from ${first}`, value: usd(c.profitUsd), note: "on delivered orders" },
+          {
+            label: "Open",
+            value: String(c.openOrders.length),
+            note: next ? `#${next.id}${next.dueOn ? ` · due ${next.dueOn}` : ""}` : "none",
+          },
+        ]}
+      />
       <div className="grid items-start gap-5 lg:grid-aside">
-        <div className="flex min-w-0 flex-col gap-5">
-          <Panel title="Orders" titleId="customer-orders" count={c.orders.length} flush>
-            {c.orders.length ? <OrderRows rows={c.orders} /> : <EmptyState title="No orders yet" />}
-          </Panel>
-          <Panel title="History" titleId="customer-history">
-            <HistoryList entries={history} />
-          </Panel>
-        </div>
+        <Panel title="Orders" titleId="customer-orders" count={c.orders.length} flush>
+          {c.orders.length ? (
+            <DataTable
+              id="customer-orders"
+              label="Orders"
+              columns={columns}
+              rows={c.orders}
+              rowKey={(o) => o.id}
+              rowHref={(o) => `/orders/${o.id}`}
+              phoneRow={(o) => ({
+                title: `#${o.id} · ${day(o.createdAt)}`,
+                trailing:
+                  o.balanceDueUsd > 0.005 && o.status !== "cancelled" ? `${usd(o.balanceDueUsd)} due` : usd(o.totalUsd),
+                badge: <Badge tone={tone(o)}>{shownStatus(o)}</Badge>,
+              })}
+            />
+          ) : (
+            <EmptyState title="No orders yet" />
+          )}
+        </Panel>
         <Panel title="Details" titleId="customer-details">
-          {c.mapUrl ? (
-            <a
-              href={c.mapUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mb-3 inline-flex min-h-control items-center gap-1.5 text-sm font-medium text-action hover:underline"
-            >
-              <Icon name="pin" size={14} />
-              Open map pin
-            </a>
-          ) : null}
-          <ActionForm
-            action={saveCustomerAction.bind(null, id)}
-            submitLabel="Save customer"
-            defaults={{
-              name: c.name,
-              phone: formatPhone(c.phone),
-              email: s(c.email),
-              handle: s(c.handle),
-              area: s(c.area),
-              address: s(c.address),
-              mapUrl: s(c.mapUrl),
-              notes: s(c.notes),
-            }}
-          >
-            <CustomerFields />
-          </ActionForm>
+          <InlineDetails
+            save={updateCustomerFieldAction.bind(null, id)}
+            rows={[
+              { field: "name", label: "Name", value: c.name, wide: true },
+              { field: "phone", label: "Phone", value: formatPhone(c.phone), inputMode: "tel", wide: true },
+              { field: "email", label: "Email", value: s(c.email), inputMode: "email", wide: true },
+              { field: "handle", label: "Instagram", note: "optional", value: s(c.handle), wide: true },
+              { field: "area", label: "Area", value: s(c.area) },
+              { field: "address", label: "Address", value: s(c.address), wide: true },
+              {
+                field: "mapUrl",
+                label: "Map pin",
+                value: s(c.mapUrl),
+                display: "Change",
+                wide: true,
+                before: c.mapUrl ? <MapPinLink href={c.mapUrl} /> : null,
+              },
+              { field: "notes", label: "Notes", value: s(c.notes), wide: true },
+            ]}
+            footer="Click any value to change it. Every change is saved in History. Phone numbers are saved in one format: you can type 70123456, 070 123 456 or +961 70 123 456."
+          />
         </Panel>
       </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  warn,
-  children,
-}: {
-  label: string;
-  value: string;
-  warn?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5 bg-surface px-4 py-3">
-      <dt className="text-xs font-medium text-ink-muted">{label}</dt>
-      <dd className={cn("text-2xl font-semibold tabular-nums", warn && "text-warning")}>{value}</dd>
-      <dd className="text-xs text-ink-muted">{children}</dd>
     </div>
   );
 }

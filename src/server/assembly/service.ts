@@ -214,6 +214,8 @@ export async function stockList(db: Db) {
       type: stockItems.type,
       unit: stockItems.unit,
       productId: stockItems.productId,
+      color: stockItems.color,
+      reorderLevel: stockItems.reorderLevel,
     })
     .from(stockItems)
     .where(isNull(stockItems.deletedAt))

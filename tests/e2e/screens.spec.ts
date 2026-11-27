@@ -21,6 +21,8 @@ const STATIC = [
   "/products",
   "/products/new",
   "/stock",
+  "/stock/new",
+  "/stock?show=filament",
   "/machines",
   "/expenses",
   "/expenses/new",

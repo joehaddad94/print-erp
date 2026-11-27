@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "./test";
-import { checkPage, login, newStockItem, pickSupplier } from "./helpers";
+import { checkPage, editInline, login, newStockItem, pickSupplier } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -12,26 +12,36 @@ async function addExpense(page: Page, fill: () => Promise<void>, kind: "purchase
   await expect(page).toHaveURL(kind === "purchase" ? /\/purchases$/ : /\/expenses$/);
 }
 
-test("S-01 settings: save electricity price, see it in history, warning disappears", async ({ page }) => {
+test("S-01 settings: click to change the electricity price; it is dated and the warning disappears", async ({
+  page,
+}) => {
   await page.goto("/settings");
   await checkPage(page);
-  await page.getByLabel("Electricity price per kWh (USD)").fill("0.64");
-  await page.getByLabel("LBP per USD").fill("89500");
-  await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText(/^Saved\.|Nothing changed\./)).toBeVisible();
+  await editInline(page, "Electricity per kWh", "0.64");
+  await expect(page.getByRole("button", { name: "electricity per kwh: $0.64. Change" })).toBeVisible();
+  await editInline(page, "LBP per USD", "89500");
+  await expect(page.getByRole("button", { name: "lbp per usd: 89,500. Change" })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Electricity price per kWh (USD)")).toHaveValue("0.64");
+  await expect(page.getByRole("button", { name: "electricity per kwh: $0.64. Change" })).toBeVisible();
   await expect(page.getByText("Electricity price not set")).toHaveCount(0);
-  await expect(page.getByRole("list").filter({ hasText: "0.64" })).toBeVisible();
+  await expect(page.getByText(/^since \d+ \w+/).first()).toBeVisible();
 });
 
 test("V-01 settings: a bad number shows an error under the field and keeps the typing", async ({ page }) => {
   await page.goto("/settings");
-  await page.getByLabel("Failure allowance (%)").fill("150");
-  await page.getByLabel("Electricity price per kWh (USD)").fill("0.7");
-  await page.getByRole("button", { name: "Save settings" }).click();
+  await editInline(page, "Failure allowance", "150");
   await expect(page.getByText("The failure allowance must be at most 99")).toBeVisible();
-  await expect(page.getByLabel("Electricity price per kWh (USD)")).toHaveValue("0.7");
+  await expect(page.getByRole("textbox", { name: "failure allowance", exact: true })).toHaveValue("150");
+});
+
+test("S-02 settings defaults: low filament level and shop name", async ({ page }) => {
+  await page.goto("/settings");
+  await editInline(page, "Warn when filament is below", "150");
+  await expect(page.getByRole("button", { name: "warn when filament is below: 150 g. Change" })).toBeVisible();
+  await editInline(page, "Warn when filament is below", "200");
+  await expect(page.getByRole("button", { name: "warn when filament is below: 200 g. Change" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "shop name: Print Shop. Change" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "currency for new entries: USD. Change" })).toBeVisible();
 });
 
 test("S-03/S-04 LBP filament purchase converts to USD and shows as a purchase", async ({ page }, info) => {
@@ -181,7 +191,7 @@ test("suppliers: add one, its page shows the WhatsApp number", async ({ page }, 
   await page.getByRole("button", { name: "Add supplier" }).click();
   await expect(page).toHaveURL(/\/suppliers\/\d+$/);
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-  await expect(page.getByText("PLA, PETG · +961 70 000 000")).toBeVisible();
+  await expect(page.getByText("+961 70 000 000 · PLA, PETG")).toBeVisible();
   await expect(page.getByRole("link", { name: "WhatsApp" })).toHaveAttribute("href", /wa\.me\/96170000000/);
   await checkPage(page);
   await page.goto("/suppliers");

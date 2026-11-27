@@ -16,7 +16,8 @@ import {
 import { failureMethod, labourMinutesPerPiece, machineCostPerHour, type MissingInput } from "@/lib/cost";
 import { softDeleteLogged, updateLogged, type Tx } from "@/server/edits/engine";
 import { allocate } from "@/server/orders/allocate";
-import { currentSettings } from "@/server/settings/service";
+import { isLow } from "@/lib/filament";
+import { appDefaults, currentSettings } from "@/server/settings/service";
 import { currentAverage, onHand, recordMovement, replayAverages } from "@/server/stock/ledger";
 import type { ImportInput } from "@/server/recipes/schema";
 import { prepareImport, saveImport } from "@/server/recipes/service";
@@ -118,13 +119,19 @@ export async function startOptions(db: Db) {
       .where(and(eq(machines.type, "printer"), eq(machines.status, "active"), isNull(machines.deletedAt)))
       .orderBy(asc(machines.name)),
     db
-      .select({ id: stockItems.id, name: stockItems.name, material: stockItems.material })
+      .select({
+        id: stockItems.id,
+        name: stockItems.name,
+        material: stockItems.material,
+        reorderLevel: stockItems.reorderLevel,
+      })
       .from(stockItems)
       .where(and(eq(stockItems.type, "filament"), isNull(stockItems.deletedAt)))
       .orderBy(asc(stockItems.name)),
     runningJobs(db),
     liveInputs(db),
   ]);
+  const { lowFilamentG } = await appDefaults(db);
   const items = recipeRows.length
     ? await db
         .select({
@@ -188,11 +195,15 @@ export async function startOptions(db: Db) {
     /** R3: recipes printed lately (current version of each), most recent first, for the picker. */
     recentRecipeIds: await recentRecipes(db, recipeRows),
     filaments: await Promise.all(
-      filamentRows.map(async (f) => ({
-        ...f,
-        costPerGramUsd: await currentAverage(db, f.id),
-        onHand: await onHand(db, f.id),
-      })),
+      filamentRows.map(async ({ reorderLevel, ...f }) => {
+        const grams = await onHand(db, f.id);
+        return {
+          ...f,
+          costPerGramUsd: await currentAverage(db, f.id),
+          onHand: grams,
+          low: isLow({ type: "filament", onHand: grams, reorderLevel }, lowFilamentG),
+        };
+      }),
     ),
   };
 }
