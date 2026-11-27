@@ -34,17 +34,17 @@ async function startAndFinish(page: Page, t: { recipe: string; printer: string; 
   await page.getByRole("button", { name: "Start print" }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await runningPrint(page, t.printer).click();
-  await expect(page.getByRole("heading", { name: /^Finish print: / })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finish print", exact: true })).toBeVisible();
   if (fail) {
     await page.getByLabel("Stopped early").check();
-    await page.getByLabel("How far it got (%)").fill("25");
+    await page.getByLabel("How far it got").fill("25");
     await page.getByLabel(/\(of 1\)$/).fill("0");
     await page.getByLabel("What went wrong").fill("warped corner");
   } else {
     await page.getByRole("button", { name: "Same as G-code" }).click();
   }
   await page.getByRole("button", { name: "Finish print" }).click();
-  await expect(page.getByRole("heading", { name: /^Print: / })).toBeVisible();
+  await expect(page.getByRole("heading", { name: / ×\d+$/ })).toBeVisible();
 }
 
 test("G-02 full business day through the UI, real G-code", async ({ page }, info) => {

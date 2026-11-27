@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { FinishForm, type FinishDefaults } from "@/components/printing/finish-form";
-import { Badge, HistoryList, PageHeader, Panel, formatWhen } from "@/components/ui";
-import { formatDuration } from "@/lib/format";
+import { Badge, PageHeader, Panel, Timeline, buttonClass } from "@/components/ui";
+import { Icon } from "@/components/shell/icons";
+import { Link } from "@/components/ui/link";
+import { computeFinish } from "@/server/printing/compute";
 import { db } from "@/db";
 import { formatMoney } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
@@ -12,8 +14,19 @@ import { productLabel } from "@/server/products/service";
 
 const s = (v: number | null | undefined) => (v == null ? "" : String(Number(v.toFixed(3))));
 
-export default async function PrintJobPage({ params }: PageProps<"/print/[id]">) {
+const TZ = "Asia/Beirut";
+const time = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
+const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ });
+/** "today 10:15", "26 Nov 10:15". */
+const when = (d: Date) =>
+  day(d) === day(new Date())
+    ? `today ${time(d)}`
+    : `${d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: TZ })} ${time(d)}`;
+
+/** Print (prototype /print/91 Finish print, /print/88 a finished print with Edit). */
+export default async function PrintJobPage({ params, searchParams }: PageProps<"/print/[id]">) {
   await requireUser();
+  const editing = (await searchParams).edit === "1";
   const id = Number((await params).id);
   const job = Number.isInteger(id) ? await getJob(db(), id) : null;
   if (!job) notFound();
@@ -23,6 +36,8 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
     id: i.line.id,
     name: productLabel({ name: i.productName, variant: i.productVariant }),
     qtyPlanned: i.line.qtyPlanned,
+    kind: i.productKind,
+    gramsPerPiece: i.line.gramsPerPiece,
   }));
   const forFinish = jobForFinish(job);
   const filaments = job.filaments.map((f) => ({
@@ -60,17 +75,18 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
       filaments={filaments}
       defaults={defaults}
       submitLabel={finished ? "Save changes" : "Finish print"}
+      cancelHref={finished ? `/print/${id}` : "/"}
     />
   );
-  const started = `${job.machine.name} · started ${formatWhen(job.startedAt)}`;
+  const recipe = `${job.recipe.name} · v${job.recipe.version}`;
   if (!finished)
     return (
       <div className="flex flex-col gap-5">
         <PageHeader
           back={{ href: "/", label: "Today" }}
-          title={`Finish print: ${job.recipe.name}`}
+          title="Finish print"
           badges={<Badge tone="info">Printing now</Badge>}
-          description={started}
+          description={`${recipe} · ${job.machine.name} · started ${when(job.startedAt)}`}
         />
         {form}
       </div>
@@ -78,44 +94,120 @@ export default async function PrintJobPage({ params }: PageProps<"/print/[id]">)
 
   const good = job.items.reduce((n, i) => n + (i.line.qtyGood ?? 0), 0);
   const planned = job.items.reduce((n, i) => n + i.line.qtyPlanned, 0);
+  const pct = Number(job.stoppedAtPct ?? 100);
+  const cost = computeFinish(forFinish, {
+    hours: job.hours ?? 0,
+    stoppedAtPct: pct,
+    good: Object.fromEntries(job.items.map((i) => [i.line.id, i.line.qtyGood ?? 0])),
+    weighed: Object.fromEntries(job.filaments.map((f) => [f.line.id, f.line.weighedGrams])),
+  });
+  const usd = (n: number) => formatMoney(n, "USD");
+  const usedGrams = job.filaments.reduce((g, f) => g + Number(f.line.gramsUsed), 0);
+  const charged = cost.complete ? cost.items.reduce((sum, it) => sum + (it.unitCost ?? 0) * it.good, 0) : null;
+  const allowance = cost.complete && charged != null ? Math.max(0, charged - cost.total + cost.wasteTotal) : null;
+  const perPiece = cost.complete && good > 0 ? charged! / good : null;
+  const title =
+    job.items.length === 1
+      ? `${productLabel({ name: job.items[0]!.productName, variant: job.items[0]!.productVariant })} ×${good}`
+      : `${job.recipe.name} ×${good}`;
+  const timeline = [
+    { id: "finished", at: job.finishedAt!, text: "Finished" },
+    ...history.map((e) => ({
+      id: `e-${e.id}`,
+      at: e.editedAt,
+      text: (
+        <>
+          Edited: {e.field.replace(/_/g, " ")}{" "}
+          <span className="text-ink-muted line-through">{e.oldValue == null ? "—" : String(e.oldValue)}</span> →{" "}
+          <span className="text-action">{e.newValue == null ? "—" : String(e.newValue)}</span>
+        </>
+      ),
+    })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         back={{ href: "/", label: "Today" }}
-        title={`Print: ${job.recipe.name}`}
+        title={title}
         badges={
           <>
-            {(job.stoppedAtPct ?? 100) < 100 ? (
-              <Badge tone="warning">Stopped at {Number(job.stoppedAtPct)}%</Badge>
-            ) : (
-              <Badge tone="success">Ran to the end</Badge>
-            )}
+            {pct < 100 ? <Badge tone="warning">Stopped at {pct}%</Badge> : <Badge tone="success">Finished</Badge>}
             {estimated ? <Badge tone="estimated">Estimated grams</Badge> : <Badge tone="success">Weighed</Badge>}
           </>
         }
-        description={`${started} · finished ${formatWhen(job.finishedAt!)}`}
+        description={`${recipe} · ${job.machine.name} · ${when(job.startedAt)} → ${time(job.finishedAt!)}`}
+        action={
+          editing ? undefined : (
+            <Link href={`/print/${id}?edit=1`} className={buttonClass("secondary")}>
+              <Icon name="edit" size={15} />
+              Edit
+            </Link>
+          )
+        }
       />
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-        <Fact label="Job cost" value={formatMoney(job.jobCostUsd ?? 0, "USD")} />
-        <Fact label="Waste" value={formatMoney(job.wasteCostUsd ?? 0, "USD")} />
-        <Fact label="Good pieces" value={`${good} of ${planned}`} />
-        <Fact label="Print time" value={formatDuration((job.hours ?? 0) * 3600)} />
-      </dl>
-      <Panel title="Edit this print" titleId="print-edit">
-        {form}
-      </Panel>
-      <Panel title="History" titleId="print-history">
-        <HistoryList entries={history} />
-      </Panel>
+      {editing ? (
+        form
+      ) : (
+        <div className="grid items-start gap-5 lg:grid-detail">
+          <div className="flex min-w-0 flex-col gap-5">
+            <Panel title="Result" titleId="print-result">
+              <dl className="flex flex-col divide-y divide-border text-md">
+                <Fact label="Good pieces" value={`${good} of ${planned}`} />
+                <Fact label="Print time" value={`${Number((job.hours ?? 0).toFixed(2))} h`} />
+                <Fact
+                  label="Filament"
+                  value={job.filaments
+                    .map(
+                      (f) =>
+                        `${f.name} · ${Number(Number(f.line.gramsUsed).toFixed(1))} g${f.line.weighedGrams != null ? " weighed" : ""}`,
+                    )
+                    .join(", ")}
+                />
+                <Fact
+                  label="Added to stock"
+                  value={
+                    job.items
+                      .filter((i) => (i.line.qtyGood ?? 0) > 0)
+                      .map(
+                        (i) =>
+                          `${i.line.qtyGood} × ${productLabel({ name: i.productName, variant: i.productVariant })}`,
+                      )
+                      .join(", ") || "Nothing"
+                  }
+                />
+                {job.failureReason ? <Fact label="What went wrong" value={job.failureReason} /> : null}
+              </dl>
+            </Panel>
+            <Panel title="History" titleId="print-history" flush>
+              <Timeline entries={timeline} />
+            </Panel>
+          </div>
+          <Panel title="Cost" titleId="print-cost">
+            {cost.complete ? (
+              <dl className="flex flex-col divide-y divide-border text-md">
+                <Fact label={`Filament · ${Number(usedGrams.toFixed(1))} g`} value={usd(cost.filament)} />
+                <Fact label="Electricity" value={usd(cost.electricity)} />
+                <Fact label="Machine wear" value={usd(cost.wear)} />
+                {allowance ? <Fact label="Failure allowance" value={usd(allowance)} /> : null}
+                {cost.wasteTotal > 0 ? <Fact label="Waste" value={usd(cost.wasteTotal)} /> : null}
+                <Fact label="Job cost" value={usd(job.jobCostUsd ?? cost.total)} strong />
+                <Fact label="Per piece" value={perPiece != null ? usd(perPiece) : "—"} />
+              </dl>
+            ) : (
+              <p className="text-sm text-ink-muted">Cost incomplete: a price was missing when it finished.</p>
+            )}
+          </Panel>
+        </div>
+      )}
     </div>
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex flex-col gap-0.5 bg-surface px-4 py-3">
-      <dt className="text-xs font-medium text-ink-muted">{label}</dt>
-      <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+    <div className={strong ? "flex justify-between gap-3 py-2 font-bold" : "flex justify-between gap-3 py-2"}>
+      <dt>{label}</dt>
+      <dd className="text-right tabular-nums">{value}</dd>
     </div>
   );
 }
