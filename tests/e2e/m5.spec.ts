@@ -3,7 +3,18 @@ import { machines, products } from "@/db/schema";
 import { setSetting } from "@/server/settings/service";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, editInline, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
+import {
+  addOrderItem,
+  checkPage,
+  deliverOrder,
+  editInline,
+  fillStart,
+  login,
+  newCustomerOnOrder,
+  newStockItem,
+  recordOrderPayment,
+  runningPrint,
+} from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -16,11 +27,7 @@ async function newOrder(page: Page, customer: string) {
   await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
 }
 
-async function addItem(page: Page, product: string, qty: string) {
-  await page.getByLabel("Product").selectOption({ label: product });
-  await page.getByLabel("Quantity").last().fill(qty);
-  await page.getByRole("button", { name: "Add item" }).click();
-}
+const addItem = (page: Page, product: string, qty: string) => addOrderItem(page, product, qty);
 
 test("O-01 a product without a price can't be added, with a link to fix it", async ({ page }, info) => {
   const name = `Unpriced ${info.project.name}`;
@@ -37,13 +44,13 @@ test("O-04/Y-02 deliver is disabled until reserved; courier cash shows until Mar
   await newOrder(page, `O-04 ${info.project.name}`);
   await addItem(page, `${name} · $5.00`, "2");
   await expect(page.getByText("Need to print 2").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Deliver whole order" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Deliver", exact: true })).toBeDisabled();
+  await expect(page.getByText("Not ready to deliver.")).toBeVisible();
   await checkPage(page);
 
-  await page.getByLabel("Amount").fill("10");
-  await page.getByLabel("Method").selectOption("courier_cod");
-  await page.getByLabel("Collected by").fill("Toufic");
-  await page.getByRole("button", { name: "Record payment" }).click();
+  await page.getByRole("link", { name: "Record payment" }).first().click();
+  await checkPage(page);
+  await recordOrderPayment(page, "10", { method: "courier_cod", collectedBy: "Toufic" });
   await expect(page.getByText("Courier has cash").first()).toBeVisible();
   await page.getByRole("button", { name: "Mark received" }).click();
   await expect(page.getByRole("button", { name: "Mark received" })).toHaveCount(0);
@@ -116,16 +123,11 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
   await checkPage(page);
   await addItem(page, `${product} · $5.00`, "2");
   await expect(page.getByText("Reserved", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Deliver whole order" }).click();
-  await expect(page.getByText(/^Delivered .*Stock and packaging were taken out\.$/)).toBeVisible();
-  for (const amount of ["4", "6"]) {
-    await page.getByLabel("Amount").fill(amount);
-    await page.getByRole("button", { name: "Record payment" }).click();
-    await expect(page.getByText("Payment recorded.")).toBeVisible();
-  }
+  await deliverOrder(page);
+  for (const amount of ["4", "6"]) await recordOrderPayment(page, amount);
   await expect(page.getByText("Paid", { exact: true })).toBeVisible();
   const profit = page.getByRole("definition").filter({ hasText: "$8.25" });
   await expect(profit).toBeVisible();
-  await expect(page.getByText("$16.51/h")).toBeVisible();
+  await expect(page.getByText("Per hour of your time").locator("..")).toContainText("$16.51");
   await checkPage(page);
 });

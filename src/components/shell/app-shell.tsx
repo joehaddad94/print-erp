@@ -9,6 +9,7 @@ import { UserMenu } from "./user-menu";
 import { PhoneTopBar } from "./phone-top-bar";
 import { RailToggle } from "./rail-toggle";
 import { ShopName } from "./shop-name";
+import { LowStockDot, OrdersDueBadge } from "./sidebar-badges";
 
 /**
  * App shell. Desktop (≥1024px): fixed left sidebar. Phone: top bar + bottom tabs.
@@ -32,6 +33,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2.5 pb-3">
           <Suspense fallback={<SidebarNavList primary={<StartPrintButton />} pathname="" />}>
             <SidebarNav
+              badges={{
+                "/orders": (
+                  <Suspense fallback={null}>
+                    <OrdersDueBadge />
+                  </Suspense>
+                ),
+                "/stock": (
+                  <Suspense fallback={null}>
+                    <LowStockDot />
+                  </Suspense>
+                ),
+              }}
               primary={
                 <>
                   <StartPrintButton />

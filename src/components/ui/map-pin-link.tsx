@@ -1,5 +1,5 @@
-/** "Open in Maps · " before a click-to-edit map link (prototype Details panels). */
-export function MapPinLink({ href }: { href: string }) {
+/** "Open in Maps · " before a click-to-edit map link (prototype Details panels). `label` alone = just the link. */
+export function MapPinLink({ href, label }: { href: string; label?: string }) {
   return (
     <>
       <a
@@ -8,9 +8,9 @@ export function MapPinLink({ href }: { href: string }) {
         rel="noreferrer"
         className="inline-flex min-h-tap items-center font-medium text-action hover:underline lg:min-h-6"
       >
-        Open in Maps
+        {label ?? "Open in Maps"}
       </a>
-      <span className="text-ink-muted"> · </span>
+      {label ? null : <span className="text-ink-muted"> · </span>}
     </>
   );
 }

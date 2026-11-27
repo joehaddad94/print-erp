@@ -20,6 +20,8 @@ export type InlineRow = {
   before?: ReactNode;
   /** Small muted line under the value, e.g. "since 12 Nov". */
   after?: ReactNode;
+  /** Shown as plain text, e.g. on a delivered order. */
+  readOnly?: boolean;
 };
 
 type Save = (field: string, value: string) => Promise<{ ok: true; value?: string } | { ok: false; error: string }>;
@@ -52,18 +54,28 @@ function Row({ row, save }: { row: InlineRow; save: Save }) {
       </dt>
       <dd className="text-right text-md">
         {row.before}
-        <InlineEdit
-          label={row.label.toLowerCase()}
-          value={row.value}
-          save={saveField}
-          options={row.options}
-          prefix={row.prefix}
-          suffix={row.suffix}
-          inputMode={row.inputMode}
-          wide={row.wide}
-          placeholder={row.placeholder}
-          display={row.display}
-        />
+        {row.readOnly ? (
+          <span>
+            {row.value
+              ? `${row.prefix ?? ""}${row.options?.find((o) => o.value === row.value)?.label ?? (row.display && !row.before ? row.display : row.before ? "" : row.value)}${row.suffix ?? ""}`
+              : row.before
+                ? ""
+                : "—"}
+          </span>
+        ) : (
+          <InlineEdit
+            label={row.label.toLowerCase()}
+            value={row.value}
+            save={saveField}
+            options={row.options}
+            prefix={row.prefix}
+            suffix={row.suffix}
+            inputMode={row.inputMode}
+            wide={row.wide}
+            placeholder={row.placeholder}
+            display={row.display}
+          />
+        )}
         {row.after ? <span className="block text-xs text-ink-muted">{row.after}</span> : null}
       </dd>
     </div>

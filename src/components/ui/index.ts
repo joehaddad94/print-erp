@@ -19,3 +19,4 @@ export { FileDrop } from "./file-drop";
 export { FilterBar, SearchBox, matches, type FilterOption } from "./filter-bar";
 export { InlineDetails, type InlineRow } from "./inline-details";
 export { ColumnsMenu } from "./columns-menu";
+export { ConfirmButton } from "./confirm-button";

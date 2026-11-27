@@ -207,3 +207,13 @@ export async function dueThisWeek(db: Db, now = new Date()) {
     .filter((o) => !["delivered", "cancelled"].includes(o.status) && o.dueOn && o.dueOn <= week)
     .slice(0, 6);
 }
+
+/** Sidebar badges (prototype BADGE): orders due within 3 days (not quotes), and whether any filament is low. */
+export async function sidebarBadges(db: Db, now = new Date()) {
+  const soon = beirutDate(now, 3);
+  const due = (await listOrders(db)).filter(
+    (o) => ["confirmed", "printing", "ready"].includes(o.status) && o.dueOn != null && o.dueOn <= soon,
+  ).length;
+  const low = (await needsYou(db, now)).some((n) => n.key.startsWith("low-"));
+  return { due, low };
+}

@@ -8,19 +8,28 @@ import { Icon } from "./icons";
 import { NAV, SIDEBAR, START_PRINT, isActive, type NavItem } from "./nav";
 
 const sideLink =
-  "group flex min-h-control items-center gap-2.5 rounded-md px-2.5 text-md text-rail-ink hover:bg-rail-active hover:text-rail-strong";
+  "group relative flex min-h-control items-center gap-2.5 rounded-md px-2.5 text-md text-rail-ink hover:bg-rail-active hover:text-rail-strong";
 const sideLinkOn = "bg-rail-active font-medium text-rail-strong";
 
 /**
  * Desktop sidebar list. Highlights the section you're in, including its detail pages.
  * `primary` (the Start print button) sits inside the nav landmark, above the list.
  */
-export function SidebarNav({ primary }: { primary?: ReactNode }) {
-  return <SidebarNavList primary={primary} pathname={usePathname()} />;
+export function SidebarNav({ primary, badges }: { primary?: ReactNode; badges?: Record<string, ReactNode> }) {
+  return <SidebarNavList primary={primary} pathname={usePathname()} badges={badges} />;
 }
 
 /** Same list without reading the URL: the Suspense fallback while the pathname is unknown. */
-export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pathname: string }) {
+export function SidebarNavList({
+  primary,
+  pathname,
+  badges,
+}: {
+  primary?: ReactNode;
+  pathname: string;
+  /** Streamed bits after a label, by href: "2 due" on Orders, the low-filament dot on Stock. */
+  badges?: Record<string, ReactNode>;
+}) {
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5">
       {primary}
@@ -35,7 +44,7 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
             <hr aria-hidden="true" className="mx-2.5 my-2 hidden border-rail-border lg:rail-collapsed:block" />
           ) : null}
           {group.items.map((item) => (
-            <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} />
+            <SideLink key={item.href} item={item} active={isActive(item.href, pathname)} badge={badges?.[item.href]} />
           ))}
         </div>
       ))}
@@ -43,7 +52,7 @@ export function SidebarNavList({ primary, pathname }: { primary?: ReactNode; pat
   );
 }
 
-function SideLink({ item, active }: { item: NavItem; active: boolean }) {
+function SideLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: ReactNode }) {
   return (
     <Link
       href={item.href}
@@ -57,6 +66,7 @@ function SideLink({ item, active }: { item: NavItem; active: boolean }) {
         className={cn("shrink-0", active ? "text-rail-accent" : "text-rail-muted group-hover:text-rail-ink")}
       />
       <span className="truncate lg:rail-collapsed:sr-only">{item.label}</span>
+      {badge}
     </Link>
   );
 }

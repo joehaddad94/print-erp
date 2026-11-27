@@ -109,7 +109,7 @@ export async function getCustomer(db: Db, id: number) {
     .from(customers)
     .where(and(eq(customers.id, id), isNull(customers.deletedAt)));
   if (!c) return null;
-  const list = await listOrders(db, { customerId: id });
+  const list = await listOrders(db, { customerId: id, newestFirst: true });
   const owing = list.filter((o) => owesMoney(o));
   const owed = owing.reduce((s, o) => s + o.balanceDueUsd, 0);
   const delivered = list.filter((o) => o.status === "delivered");
@@ -119,7 +119,9 @@ export async function getCustomer(db: Db, id: number) {
              - coalesce(oi.packaging_cost_per_unit_usd, 0))) as profit
     from orders o join order_items oi on oi.order_id = o.id and oi.deleted_at is null
     where o.customer_id = ${id} and o.deleted_at is null and o.status = 'delivered'`);
-  const open = list.filter((o) => !["delivered", "cancelled"].includes(o.status));
+  const open = list
+    .filter((o) => !["delivered", "cancelled"].includes(o.status))
+    .sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"));
   return {
     ...c,
     orders: list,
@@ -143,6 +145,8 @@ export type OrderInput = {
   rateToUsd: number;
   deliveryCharge: number | null;
   deliveredBy: string | null;
+  /** Null = deliver to the customer's saved address. */
+  deliveryAddress?: string | null;
   notes: string | null;
 };
 
@@ -172,6 +176,15 @@ export async function createOrder(db: Db, i: OrderInput) {
 
 export async function updateOrder(db: Db, id: number, i: OrderInput, userId?: number) {
   return db.transaction(async (tx) => {
+    const o = await lockOrder(tx, id);
+    if (i.currency !== o.currency) {
+      const [n] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(orderItems)
+        .where(and(eq(orderItems.orderId, id), isNull(orderItems.deletedAt)));
+      if (n!.n > 0)
+        throw new OrderError(`The items are priced in ${o.currency}. Remove them before changing the currency.`);
+    }
     const customerId =
       i.customerId ??
       (i.newCustomerName
@@ -189,6 +202,7 @@ export async function updateOrder(db: Db, id: number, i: OrderInput, userId?: nu
         rateToUsd: i.rateToUsd,
         deliveryCharge: i.deliveryCharge,
         deliveredBy: i.deliveredBy,
+        ...(i.deliveryAddress === undefined ? {} : { deliveryAddress: i.deliveryAddress }),
         notes: i.notes,
       },
       { userId },
@@ -196,7 +210,7 @@ export async function updateOrder(db: Db, id: number, i: OrderInput, userId?: nu
   });
 }
 
-export async function listOrders(db: Db, filter: { customerId?: number } = {}) {
+export async function listOrders(db: Db, filter: { customerId?: number; newestFirst?: boolean } = {}) {
   const rows = await db
     .select({
       id: orders.id,
@@ -221,9 +235,13 @@ export async function listOrders(db: Db, filter: { customerId?: number } = {}) {
     .innerJoin(orderBalance, eq(orderBalance.orderId, orders.id))
     .where(and(isNull(orders.deletedAt), filter.customerId ? eq(orders.customerId, filter.customerId) : undefined))
     .orderBy(
-      sql`case when ${orders.status} in ('delivered','cancelled') then 1 else 0 end`,
-      asc(orders.dueOn),
-      desc(orders.id),
+      ...(filter.newestFirst
+        ? [desc(orders.createdAt), desc(orders.id)]
+        : [
+            sql`case when ${orders.status} in ('delivered','cancelled') then 1 else 0 end`,
+            asc(orders.dueOn),
+            desc(orders.id),
+          ]),
     );
   const edited = await lastEdited(
     db,
@@ -459,7 +477,7 @@ export async function deleteOrder(db: Db, orderId: number, userId?: number) {
 }
 
 /** Latest hands-on minutes per unit that came in with this stock (D24). */
-async function labourMinutes(tx: Tx, stockId: number) {
+async function labourMinutes(tx: Tx | Db, stockId: number) {
   const [m] = await tx
     .select({ v: stockMovements.labourMinutesPerUnit })
     .from(stockMovements)
@@ -627,10 +645,33 @@ export async function getOrder(db: Db, id: number) {
     const minutes = line.labourMinutesPerUnit == null ? null : line.labourMinutesPerUnit * line.quantity;
     return { profit, minutes };
   });
-  const profitUsd = delivered ? profitLines.reduce((s, p) => s + (p?.profit ?? 0), 0) : null;
-  const minutes = profitLines.every((p) => p?.minutes != null)
-    ? profitLines.reduce((s, p) => s + (p?.minutes ?? 0), 0)
-    : null;
+  // Open orders: an estimate from today's average cost, packaging and hands-on minutes (D24).
+  const open = (OPEN_STATUSES as readonly string[]).includes(row.order.status);
+  const estLines = open
+    ? await Promise.all(
+        lines.map(async ({ line }) => {
+          const stockId = stockIds.get(line.productId);
+          if (stockId == null) return null;
+          const cost = await currentAverage(db, stockId);
+          if (cost == null) return null;
+          const [pk] = await db
+            .select({ id: products.packagingItemId })
+            .from(products)
+            .where(eq(products.id, line.productId));
+          const pack = pk?.id != null ? ((await currentAverage(db, pk.id)) ?? 0) : 0;
+          const m = await labourMinutes(db, stockId);
+          return {
+            profit: line.quantity * (line.unitPrice * r - cost - pack),
+            minutes: m == null ? null : m * line.quantity,
+          };
+        }),
+      )
+    : [];
+  const estimated = open && lines.length > 0 && estLines.every((p) => p != null);
+  const used = delivered ? profitLines : estimated ? estLines : [];
+  const profitUsd = delivered || estimated ? used.reduce((s, p) => s + (p?.profit ?? 0), 0) : null;
+  const minutes =
+    used.length && used.every((p) => p?.minutes != null) ? used.reduce((s, p) => s + (p?.minutes ?? 0), 0) : null;
   return {
     ...row.order,
     customer: row.customer,
@@ -645,6 +686,8 @@ export async function getOrder(db: Db, id: number) {
     payments: pays,
     fullyReserved: lines.length > 0 && lines.every((l) => l.line.qtyReserved >= l.line.quantity),
     profitUsd,
+    /** True while the order is open: profit is an estimate from today's costs. */
+    profitEstimated: !delivered && profitUsd != null,
     /** D24: profit per hour of your time; null ("—") when any line has no minutes. */
     profitPerHourUsd: profitUsd != null && minutes ? profitUsd / (minutes / 60) : null,
   };

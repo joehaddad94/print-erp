@@ -150,3 +150,57 @@ export async function newStockItem(page: Page, type: "Filament" | "Packaging") {
 export function costPanel(page: Page) {
   return page.getByRole("region", { name: "Cost of this print" });
 }
+
+/** Order page: open "+ Add item" if it is closed, then add a product line. */
+export async function addOrderItem(page: Page, product: string, qty: string, price?: string) {
+  const picker = page.getByLabel("Product");
+  if (!(await picker.isVisible())) await page.getByRole("button", { name: "Add item", exact: true }).click();
+  await picker.selectOption({ label: product });
+  await page.getByLabel("Quantity").last().fill(qty);
+  if (price != null)
+    await page
+      .getByLabel(/^Price each/)
+      .last()
+      .fill(price);
+  await page.getByRole("button", { name: "Add item", exact: true }).click();
+}
+
+/** Order page → Record payment page → back on the order. Leaves the page on the form when `stay` (to check errors). */
+export async function recordOrderPayment(
+  page: Page,
+  amount: string,
+  opts: { method?: string; collectedBy?: string; currency?: "USD" | "LBP"; lbpRate?: string; stay?: boolean } = {},
+) {
+  if (!(await page.getByRole("heading", { level: 1, name: "Record payment" }).isVisible())) {
+    await page.getByRole("link", { name: "Record payment" }).first().click();
+    await expect(page.getByRole("heading", { level: 1, name: "Record payment" })).toBeVisible();
+  }
+  await page.getByLabel("Amount").fill(amount);
+  if (opts.currency) await page.getByRole("radio", { name: opts.currency }).check();
+  if (opts.lbpRate != null) await page.getByLabel("LBP per USD").fill(opts.lbpRate);
+  if (opts.method) await page.getByLabel("Method").selectOption(opts.method);
+  if (opts.collectedBy) await page.getByLabel("Collected by").fill(opts.collectedBy);
+  await page.getByRole("button", { name: "Record payment" }).click();
+  if (!opts.stay) await expect(page.getByRole("heading", { level: 1, name: /^Order #\d+$/ })).toBeVisible();
+}
+
+/** Click a ConfirmButton, then its dialog's action. */
+export async function confirmAction(page: Page, trigger: string | RegExp, confirm?: string) {
+  await page
+    .getByRole("button", { name: trigger, exact: typeof trigger === "string" })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: confirm ?? (typeof trigger === "string" ? trigger : /./), exact: true })
+    .last()
+    .click();
+  await expect(dialog).toBeHidden();
+}
+
+/** Order page header Deliver → confirm. Needs the driver and charge set in Details first, if any. */
+export async function deliverOrder(page: Page) {
+  await confirmAction(page, "Deliver", "Deliver");
+  await expect(page.getByText(/^Delivered .*Stock and packaging were taken out\.$/)).toBeVisible();
+}

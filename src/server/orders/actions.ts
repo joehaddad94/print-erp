@@ -20,6 +20,7 @@ import {
   deletePayment,
   deliver,
   getCustomer,
+  getOrder,
   markReceived,
   OrderError,
   recordPayment,
@@ -112,9 +113,64 @@ const orderSchema = z
     lbpRate: f.optionalNumber("the LBP rate", { positive: true }),
     deliveryCharge: f.optionalNumber("the delivery charge", { min: 0 }),
     deliveredBy: f.optionalText(80),
+    deliveryAddress: f.optionalText(300),
     notes: f.optionalText(),
   })
   .superRefine(needRate);
+
+function dayMonth(raw: string) {
+  const m = raw.trim().match(/^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/);
+  if (!m) return raw.trim();
+  const year = m[3]
+    ? m[3].length === 2
+      ? `20${m[3]}`
+      : m[3]
+    : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" }).slice(0, 4);
+  return `${year}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+}
+
+/**
+ * Order page Details (prototype /orders/1042): one click-to-edit value, validated like the form and logged.
+ * Customer, channel, due date, where to deliver, delivery charge, driver, notes.
+ */
+export async function updateOrderFieldAction(id: number, field: string, raw: string): Promise<InlineResult> {
+  const user = await requireUser();
+  const o = await getOrder(db(), id);
+  if (!o) return { ok: false, error: "This order was deleted." };
+  if ((o.status === "delivered" || o.status === "cancelled") && field !== "notes")
+    return { ok: false, error: `This order is ${o.status}. Only notes can change.` };
+  const current = {
+    channel: o.channel,
+    customerId: o.customerId,
+    newCustomerName: null,
+    dueOn: o.dueOn,
+    currency: o.currency,
+    lbpRate: o.currency === "LBP" ? Math.round(1 / o.rateToUsd) : null,
+    deliveryCharge: o.deliveryCharge,
+    deliveredBy: o.deliveredBy,
+    deliveryAddress: o.deliveryAddress,
+    notes: o.notes,
+  };
+  // Due can be typed the way people say it: 27/11 or 27/11/2026 (this year when the year is left out).
+  if (field === "dueOn") raw = dayMonth(raw);
+  // Clearing "Deliver to" goes back to the customer's saved address.
+  if (field === "deliveryAddress" && raw.trim() === (o.customer?.address ?? "").trim()) raw = "";
+  let error: string | null = null;
+  const res = await saveInlineField(orderSchema, current, field, raw, async (data) => {
+    try {
+      await updateOrder(db(), id, { ...data, rateToUsd: lbp(data) }, user.id);
+    } catch (e) {
+      error = e instanceof OrderError ? e.message : null;
+      throw e;
+    }
+  });
+  if (!res.ok && error) return { ok: false, error };
+  if (res.ok) {
+    if (field === "deliveryAddress" && !res.value) res.value = o.customer?.address ?? "";
+    refresh(id);
+  }
+  return res;
+}
 
 export async function saveOrderAction(id: number | null, _p: FormState, fd: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -226,6 +282,32 @@ export async function updateLineAction(
   return { ok: true, message: "Saved.", version: Date.now() };
 }
 
+/** Order page items: click-to-edit quantity, price each or note on one line (logged, re-reserves). */
+export async function updateLineFieldAction(
+  orderId: number,
+  lineId: number,
+  field: string,
+  raw: string,
+): Promise<InlineResult> {
+  const user = await requireUser();
+  const o = await getOrder(db(), orderId);
+  const l = o?.lines.find((x) => x.id === lineId);
+  if (!o || !l) return { ok: false, error: "This item was removed." };
+  const current = { quantity: l.quantity, unitPrice: l.unitPrice, customization: l.customization };
+  let error: string | null = null;
+  const res = await saveInlineField(lineSchema.omit({ productId: true }), current, field, raw, async (data) => {
+    try {
+      await updateLine(db(), lineId, data, user.id);
+    } catch (e) {
+      error = e instanceof OrderError ? e.message : null;
+      throw e;
+    }
+  });
+  if (!res.ok && error) return { ok: false, error };
+  if (res.ok) refresh(orderId);
+  return res;
+}
+
 export async function deleteLineAction(orderId: number, lineId: number) {
   const user = await requireUser();
   await deleteLine(db(), lineId, user.id);
@@ -295,7 +377,7 @@ export async function recordPaymentAction(orderId: number, _p: FormState, fd: Fo
     return fail(values, e);
   }
   refresh(orderId);
-  return { ok: true, message: "Payment recorded.", version: Date.now() };
+  redirect(`/orders/${orderId}`);
 }
 
 export async function markReceivedAction(orderId: number, paymentId: number) {
@@ -308,4 +390,16 @@ export async function deletePaymentAction(orderId: number, paymentId: number) {
   const user = await requireUser();
   await deletePayment(db(), paymentId, user.id);
   refresh(orderId);
+}
+
+/** Header "Deliver" (after the confirm dialog): delivers with the driver and charge in Details. */
+export async function deliverNowAction(orderId: number) {
+  await requireUser();
+  try {
+    await deliver(db(), orderId, { deliveredBy: null, deliveryCharge: null });
+  } catch (e) {
+    return { ok: false as const, error: e instanceof OrderError ? e.message : "Couldn't deliver. Try again." };
+  }
+  refresh(orderId);
+  return { ok: true as const };
 }
