@@ -4,7 +4,16 @@ import { stockFor } from "@/server/assembly/service";
 import { recordMovement } from "@/server/stock/ledger";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, editInline, fillStart, login, newCustomerOnOrder, newStockItem, runningPrint } from "./helpers";
+import {
+  addOrderItem,
+  checkPage,
+  editInline,
+  fillStart,
+  login,
+  newCustomerOnOrder,
+  newStockItem,
+  runningPrint,
+} from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -102,9 +111,7 @@ test("R4 a sooner order takes the reserved piece from a later one", async ({ pag
     if (due) await page.getByLabel("Due").fill(due);
     await page.getByRole("button", { name: "Create order" }).click();
     await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
-    await page.getByLabel("Product").selectOption({ label: `${product} · $4.00` });
-    await page.getByLabel("Quantity").last().fill("1");
-    await page.getByRole("button", { name: "Add item" }).click();
+    await addOrderItem(page, `${product} · $4.00`, "1");
     return Number(/#(\d+)/.exec((await page.getByRole("heading", { level: 1 }).textContent())!)![1]);
   };
   const later = await order();

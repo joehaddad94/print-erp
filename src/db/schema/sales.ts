@@ -42,6 +42,8 @@ export const orders = pgTable(
     currency: currencyEnum("currency").notNull().default("USD"),
     rateToUsd: rate("rate_to_usd").notNull().default(1),
     deliveredBy: text("delivered_by"),
+    /** Where this order goes when it isn't the customer's saved address. Null = the customer's address. */
+    deliveryAddress: text("delivery_address"),
     /** Reference only, for the driver; never in totals (D37). */
     deliveryCharge: amount("delivery_charge"),
   },

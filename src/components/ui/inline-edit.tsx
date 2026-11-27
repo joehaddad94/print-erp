@@ -70,7 +70,7 @@ export function InlineEdit({
           type="button"
           onClick={() => send({ type: "open" })}
           aria-label={`${label}: ${shown(state.value) ? `${prefix ?? ""}${shown(state.value)}${suffix ?? ""}` : (placeholder ?? "Add")}. Change`}
-          className="min-h-tap min-w-tap cursor-text rounded-sm text-left underline decoration-ink-muted decoration-dashed underline-offset-4 hover:bg-surface-muted lg:min-h-6 lg:min-w-0"
+          className="min-h-tap min-w-tap cursor-text rounded-sm text-left underline decoration-ink-muted decoration-dashed underline-offset-4 hover:bg-surface-muted lg:min-h-6 lg:min-w-6"
         >
           {prefix}
           {shown(state.value) || <span className="text-ink-muted">{placeholder ?? "Add"}</span>}

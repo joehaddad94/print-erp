@@ -4,14 +4,17 @@ import { gunzipSync } from "node:zlib";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import {
+  addOrderItem,
   checkPage,
   costPanel,
+  deliverOrder,
   editInline,
   fillStart,
   login,
   newStockItem,
   pickIn,
   pickSupplier,
+  recordOrderPayment,
   runningPrint,
 } from "./helpers";
 import { expect, test, type Page } from "./test";
@@ -154,29 +157,24 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByRole("radio", { name: "Instagram" }).check();
   await page.getByRole("button", { name: "Create order" }).click();
   await expect(page.getByRole("heading", { name: /^Order #\d+$/ })).toBeVisible();
-  await page.getByLabel("Product").selectOption({ label: `${product} · $6.00` });
-  await page.getByLabel("Quantity").last().fill("2");
-  await page.getByRole("button", { name: "Add item" }).click();
-  await expect(page.getByText(`2 × ${product}`)).toBeVisible();
+  await addOrderItem(page, `${product} · $6.00`, "2");
+  await expect(page.getByRole("button", { name: "quantity: 2 ×. Change" })).toBeVisible();
   await expect(page.getByText("Reserved", { exact: true })).toBeVisible();
   await checkPage(page);
-  await page.getByLabel("Driver").first().fill("Toufic");
-  await page.getByLabel("Delivery charge").first().fill("3");
-  await page.getByRole("button", { name: "Deliver whole order" }).click();
-  await expect(page.getByText(/^Delivered .*Stock and packaging were taken out\.$/)).toBeVisible();
-  await expect(page.getByText("Delivery charge, for the driver (Toufic)").locator("..")).toContainText("$3.00");
+  await editInline(page, "Driver", "Toufic");
+  await expect(page.getByRole("button", { name: "driver: Toufic. Change" })).toBeVisible();
+  await editInline(page, "Delivery charge", "3");
+  await expect(page.getByRole("button", { name: "delivery charge: $3. Change" })).toBeVisible();
+  await deliverOrder(page);
+  await expect(page.getByText(/^Delivered .* by Toufic\./)).toBeVisible();
   await expect(page.getByText("Total (items only)").locator("..")).toContainText("$12.00");
-  for (const amount of ["5", "7"]) {
-    await page.getByLabel("Amount").fill(amount);
-    await page.getByRole("button", { name: "Record payment" }).click();
-    await expect(page.getByText("Payment recorded.")).toBeVisible();
-  }
+  for (const amount of ["5", "7"]) await recordOrderPayment(page, amount);
   await expect(page.getByText("Paid", { exact: true })).toBeVisible();
   const profit = money(await page.getByText("Profit", { exact: true }).locator("..").locator("dd").textContent());
   // Items only (D37): $12 minus two pieces' cost (incl. a share of the failed print) and two $0.50 boxes.
   expect(profit).toBeGreaterThan(8);
   expect(profit).toBeLessThan(11);
-  await expect(page.getByText("Profit per hour of your time").locator("..")).toContainText("/h");
+  await expect(page.getByText("Per hour of your time").locator("..")).toContainText("$");
   await checkPage(page);
 
   // 9. Everything else agrees.

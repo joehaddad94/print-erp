@@ -2,7 +2,9 @@ import { expect, test, type Page } from "./test";
 import { products } from "@/db/schema";
 import { addPart } from "@/server/assembly/service";
 import {
+  addOrderItem,
   checkPage,
+  confirmAction,
   editInline,
   fillStart,
   login,
@@ -10,6 +12,7 @@ import {
   newStockItem,
   pickIn,
   pickSupplier,
+  recordOrderPayment,
   runningPrint,
 } from "./helpers";
 import { withDb } from "./db";
@@ -71,11 +74,9 @@ test.describe("customers", () => {
     const product = `Keychain ${uid(info)}`;
     await withDb((db) => db.insert(products).values({ name: product, salePriceUsd: 3 }));
     await newOrder(page, name);
-    await page.getByLabel("Product").selectOption({ label: `${product} · $3.00` });
-    await page.getByLabel("Quantity").last().fill("2");
-    await page.getByRole("button", { name: "Add item" }).click();
+    await addOrderItem(page, `${product} · $3.00`, "2");
     await expect(page.getByText("Line added.")).toBeVisible();
-    await page.getByRole("link", { name, exact: true }).click();
+    await page.getByRole("link", { name, exact: true }).first().click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByText("Owes you", { exact: true }).locator("..")).toContainText("$6.00");
     await expect(page.locator(':is(table, ul)[aria-label="Orders"]:visible')).toContainText("$6.00");
@@ -241,85 +242,78 @@ test.describe("orders", () => {
     const id = await newOrder(page, `Order client ${t}`);
 
     // Add line: quantity must be a whole number above 0.
-    await page.getByLabel("Product").selectOption({ label: `${product} · $4.00` });
-    await page.getByLabel("Quantity").last().fill("1.5");
-    await page.getByRole("button", { name: "Add item" }).click();
+    await addOrderItem(page, `${product} · $4.00`, "1.5");
     await expect(page.getByText("Enter a whole number")).toBeVisible();
-    await page.getByLabel("Quantity").last().fill("3");
-    await page.getByLabel("Price each (USD)").last().fill("0");
-    await page.getByRole("button", { name: "Add item" }).click();
-    await expect(page.getByText("3 × " + product)).toBeVisible();
-    await expect(page.getByText("$0.00 each")).toBeVisible();
+    await addOrderItem(page, `${product} · $4.00`, "3", "0");
+    await expect(page.getByRole("button", { name: "quantity: 3 ×. Change" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "price each: $0.00 each. Change" })).toBeVisible();
 
-    // Edit the line: price back to $4.
-    await page.getByText("Edit line").click();
-    await page.getByLabel("Price each (USD)").first().fill("4");
-    await page.getByRole("button", { name: "Save line" }).click();
-    await expect(page.getByText("$4.00 each")).toBeVisible();
+    // Edit the line in place: price back to $4; a fraction is refused.
+    await editInline(page, "price each", "4");
+    await expect(page.getByRole("button", { name: "price each: $4.00 each. Change" })).toBeVisible();
     await expect(page.getByText("Total (items only)").locator("..")).toContainText("$12.00");
+    await editInline(page, "quantity", "2.5");
+    await expect(page.getByText("Enter a whole number")).toBeVisible();
+    await page.getByRole("textbox", { name: "quantity", exact: true }).press("Escape");
 
-    // Edit order details: channel + due date, logged in History.
-    await page.getByText("Edit order details").click();
-    await page.getByLabel("Channel").selectOption("instagram");
-    await page.getByLabel("Due").fill("2030-01-15");
-    await page.getByRole("button", { name: "Save order" }).click();
-    await expect(page.getByText("channel: whatsapp → instagram")).toBeVisible();
-    await expect(page.getByText(/due 2030-01-15/).first()).toBeVisible();
+    // Edit order details in place: channel + due date (typed dd/mm/yyyy), logged in History.
+    await editInline(page, "Channel", "instagram", { select: true });
+    await expect(page.getByText("Channel WhatsApp → Instagram")).toBeVisible();
+    await editInline(page, "Due", "15/01/2030");
+    await expect(page.getByText(/due 15 Jan/).first()).toBeVisible();
     await page.goto("/orders");
     await expect(page.getByRole("link").filter({ hasText: `#${id} ` })).toContainText("✎ Edited");
     await page.goto(`/orders/${id}`);
 
-    // Payments: 0 is refused, LBP needs a rate, a refund is negative.
-    await page.getByLabel("Amount").fill("0");
-    await page.getByRole("button", { name: "Record payment" }).click();
+    // Payments (own page, amount pre-filled with the balance): 0 is refused, LBP needs a rate, a refund is negative.
+    await page.getByRole("link", { name: "Record payment" }).first().click();
+    await expect(page.getByLabel("Amount")).toHaveValue("12");
+    await recordOrderPayment(page, "0", { stay: true });
     await expect(page.getByText("The amount can't be 0. A refund is negative.")).toBeVisible();
-    await page.getByLabel("Amount").fill("447,500");
-    const payForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Record payment" }) });
-    await payForm.getByRole("radio", { name: "LBP" }).check();
-    await page.getByLabel("LBP per USD").last().fill("");
-    await page.getByRole("button", { name: "Record payment" }).click();
+    await recordOrderPayment(page, "447,500", { currency: "LBP", lbpRate: "", stay: true });
     await expect(page.getByText("Enter today's LBP per USD rate")).toBeVisible();
-    await page.getByLabel("LBP per USD").last().fill("89500");
-    await page.getByRole("button", { name: "Record payment" }).click();
-    await expect(page.getByText("Payment recorded.")).toBeVisible();
+    await recordOrderPayment(page, "447,500", { currency: "LBP", lbpRate: "89500" });
     await expect(page.getByText("Received").locator("..")).toContainText("$5.00");
     await expect(page.getByText("Partly paid").first()).toBeVisible();
 
-    await page.getByLabel("Amount").fill("-1");
-    await payForm.getByRole("radio", { name: "USD" }).check();
-    await page.getByRole("button", { name: "Record payment" }).click();
-    await expect(page.getByText(/^Refund /)).toBeVisible();
+    await recordOrderPayment(page, "-1", { currency: "USD" });
+    await expect(page.getByText(/^Refund · /)).toBeVisible();
     await expect(page.getByText("Received").locator("..")).toContainText("$4.00");
     await page.getByRole("button", { name: "Delete payment" }).last().click();
-    await expect(page.getByText(/^Refund /)).toHaveCount(0);
+    await page.getByRole("dialog").getByRole("button", { name: "Delete payment" }).click();
+    await expect(page.getByText(/^Refund · /)).toHaveCount(0);
 
-    // Remove the line, then cancel the order.
-    await page.getByText("Edit line").click();
-    await page.getByRole("button", { name: "Remove line" }).click();
+    // Remove the line, then cancel the order: both ask first; "Keep it" changes nothing.
+    await page.getByRole("button", { name: `Remove ${product}` }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Keep it" }).click();
+    await expect(page.getByRole("button", { name: "quantity: 3 ×. Change" })).toBeVisible();
+    await confirmAction(page, `Remove ${product}`, "Remove line");
     await expect(page.getByText("No items yet.")).toBeVisible();
-    await page.getByRole("button", { name: "Cancel order" }).click();
+    await confirmAction(page, "Cancel order");
     await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Record payment" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Record payment" })).toHaveCount(0);
   });
 
   test("status buttons move an open order along", async ({ page }, info) => {
     await newOrder(page, `Status ${uid(info)}`);
-    const status = page.getByRole("heading", { name: "Status" }).locator("..");
+    const status = page.getByRole("region", { name: "Status" });
     const current = status.getByRole("button", { disabled: true });
     await expect(current).toHaveCount(1);
     const was = (await current.textContent())!.trim();
-    const next = status.getByRole("button", { disabled: false }).filter({ hasNotText: "Cancel order" }).first();
+    const next = status
+      .getByRole("button", { disabled: false })
+      .filter({ hasNotText: /Cancel order|Delete order/ })
+      .first();
     const target = (await next.textContent())!.trim();
     await next.click();
     await expect(status.getByRole("button", { name: target })).toBeDisabled();
     await expect(status.getByRole("button", { name: was })).toBeEnabled();
-    await expect(page.getByText(`status: `).first()).toBeVisible();
+    await expect(page.getByText(/^Status (Quoted|Confirmed) → /).first()).toBeVisible();
   });
 
   test("delete order removes it from the list", async ({ page }, info) => {
     const id = await newOrder(page, `Delete ${uid(info)}`);
-    await page.getByText("Edit order details").click();
-    await page.getByRole("button", { name: "Delete order" }).click();
+    await confirmAction(page, "Delete order");
     await expect(page).toHaveURL(/\/orders$/);
     await expect(page.getByRole("link").filter({ hasText: `#${id} ` })).toHaveCount(0);
   });
