@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "./test";
 import { products } from "@/db/schema";
 import { addPart } from "@/server/assembly/service";
-import { checkPage, fillStart, login, pickSupplier, runningPrint } from "./helpers";
+import { checkPage, editInline, fillStart, login, pickIn, pickSupplier, runningPrint } from "./helpers";
 import { withDb } from "./db";
 import { setup } from "./seed";
 
@@ -122,14 +122,17 @@ test.describe("products", () => {
     await page.getByLabel("Sale price").fill("");
     await page.getByRole("button", { name: "Save product" }).click();
     await expect(page).toHaveURL(/\/products$/);
-    const row = page.getByRole("listitem").filter({ hasText: name });
+    const row = page.locator(":is(tr, li):visible").filter({ hasText: name });
     await expect(row).toContainText("No price");
     await expect(row).not.toContainText("Edited");
 
-    await row.getByRole("link").click();
-    await page.getByLabel("Sale price").fill("9");
-    await page.getByRole("button", { name: "Save product" }).click();
-    await expect(page).toHaveURL(/\/products$/);
+    await row.getByRole("link").first().click();
+    await editInline(page, "Sale price", "-1");
+    await expect(page.getByText("The sale price must be at least 0")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await editInline(page, "Sale price", "9");
+    await expect(page.getByRole("button", { name: /^sale price: \$9\.00/ })).toBeVisible();
+    await page.goto("/products");
     await expect(row).toContainText("$9.00");
     await expect(row).toContainText("✎ Edited");
   });
@@ -144,10 +147,10 @@ test.describe("products", () => {
     await page.getByLabel("Name", { exact: true }).fill(name);
     await page.getByRole("button", { name: "Save product" }).click();
     await expect(page).toHaveURL(/\/products$/);
-    await page.getByRole("listitem").filter({ hasText: name }).getByRole("link").click();
+    await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-    await page.locator("label:visible", { hasText: /^Sale price$/ }).click();
-    await expect(page.getByRole("textbox", { name: "Sale price" })).toBeFocused();
+    await page.getByRole("button", { name: /^sale price: / }).click();
+    await expect(page.getByRole("textbox", { name: "sale price", exact: true })).toBeFocused();
     const ids = await page.evaluate(() => {
       const all = [...document.querySelectorAll("[id]")].map((e) => e.id);
       return all.filter((id, i) => all.indexOf(id) !== i);
@@ -168,6 +171,7 @@ test.describe("products", () => {
     );
     await page.goto(`/products/${p!.id}`);
     await expect(page.getByText("Printed in one piece.")).toBeVisible();
+    await page.getByRole("button", { name: "Add part" }).click();
     await page.getByLabel("Part", { exact: true }).selectOption({ label: `Shade ${t}` });
     await page.getByLabel("Per product").fill("2");
     await page.getByRole("button", { name: "Add part" }).click();
@@ -192,7 +196,7 @@ test.describe("machines", () => {
     await expect(page).toHaveURL(/\/purchases$/);
 
     await page.goto("/machines");
-    await page.getByRole("link").filter({ hasText: name }).click();
+    await page.locator(":is(tr, li):visible").filter({ hasText: name }).getByRole("link").first().click();
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByLabel("Purchase cost")).toHaveValue("45");
     await page.getByLabel("Average power").fill("-1");
@@ -203,10 +207,10 @@ test.describe("machines", () => {
 
     await page.getByLabel("Name").fill(name);
     await page.getByLabel("Average power").fill("");
-    await page.getByLabel("Status").selectOption("retired");
+    await page.getByRole("radio", { name: "Retired" }).check();
     await page.getByRole("button", { name: "Save machine" }).click();
     await expect(page).toHaveURL(/\/machines$/);
-    const row = page.getByRole("link").filter({ hasText: name });
+    const row = page.locator(":is(tr, li):visible").filter({ hasText: name });
     await expect(row).toContainText("Retired");
     await expect(row).toContainText("✎ Edited");
   });
@@ -365,7 +369,7 @@ test.describe("weigh and assemble validation", () => {
       await addPart(db, stand!.id, leg!.id, 3);
     });
     await page.goto("/assemble");
-    await page.getByLabel("Product").selectOption({ label: `Easel ${t}` });
+    await pickIn(page, "Product", `Easel ${t}`);
     await page.getByLabel("How many made").fill("1.5");
     await page.getByRole("button", { name: "Save assembly" }).click();
     await expect(page.getByText("Enter a whole number")).toBeVisible();

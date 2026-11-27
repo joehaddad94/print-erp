@@ -1,191 +1,259 @@
-import { Link } from "@/components/ui/link";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
 import { ActionForm } from "@/components/form/action-form";
 import { NumberField, TextareaField } from "@/components/form/fields";
-import { formatDuration } from "@/lib/format";
-import { Badge, Callout, Card, HistoryList, List, ListRow, PageHeader, buttonClass, formatWhen } from "@/components/ui";
+import { Icon } from "@/components/shell/icons";
+import { Badge, Callout, HistoryList, KeyValues, PageHeader, Panel, StatTiles, buttonClass } from "@/components/ui";
+import { Link } from "@/components/ui/link";
 import { db } from "@/db";
+import { formatDuration, shortDate } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
+import { costInputs } from "@/server/calculator/service";
 import { historyFor } from "@/server/edits/engine";
 import { productLabel } from "@/server/products/service";
 import { saveOverridesAction } from "@/server/recipes/actions";
+import { recipeEstimate } from "@/server/recipes/estimate";
 import { getRecipe } from "@/server/recipes/service";
+import { currentSettings } from "@/server/settings/service";
 
 const s = (v: unknown) => (v == null ? "" : String(v));
-const n = (v: number | null, unit: string, dp = 2) => (v == null ? "—" : `${Number(v.toFixed(dp))} ${unit}`);
+const usd = (n: number) => formatMoney(n, "USD");
+const g = (v: number | null) => (v == null ? "—" : `${Number(v.toFixed(1))} g`);
 
+/** Recipe (prototype /recipes/1): what one plate costs, your adjustments, versions, and the file's specs. */
 export default async function RecipePage({ params }: PageProps<"/recipes/[id]">) {
   await requireUser();
   const id = Number((await params).id);
   const r = Number.isInteger(id) ? await getRecipe(db(), id) : null;
   if (!r) notFound();
-  const history = await historyFor(db(), "recipes", id);
-  const kb = Math.round(r.fileSizeBytes / 1024);
+  const [history, inputs, settings] = await Promise.all([
+    historyFor(db(), "recipes", id),
+    costInputs(db()),
+    currentSettings(db()),
+  ]);
+  const est = recipeEstimate(r, r.items, inputs);
+  const first = r.items[0];
+  const pieces = r.items.reduce((n, i) => n + i.qtyOnPlate, 0);
+  const allowanceDefault = typeof settings.failure_allowance_pct === "number" ? settings.failure_allowance_pct : 12;
+  const slicer = [r.slicerName, r.slicerVersion].filter(Boolean).join(" ");
+  const current = r.versions.find((v) => v.isCurrent);
   return (
-    <div className="flex max-w-content flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageHeader
-        title={`${r.name} · v${r.version}`}
+        back={{ href: "/recipes", label: "Recipes" }}
+        title={
+          <>
+            {r.name}
+            <span className="sr-only"> · v{r.version}</span>
+          </>
+        }
+        badges={<Badge tone="neutral">v{r.version}</Badge>}
+        description={[
+          slicer || null,
+          r.printerModel,
+          r.material,
+          r.layerHeightMm != null ? `${r.layerHeightMm} mm` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         action={
-          r.isCurrent ? (
-            <Link href={`/recipes/import?group=${r.recipeGroup}`} className={buttonClass("secondary")}>
-              New version
-            </Link>
-          ) : undefined
+          <>
+            <a href={`/api/files/recipes/${r.id}/gcode`} className={buttonClass("secondary")} download>
+              <Icon name="download" size={15} />
+              Download G-code
+            </a>
+            {r.isCurrent ? (
+              <>
+                <Link href={`/recipes/import?group=${r.recipeGroup}`} className={buttonClass("secondary")}>
+                  <Icon name="upload" size={15} />
+                  Import new version
+                </Link>
+                <Link href={`/print?recipe=${r.id}`} className={buttonClass("primary")}>
+                  Start print
+                </Link>
+              </>
+            ) : null}
+          </>
         }
       />
       {r.isCurrent ? null : (
         <Callout tone="info">
           This is an old version, kept as history. Prints use the{" "}
-          <Link
-            className="inline-flex min-h-control items-center font-semibold underline"
-            href={`/recipes/${r.versions.find((v) => v.isCurrent)?.id ?? id}`}
-          >
-            current version
+          <Link className="font-semibold underline" href={`/recipes/${current?.id ?? id}`}>
+            current version (v{current?.version})
           </Link>
           .
         </Callout>
       )}
-
-      <Card className="flex flex-col gap-4 md:flex-row">
-        {r.thumbnailBlobUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- served by our auth-checked route, not optimisable
-          <img
-            src={`/api/files/recipes/${r.id}/thumbnail`}
-            alt={`Plate preview of ${r.name}`}
-            width={150}
-            height={150}
-            className="size-36 shrink-0 self-center rounded-md border border-border bg-bg object-contain"
+      <StatTiles
+        feature
+        items={[
+          {
+            label: "Job cost",
+            value: est.job ? usd(est.job.total) : "—",
+            note: est.job
+              ? "for one plate"
+              : est.missing.length
+                ? "a cost setting is missing"
+                : "file has no grams or time",
+          },
+          {
+            label: "Per piece",
+            value: est.perPiece[0] != null ? usd(est.perPiece[0]) : "—",
+            note:
+              r.items.length > 1 && first
+                ? `${productLabel({ name: first.productName, variant: first.productVariant })} · ${pieces} pieces on the plate`
+                : `${pieces} on the plate`,
+          },
+          { label: "Filament", value: g(est.grams), note: r.material ?? undefined },
+          {
+            label: "Print time",
+            value: formatDuration(r.estimatedSeconds),
+            note: r.estimatedValues?.estimatedSeconds ? "worked out by the app" : "from the file",
+          },
+        ]}
+      />
+      <div className="grid items-start gap-5 lg:grid-detail">
+        <div className="flex min-w-0 flex-col gap-5">
+          {r.isCurrent ? (
+            <Panel title="Your adjustments" titleId="adjustments">
+              <ActionForm
+                action={saveOverridesAction.bind(null, r.id)}
+                submitLabel="Save adjustments"
+                submitVariant="secondary"
+                defaults={{
+                  gramsOverride: s(r.gramsOverride),
+                  wasteAllowancePctOverride: s(r.wasteAllowancePctOverride),
+                  labourMinutes: s(r.labourMinutes),
+                  stepsAndTips: s(r.stepsAndTips),
+                }}
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <NumberField
+                    name="gramsOverride"
+                    label="Actual grams per plate"
+                    optional
+                    suffix="g"
+                    placeholder={r.totalGrams != null ? String(Number(r.totalGrams.toFixed(1))) : undefined}
+                    hint={
+                      r.gramsOverride != null
+                        ? `Using ${Number(r.gramsOverride.toFixed(2))} g, not the file's.`
+                        : "If the file is off."
+                    }
+                  />
+                  <NumberField name="labourMinutes" label="Hands-on minutes per plate" suffix="min" />
+                </div>
+                <NumberField
+                  name="wasteAllowancePctOverride"
+                  label="Waste allowance"
+                  optional
+                  suffix="%"
+                  placeholder={String(allowanceDefault)}
+                  hint="Blank = the Settings value."
+                />
+                <TextareaField name="stepsAndTips" label="Steps and tips" optional />
+                <p className="text-xs text-ink-muted">
+                  Applies to prints started after you save; past prints keep theirs.
+                </p>
+              </ActionForm>
+            </Panel>
+          ) : null}
+          <Panel title="Versions" titleId="versions" count={r.versions.length} flush>
+            <ul className="divide-y divide-border">
+              {r.versions.map((v) => (
+                <li key={v.id} className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+                  <Badge tone={v.isCurrent ? "success" : "neutral"}>{v.isCurrent ? "Current" : "Old"}</Badge>
+                  <Link
+                    href={`/recipes/${v.id}`}
+                    className="inline-flex min-h-control items-center gap-1 font-medium hover:underline"
+                  >
+                    v{v.version}
+                    {v.id === r.id ? <span className="font-normal text-ink-muted"> (this one)</span> : null}
+                  </Link>
+                  <span className="text-sm text-ink-muted">
+                    {[shortDate(v.uploadedAt), v.changeNote ?? (v.version === 1 ? "first import" : null)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                  <a
+                    href={`/api/files/recipes/${v.id}/gcode`}
+                    download
+                    className="ml-auto inline-flex min-h-control items-center text-sm font-medium text-action hover:underline"
+                  >
+                    Download
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+          <Panel title="History" titleId="recipe-history">
+            <HistoryList entries={history} />
+          </Panel>
+        </div>
+        <Panel title="From the file" titleId="from-file">
+          {r.thumbnailBlobUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- served by our auth-checked route, not optimisable
+            <img
+              src={`/api/files/recipes/${r.id}/thumbnail`}
+              alt={`Plate preview of ${r.name}`}
+              width={140}
+              height={140}
+              className="mx-auto mb-3 size-36 rounded-md border border-border bg-bg object-contain"
+            />
+          ) : null}
+          <KeyValues
+            items={[
+              ["Slicer", slicer || "Unknown"],
+              ["Nozzle", r.nozzleMm != null ? `${r.nozzleMm} mm` : "—"],
+              ["Temperatures", `${r.nozzleTempC ?? "—"} °C / ${r.bedTempC ?? "—"} °C`],
+              [
+                "Filament",
+                <>
+                  {g(r.totalGrams)}
+                  <ValueNote note={r.estimatedValues?.totalGrams} />
+                </>,
+              ],
+              [
+                "Print time",
+                <>
+                  {formatDuration(r.estimatedSeconds)}
+                  <ValueNote note={r.estimatedValues?.estimatedSeconds} />
+                </>,
+              ],
+              ["File", `${r.fileName} · ${Math.round(r.fileSizeBytes / 1024)} KB`],
+            ]}
           />
-        ) : null}
-        <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <Spec label="Filament per plate">
-            {n(r.totalGrams, "g")}
-            <ValueNote note={r.estimatedValues?.totalGrams} />
-            {r.gramsOverride != null ? (
-              <small className="block text-ink-muted">Using {n(r.gramsOverride, "g")}</small>
-            ) : null}
-          </Spec>
-          <Spec label="Estimated time">
-            {formatDuration(r.estimatedSeconds)}
-            <ValueNote note={r.estimatedValues?.estimatedSeconds} />
-          </Spec>
-          <Spec label="Material">{r.material ?? "—"}</Spec>
-          <Spec label="Printer">{r.printerModel ?? "—"}</Spec>
-          <Spec label="Nozzle">{n(r.nozzleMm, "mm")}</Spec>
-          <Spec label="Layer height">{n(r.layerHeightMm, "mm")}</Spec>
-          <Spec label="Temperatures">
-            {r.nozzleTempC ?? "—"} °C / bed {r.bedTempC ?? "—"} °C
-          </Spec>
-          <Spec label="Slicer">{[r.slicerName, r.slicerVersion].filter(Boolean).join(" ") || "—"}</Spec>
-        </dl>
-      </Card>
-
-      <a href={`/api/files/recipes/${r.id}/gcode`} className={buttonClass("secondary", true)} download>
-        Download original file ({r.fileName}, {kb} KB)
-      </a>
-
-      <section aria-labelledby="items" className="flex flex-col gap-2">
-        <h2 id="items" className="text-lg font-semibold">
-          Items on the plate
-        </h2>
-        <List label="Items on the plate">
-          {r.items.map((i) => (
-            <ListRow
-              key={i.id}
-              href={`/products/${i.productId}`}
-              title={productLabel({ name: i.productName, variant: i.productVariant })}
-              subtitle={i.objectName ? `From ${i.objectName}` : undefined}
-              badge={i.productKind === "part" ? <Badge tone="neutral">Part</Badge> : undefined}
-              trailing={
-                <span className="text-sm tabular-nums">
-                  {i.qtyOnPlate} × {Number(i.gramsPerPiece.toFixed(3))} g
-                </span>
-              }
-            />
-          ))}
-        </List>
-      </section>
-
-      {r.isCurrent ? (
-        <Card>
-          <h2 className="pb-3 text-lg font-semibold">Your adjustments</h2>
-          <ActionForm
-            action={saveOverridesAction.bind(null, r.id)}
-            submitLabel="Save adjustments"
-            defaults={{
-              gramsOverride: s(r.gramsOverride),
-              wasteAllowancePctOverride: s(r.wasteAllowancePctOverride),
-              labourMinutes: s(r.labourMinutes),
-              stepsAndTips: s(r.stepsAndTips),
-            }}
-          >
-            <NumberField
-              name="gramsOverride"
-              label="Actual grams per plate"
-              suffix="g"
-              hint={`Blank = the file's ${n(r.totalGrams, "g")}.`}
-            />
-            <NumberField
-              name="wasteAllowancePctOverride"
-              label="Waste allowance"
-              suffix="%"
-              hint="Blank = the Settings value."
-            />
-            <NumberField
-              name="labourMinutes"
-              label="Hands-on minutes per plate"
-              suffix="min"
-              hint="Setup, removal, cleanup."
-            />
-            <TextareaField name="stepsAndTips" label="Steps and tips" />
-            <p className="text-xs text-ink-muted">
-              Changes apply to prints started after you save; past prints keep theirs.
-            </p>
-          </ActionForm>
-        </Card>
-      ) : null}
-
-      <section aria-labelledby="versions" className="flex flex-col gap-2">
-        <h2 id="versions" className="text-lg font-semibold">
-          Versions
-        </h2>
-        <List label="Versions">
-          {r.versions.map((v) => (
-            <ListRow
-              key={v.id}
-              href={`/recipes/${v.id}`}
-              title={`v${v.version}${v.id === r.id ? " (this one)" : ""}`}
-              subtitle={[formatWhen(v.uploadedAt), v.fileName, v.changeNote].filter(Boolean).join(" · ")}
-              badge={v.isCurrent ? <Badge tone="success">Current</Badge> : undefined}
-            />
-          ))}
-        </List>
-      </section>
-
-      <section aria-labelledby="recipe-history" className="flex flex-col gap-2">
-        <h2 id="recipe-history" className="text-lg font-semibold">
-          History
-        </h2>
-        <HistoryList entries={history} />
-      </section>
+          <h3 className="pt-3 pb-1 text-sm font-semibold">Items on the plate</h3>
+          <ul aria-label="Items on the plate" className="-mx-4 divide-y divide-border border-t border-border">
+            {r.items.map((i) => (
+              <li key={i.id}>
+                <Link
+                  href={`/products/${i.productId}`}
+                  className="flex min-h-11 items-center justify-between gap-3 px-4 py-2 hover:bg-surface-muted"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-action">
+                      {productLabel({ name: i.productName, variant: i.productVariant })}
+                    </span>
+                    {i.productKind === "part" ? <Badge tone="neutral">Part</Badge> : null}
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums">
+                    {i.qtyOnPlate} × {Number(i.gramsPerPiece.toFixed(3))} g
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
     </div>
   );
 }
 
-function Spec({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-muted">{label}</dt>
-      <dd className="font-semibold">{children}</dd>
-    </div>
-  );
-}
-
-/** Says when a value wasn't in the file: worked out by the app, or typed at import (D14). */
+/** Why a value isn't the file's own: typed at import, or worked out by the app (D14). */
 function ValueNote({ note }: { note?: string }) {
   if (!note) return null;
   return (
-    <small className="block font-normal text-ink-muted">{note.startsWith("Typed") ? note : `Estimated. ${note}`}</small>
+    <small className="block text-xs text-ink-muted">{note.startsWith("Typed") ? note : `Estimated. ${note}`}</small>
   );
 }

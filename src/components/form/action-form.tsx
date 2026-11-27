@@ -2,7 +2,7 @@
 
 import { Link } from "@/components/ui/link";
 import { createContext, useActionState, useContext, type ReactNode } from "react";
-import { Button, Callout } from "@/components/ui";
+import { Button, Callout, FormBar, buttonClass } from "@/components/ui";
 import type { FormState } from "@/server/form";
 
 type Ctx = { state: FormState; defaults: Record<string, string> };
@@ -28,12 +28,20 @@ export function ActionForm({
   submitLabel,
   children,
   className,
+  bar,
+  cancelHref,
+  submitVariant,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   defaults?: Record<string, string>;
   submitLabel: string;
   children: ReactNode;
   className?: string;
+  /** Screen-level form: Save (+ Cancel) in the form bar, pinned above the tab bar on phones. */
+  bar?: boolean;
+  cancelHref?: string;
+  /** "secondary" for a form that is not the screen's main action (e.g. Save adjustments). */
+  submitVariant?: "primary" | "secondary";
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   return (
@@ -54,9 +62,26 @@ export function ActionForm({
         ) : null}
         {state.ok && state.message ? <Callout tone="success">{state.message}</Callout> : null}
         {children}
-        <Button type="submit" block pending={pending}>
-          {pending ? "Saving…" : submitLabel}
-        </Button>
+        {bar || cancelHref ? (
+          <FormBar
+            primary={
+              <Button type="submit" pending={pending}>
+                {pending ? "Saving…" : submitLabel}
+              </Button>
+            }
+            secondary={
+              cancelHref ? (
+                <Link href={cancelHref} className={buttonClass("secondary")}>
+                  Cancel
+                </Link>
+              ) : undefined
+            }
+          />
+        ) : (
+          <Button type="submit" block variant={submitVariant} pending={pending}>
+            {pending ? "Saving…" : submitLabel}
+          </Button>
+        )}
       </form>
     </FormCtx.Provider>
   );

@@ -6,8 +6,9 @@ import { requireUser } from "@/server/auth/session";
 import { startOptions } from "@/server/printing/service";
 import { importOptions } from "../recipes/options";
 
-export default async function StartPrintPage() {
+export default async function StartPrintPage({ searchParams }: PageProps<"/print">) {
   await requireUser();
+  const recipe = (await searchParams).recipe;
   const [options, fileOpts] = await Promise.all([startOptions(db()), importOptions()]);
   // Start can take a .gcode directly (Nov 26), unless file storage isn't connected on Vercel.
   const fileAvailable = !(process.env.VERCEL && fileOpts.mode === "local");
@@ -30,7 +31,11 @@ export default async function StartPrintPage() {
         </EmptyState>
       ) : (
         <Card>
-          <StartForm options={options} file={{ ...fileOpts, available: fileAvailable }} />
+          <StartForm
+            options={options}
+            file={{ ...fileOpts, available: fileAvailable }}
+            initialRecipeId={typeof recipe === "string" ? recipe : undefined}
+          />
         </Card>
       )}
     </div>

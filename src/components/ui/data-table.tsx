@@ -32,6 +32,7 @@ export function DataTable<T>({
   rowHref,
   phoneRow,
   wide,
+  menuOutside,
   empty,
 }: {
   /** Unique on the page; also the key the column choices are saved under. */
@@ -43,13 +44,15 @@ export function DataTable<T>({
   rowHref?: (row: T) => string;
   phoneRow: (row: T) => { title: ReactNode; subtitle?: ReactNode; trailing?: ReactNode; badge?: ReactNode };
   wide?: boolean;
+  /** The Columns button is placed by the page (e.g. in the filters row), not above the table. */
+  menuOutside?: boolean;
   empty?: ReactNode;
 }) {
   if (!rows.length) return <p className="px-4 py-5 text-sm text-ink-muted">{empty ?? "Nothing here yet."}</p>;
   const first = columns[0]!.key;
   return (
     <div className="@container">
-      {wide ? (
+      {wide && !menuOutside ? (
         <div className="flex justify-end border-b border-border px-4 py-1.5 @max-lg:hidden">
           <ColumnsMenu tableId={id} columns={columns.map((c) => ({ key: c.key, header: c.header }))} pinned={[first]} />
         </div>
@@ -102,7 +105,10 @@ export function DataTable<T>({
                             {content}
                           </span>
                         ) : href && c.key === first ? (
-                          <Link href={href} className="inline-flex min-h-6 items-center text-action hover:underline">
+                          <Link
+                            href={href}
+                            className="inline-flex min-h-6 items-center gap-1.5 font-medium text-ink hover:underline"
+                          >
                             {content}
                           </Link>
                         ) : (

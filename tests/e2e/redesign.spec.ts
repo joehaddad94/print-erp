@@ -163,7 +163,7 @@ test("R9 How costs work walks a real print through all seven steps", async ({ pa
     timeSeconds: 3600,
   });
   await page
-    .getByLabel("G-code file")
+    .getByLabel("G-code file", { exact: true })
     .setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer: Buffer.from(gcode) });
   await page.getByLabel("Recipe name").fill(`Costs ${t}`);
   await page.getByLabel("New product name").fill(`Costs ${t}`);

@@ -3,7 +3,7 @@
 import { Link } from "@/components/ui/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { Button, Callout, Card, Field } from "@/components/ui";
+import { Button, Callout, FileDrop, FormBar, buttonClass } from "@/components/ui";
 import { SUPPORTED_SLICERS } from "@/lib/gcode";
 import { importRecipeAction } from "@/server/recipes/actions";
 import type { BlobUploadFlavor, StorageMode } from "@/server/storage";
@@ -22,6 +22,7 @@ export function ImportForm({
   products,
   tolerance,
   group,
+  versionChoices,
 }: {
   mode: StorageMode;
   access: "private" | "public";
@@ -29,6 +30,8 @@ export function ImportForm({
   products: ProductOption[];
   tolerance: { grams: number; pct: number };
   group?: RecipeGroup;
+  /** Current recipes, so a new file can be saved as a new version of one. */
+  versionChoices?: RecipeGroup[];
 }) {
   const router = useRouter();
   const fileId = useId();
@@ -68,47 +71,58 @@ export function ImportForm({
     }
   }
 
+  const status = imp.reading
+    ? "reading…"
+    : imp.parsed
+      ? `${imp.parsed.slicerName ?? "Unknown slicer"} · read OK`
+      : imp.error
+        ? "couldn't read it"
+        : undefined;
+
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-col gap-4">
-        <Field id={fileId} label="G-code file" hint={`Plain .gcode exported from ${SUPPORTED_SLICERS}.`}>
-          <input
-            ref={fileInput}
-            id={fileId}
-            type="file"
-            accept=".gcode"
-            onChange={(e) => void imp.choose(e.target.files?.[0] ?? null)}
-            className="control px-3 py-2.5 text-sm text-ink"
-          />
-        </Field>
-        {imp.reading ? <p className="text-sm text-ink-muted">Reading the file…</p> : null}
-        {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
-        {imp.duplicate ? (
-          <Callout tone="warning" title="Same file">
-            This file is already{" "}
-            <Link
-              className="inline-flex min-h-control items-center font-semibold underline"
-              href={`/recipes/${imp.duplicate.id}`}
-            >
-              {imp.duplicate.name} v{imp.duplicate.version}
-            </Link>
-            . Nothing to import.
-          </Callout>
-        ) : null}
-      </Card>
+      <FileDrop
+        ref={fileInput}
+        id={fileId}
+        label="G-code file"
+        accept=".gcode"
+        file={imp.file}
+        status={status}
+        hint={`Plain .gcode exported from ${SUPPORTED_SLICERS}.`}
+        onFile={(f) => void imp.choose(f)}
+      />
+      {imp.error ? <Callout tone="danger">{imp.error}</Callout> : null}
+      {imp.duplicate ? (
+        <Callout tone="warning" title="Same file">
+          This file is already{" "}
+          <Link className="font-semibold underline" href={`/recipes/${imp.duplicate.id}`}>
+            {imp.duplicate.name} v{imp.duplicate.version}
+          </Link>
+          . Nothing to import.
+        </Callout>
+      ) : null}
 
-      {imp.parsed ? (
+      {imp.parsed && !imp.duplicate ? (
         <>
-          <ImportDetails imp={imp} idPrefix={fileId} products={products} />
-          <Button block disabled={!canSave} onClick={() => void save()}>
-            {busy === "uploading"
-              ? "Uploading…"
-              : busy === "saving"
-                ? "Saving…"
-                : group
-                  ? "Save new version"
-                  : "Save recipe"}
-          </Button>
+          <ImportDetails imp={imp} idPrefix={fileId} products={products} versionChoices={versionChoices} />
+          <FormBar
+            primary={
+              <Button disabled={!canSave} pending={!!busy} onClick={() => void save()}>
+                {busy === "uploading"
+                  ? "Uploading…"
+                  : busy === "saving"
+                    ? "Saving…"
+                    : imp.group
+                      ? "Save new version"
+                      : "Save recipe"}
+              </Button>
+            }
+            secondary={
+              <Link href="/recipes" className={buttonClass("secondary")}>
+                Cancel
+              </Link>
+            }
+          />
         </>
       ) : null}
     </div>

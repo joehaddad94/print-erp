@@ -180,6 +180,11 @@
   grid-template-columns: minmax(0, 1fr) var(--spacing-aside);
 }
 
+/* Detail screens (product, recipe): main column plus a 340px details column (prototype .grid2). */
+@utility grid-detail {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
 /* Bottom padding that clears the phone's home indicator. */
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
