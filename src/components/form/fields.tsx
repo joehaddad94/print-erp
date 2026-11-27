@@ -2,10 +2,11 @@
 
 import { useId, type InputHTMLAttributes, type ReactNode } from "react";
 import { Field, Input } from "@/components/ui";
+import { AffixInput } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 import { useFieldState } from "./action-form";
 
-type Base = { name: string; label: string; hint?: ReactNode };
+type Base = { name: string; label: string; hint?: ReactNode; optional?: boolean };
 
 /**
  * A DOM id unique to this field instance. Next keeps up to 3 visited routes mounted but hidden
@@ -20,45 +21,55 @@ export function TextField({
   name,
   label,
   hint,
+  optional,
   ...rest
 }: Base & Omit<InputHTMLAttributes<HTMLInputElement>, "name" | "defaultValue">) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
-    <Field id={id} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error} optional={optional}>
       <Input key={version} id={id} name={name} defaultValue={defaultValue} invalid={!!error} {...rest} />
     </Field>
   );
 }
 
 /** Numbers are typed as text with a decimal keyboard so "1,000" and "0.12" both work on phones. */
-export function NumberField({ name, label, hint, suffix }: Base & { suffix?: string }) {
+/** The unit sits inside the box: "$ 22.50", "64 g" (prototype `.in .u`). */
+export function NumberField({
+  name,
+  label,
+  hint,
+  optional,
+  prefix,
+  suffix,
+  placeholder,
+}: Base & { prefix?: string; suffix?: string; placeholder?: string }) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
-    <Field id={id} label={label} hint={hint} error={error}>
-      <div className="flex items-center gap-2">
-        <Input
-          key={version}
-          id={id}
-          name={name}
-          inputMode="decimal"
-          autoComplete="off"
-          defaultValue={defaultValue}
-          invalid={!!error}
-          className="tabular-nums"
-        />
-        {suffix ? <span className="shrink-0 text-sm text-ink-muted">{suffix}</span> : null}
-      </div>
+    <Field id={id} label={label} hint={hint} error={error} optional={optional}>
+      <AffixInput
+        key={version}
+        id={id}
+        name={name}
+        inputMode="decimal"
+        autoComplete="off"
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        invalid={!!error}
+        prefix={prefix}
+        suffix={suffix}
+        className="tabular-nums"
+      />
     </Field>
   );
 }
 
-export function DateField({ name, label, hint }: Base) {
+export function DateField({ name, label, hint, optional }: Base) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
-    <Field id={id} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error} optional={optional}>
       <Input key={version} id={id} name={name} type="date" defaultValue={defaultValue} invalid={!!error} />
     </Field>
   );
@@ -71,6 +82,7 @@ export function SelectField({
   options,
   placeholder,
   onValueChange,
+  optional,
 }: Base & {
   options: { value: string; label: string }[];
   placeholder?: string;
@@ -79,7 +91,7 @@ export function SelectField({
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
-    <Field id={id} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error} optional={optional}>
       <select
         key={version}
         id={id}
@@ -101,11 +113,11 @@ export function SelectField({
   );
 }
 
-export function TextareaField({ name, label, hint }: Base) {
+export function TextareaField({ name, label, hint, optional }: Base) {
   const { defaultValue, error, version } = useFieldState(name);
   const id = useFieldId(name);
   return (
-    <Field id={id} label={label} hint={hint} error={error}>
+    <Field id={id} label={label} hint={hint} error={error} optional={optional}>
       <textarea
         key={version}
         id={id}

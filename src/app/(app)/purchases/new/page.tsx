@@ -5,8 +5,10 @@ import { createExpenseAction } from "@/server/expenses/actions";
 import { expenseFormOptions } from "../../expenses/options";
 
 /** R7 Add purchase: filament, packaging or a machine. Adds stock (or the machine) in the same save. */
-export default async function NewPurchasePage() {
+export default async function NewPurchasePage({ searchParams }: PageProps<"/purchases/new">) {
   await requireUser();
+  const preset = (await searchParams).category;
+  const category = preset === "machine" || preset === "filament" || preset === "packaging" ? preset : undefined;
   const opts = await expenseFormOptions();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Beirut" });
   return (
@@ -16,7 +18,7 @@ export default async function NewPurchasePage() {
         <ExpenseForm
           kind="purchase"
           action={createExpenseAction}
-          defaults={{ spentOn: today, currency: "USD", lbpRate: opts.lbpRate ?? "" }}
+          defaults={{ spentOn: today, currency: "USD", lbpRate: opts.lbpRate ?? "", ...(category ? { category } : {}) }}
           {...opts}
         />
       </Card>

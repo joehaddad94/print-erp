@@ -1,7 +1,7 @@
-import { and, asc, count, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/db/schema";
-import { printJobs, stockItems } from "@/db/schema";
+import { printJobs, stockAvailable, stockItems } from "@/db/schema";
 import { failureMethod } from "@/lib/cost";
 import { listMachines } from "@/server/machines/service";
 import { currentSettings } from "@/server/settings/service";
@@ -17,8 +17,14 @@ type Db = PostgresJsDatabase<typeof schema>;
 export async function costInputs(db: Db) {
   const [filaments, machines, settings, [finished]] = await Promise.all([
     db
-      .select({ id: stockItems.id, name: stockItems.name })
+      .select({
+        id: stockItems.id,
+        name: stockItems.name,
+        material: stockItems.material,
+        onHand: sql<number>`coalesce(${stockAvailable.onHand}, 0)`.mapWith(Number),
+      })
       .from(stockItems)
+      .leftJoin(stockAvailable, eq(stockAvailable.stockItemId, stockItems.id))
       .where(and(eq(stockItems.type, "filament"), isNull(stockItems.deletedAt)))
       .orderBy(asc(stockItems.name)),
     listMachines(db),
@@ -36,7 +42,16 @@ export async function costInputs(db: Db) {
     ),
     printers: machines
       .filter((m) => m.type === "printer" && m.status === "active")
-      .map((m) => ({ id: m.id, name: m.name, powerKw: m.avgPowerKw, costPerHourUsd: m.costPerHourUsd })),
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        model: m.model,
+        nozzleMm: m.nozzleMm,
+        bedXMm: m.bedXMm,
+        bedYMm: m.bedYMm,
+        powerKw: m.avgPowerKw,
+        costPerHourUsd: m.costPerHourUsd,
+      })),
     kwhPriceUsd: num(settings.electricity_kwh_price),
     allowancePct: num(settings.failure_allowance_pct) ?? 12,
     method: failureMethod(finished?.n ?? 0, actualAfter),

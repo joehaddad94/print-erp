@@ -20,9 +20,9 @@ export function Segmented({
   return (
     <fieldset className="flex flex-col gap-1.5">
       <legend className="pb-1.5 text-sm font-medium text-ink-soft">{legend}</legend>
-      <div className="inline-flex w-full rounded-md bg-surface-muted p-0.5 sm:w-auto">
+      <div className="grid w-full auto-cols-fr grid-flow-col rounded-md bg-surface-muted p-0.5">
         {options.map((o) => (
-          <label key={o.value} className="relative flex-1 sm:flex-none">
+          <label key={o.value} className="relative">
             <input
               type="radio"
               name={name}

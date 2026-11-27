@@ -99,7 +99,7 @@ test("S-01 Start from a .gcode file: saved as a recipe when the print starts; th
   };
   await page.goto("/print");
   await page.getByRole("button", { name: ".gcode file" }).click();
-  await page.getByLabel("G-code file").setInputFiles(file);
+  await page.getByLabel("G-code file", { exact: true }).setInputFiles(file);
   await expect(page.getByLabel("Recipe name")).toHaveValue(`croix-${tag}`);
   await expect(page.getByTestId("grams-check")).toContainText("Items add up to 20 g of 20 g.");
   await fillStart(page, { printer: s.printer });
@@ -122,7 +122,7 @@ test("S-01 Start from a .gcode file: saved as a recipe when the print starts; th
   // The identical file again: Start uses the saved recipe and saves no copy.
   await page.goto("/print");
   await page.getByRole("button", { name: ".gcode file" }).click();
-  await page.getByLabel("G-code file").setInputFiles(file);
+  await page.getByLabel("G-code file", { exact: true }).setInputFiles(file);
   await expect(page.getByRole("status").filter({ hasText: "Already saved" })).toContainText(`croix-${tag} v1`);
   await expect(page.getByLabel("Recipe name")).toHaveCount(0);
 });

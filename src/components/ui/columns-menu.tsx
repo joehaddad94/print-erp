@@ -28,10 +28,13 @@ export function ColumnsMenu({
   tableId,
   columns,
   pinned,
+  bordered,
 }: {
   tableId: string;
   columns: { key: string; header: string }[];
   pinned: string[];
+  /** A secondary button (in a filters row) instead of a quiet one (above a table). */
+  bordered?: boolean;
 }) {
   const storageKey = `ps-cols:${tableId}`;
   const raw = useSyncExternalStore(
@@ -59,7 +62,13 @@ export function ColumnsMenu({
 
   return (
     <details className="relative" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="flex min-h-control cursor-pointer list-none items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-ink-soft hover:bg-surface-muted">
+      <summary
+        className={
+          bordered
+            ? "flex min-h-control cursor-pointer list-none items-center gap-1.5 rounded-md border border-border-strong bg-surface px-3.5 text-md font-medium text-ink shadow-raised hover:bg-surface-muted"
+            : "flex min-h-control cursor-pointer list-none items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-ink-soft hover:bg-surface-muted"
+        }
+      >
         <Icon name="columns" size={15} />
         Columns{hidden.length ? ` (${hidden.length} hidden)` : ""}
       </summary>

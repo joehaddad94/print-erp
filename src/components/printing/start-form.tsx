@@ -70,12 +70,23 @@ function onlyMatch(filaments: Options["filaments"], material: string | null | un
   return m.length === 1 ? String(m[0]!.id) : "";
 }
 
-export function StartForm({ options, file: fileOpts }: { options: Options; file: FileOptions }) {
+export function StartForm({
+  options,
+  file: fileOpts,
+  initialRecipeId,
+}: {
+  options: Options;
+  file: FileOptions;
+  /** "Print more" on a product or recipe page opens Start with that recipe picked. */
+  initialRecipeId?: string;
+}) {
   const free = options.printers.filter((p) => !p.busy);
   const fileId = useId();
   const groups = groupsOf(options.recipes);
+  const picked =
+    initialRecipeId && options.recipes.some((r) => String(r.id) === initialRecipeId) ? initialRecipeId : "";
   const [source, setSource] = useState<"recipe" | "file">(options.recipes.length ? "recipe" : "file");
-  const [recipeId, setRecipeId] = useState("");
+  const [recipeId, setRecipeId] = useState(picked);
   const [printerId, setPrinterId] = useState(free.length === 1 ? String(free[0]!.id) : "");
   /** undefined = picked for you from the recipe's material; "" = cleared by you. */
   const [filamentId, setFilamentId] = useState<string | undefined>(undefined);
@@ -232,6 +243,7 @@ export function StartForm({ options, file: fileOpts }: { options: Options; file:
                 {(recipeError) => (
                   <SearchPicker
                     name="recipeId"
+                    defaultId={picked || undefined}
                     label="Recipe"
                     placeholder="Search recipes"
                     items={options.recipes.map((r) => ({

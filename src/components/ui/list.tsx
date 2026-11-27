@@ -70,7 +70,7 @@ export function PageHeader({
   back,
   badges,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;
   back?: { href: string; label: string };
@@ -86,7 +86,9 @@ export function PageHeader({
         </div>
         {description ? <p className="pt-0.5 text-sm text-ink-muted">{description}</p> : null}
       </div>
-      {action ? <div className="flex flex-wrap gap-2">{action}</div> : null}
+      {action ? (
+        <div className="flex w-full flex-wrap gap-2 *:only:flex-1 sm:w-auto sm:*:only:flex-none">{action}</div>
+      ) : null}
     </div>
   );
 }

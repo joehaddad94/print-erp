@@ -3,7 +3,7 @@ import { machines, products } from "@/db/schema";
 import { setSetting } from "@/server/settings/service";
 import { syntheticGcode } from "../support/synthetic-gcode";
 import { withDb } from "./db";
-import { checkPage, fillStart, login, runningPrint } from "./helpers";
+import { checkPage, editInline, fillStart, login, runningPrint } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -87,7 +87,7 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
     timeSeconds: 6450,
   });
   await page
-    .getByLabel("G-code file")
+    .getByLabel("G-code file", { exact: true })
     .setInputFiles({ name: `${tag}.gcode`, mimeType: "text/x-gcode", buffer: Buffer.from(gcode) });
   await page.getByLabel("Recipe name").fill(product);
   await page.getByLabel("New product name").fill(product);
@@ -97,9 +97,8 @@ test("G-01 golden scenario on the phone: buy → import → print 2 → order �
   await page.getByRole("button", { name: "Save adjustments" }).click();
   await expect(page.getByText("labour minutes: — → 15")).toBeVisible();
   await page.getByRole("link", { name: new RegExp(`^${product}`) }).click();
-  await page.getByLabel("Sale price").fill("5");
-  await page.getByRole("button", { name: "Save product" }).click();
-  await expect(page).toHaveURL(/\/products$/);
+  await editInline(page, "Sale price", "5");
+  await expect(page.getByRole("button", { name: /^sale price: \$5\.00/ })).toBeVisible();
 
   // Print it twice.
   for (let k = 0; k < 2; k++) {

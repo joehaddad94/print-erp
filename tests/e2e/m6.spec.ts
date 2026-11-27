@@ -3,7 +3,7 @@ import { orders, products } from "@/db/schema";
 import { addPart, stockFor } from "@/server/assembly/service";
 import { recordMovement } from "@/server/stock/ledger";
 import { withDb } from "./db";
-import { checkPage, login } from "./helpers";
+import { checkPage, editInline, login, pickIn } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -27,10 +27,10 @@ test("B-02 short parts warn but the save is allowed; negative stock shows in red
     );
   });
   await page.goto("/assemble");
-  await page.getByLabel("Product").selectOption({ label: `Stand ${tag}` });
+  await pickIn(page, "Product", `Stand ${tag}`);
   await page.getByLabel("How many made").fill("2");
-  await expect(page.getByText("Not enough parts in stock")).toBeVisible();
-  await expect(page.getByRole("list", { name: "Parts needed" })).toContainText("4 needed · 3 on hand");
+  await expect(page.getByText(`Leg ${tag} is short.`)).toBeVisible();
+  await expect(page.locator(':is(table, ul)[aria-label="Parts needed"]:visible')).toContainText("Short 1");
   await checkPage(page);
   await page.getByRole("button", { name: "Save assembly" }).click();
   await expect(page.getByText("Saved: 2 made. Parts taken out of stock.")).toBeVisible();
@@ -47,9 +47,8 @@ test("H-01 change history lists edits newest first with old → new, and filters
   const name = `History ${info.project.name}`;
   const [p] = await withDb((db) => db.insert(products).values({ name, salePriceUsd: 2 }).returning());
   await page.goto(`/products/${p!.id}`);
-  await page.getByLabel("Sale price").fill("3");
-  await page.getByRole("button", { name: "Save product" }).click();
-  await expect(page).toHaveURL(/\/products$/);
+  await editInline(page, "Sale price", "3");
+  await expect(page.getByRole("button", { name: /^sale price: \$3\.00/ })).toBeVisible();
   await page.goto("/history?area=stock");
   const changes = page.locator(':is(table, ul)[aria-label="Changes"]:visible');
   await expect(changes).toContainText("Sale price");

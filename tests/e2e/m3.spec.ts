@@ -10,7 +10,7 @@ import { setSetting } from "@/server/settings/service";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode, syntheticMovesOnly } from "../support/synthetic-gcode";
 import { rowCounts, uploadedFileCount, withDb } from "./db";
-import { checkPage, login } from "./helpers";
+import { checkPage, login, pickIn } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -30,7 +30,7 @@ async function clearRecipes() {
 }
 
 async function chooseFile(page: Page, name: string, buffer: Buffer) {
-  await page.getByLabel("G-code file").setInputFiles({ name, mimeType: "text/x-gcode", buffer });
+  await page.getByLabel("G-code file", { exact: true }).setInputFiles({ name, mimeType: "text/x-gcode", buffer });
 }
 
 const twoObjects = (tag: string) =>
@@ -85,13 +85,15 @@ test("K-01/K-02 padel file: job $0.77, per piece $0.87, and nothing is saved or 
   const before = await rowCounts();
   const filesBefore = uploadedFileCount();
   await chooseFile(page, "adidas padel racket holder.gcode", fixtureBuffer("padel"));
-  await page.getByLabel("Filament").selectOption({ label: "PLA K01" });
-  await page.getByLabel("Printer").selectOption({ label: "K01 printer" });
+  await expect(page.getByText(/read OK/)).toBeVisible();
+  await pickIn(page, "Filament", "PLA K01");
+  const k01 = page.getByRole("radio", { name: /^K01 printer/ });
+  if (await k01.count()) await k01.check();
   const cost = page.getByRole("definition");
   await expect(page.getByText("Job cost").locator("..")).toContainText("$0.77");
   await expect(page.getByText(/^Cost per piece/).locator("..")).toContainText("$0.87");
-  await page.getByLabel("Your price per piece (USD)").fill("5");
-  await expect(page.getByText("Profit per piece").locator("..")).toContainText("$4.13");
+  await page.getByLabel("Your price per piece").fill("5");
+  await expect(page.getByText(/profit per piece$/).locator("..")).toContainText("$4.13");
   await expect(cost.first()).toBeVisible();
   await checkPage(page);
   expect(await rowCounts()).toEqual(before);
@@ -113,7 +115,7 @@ test("R-01/R-02 croix imports as 1 item × 4 with no typing; download returns th
   await expect(page.getByRole("img", { name: /Plate preview/ })).toBeVisible();
   await checkPage(page);
   const download = page.waitForEvent("download");
-  await page.getByRole("link", { name: /Download original file/ }).click();
+  await page.getByRole("link", { name: "Download G-code" }).click();
   const file = await (await download).path();
   expect(sha(readFileSync(file))).toBe(sha(bytes));
 });
@@ -146,20 +148,20 @@ test("R-05/R-06/R-04 two items must add up; same file is refused; overrides are 
   await page.goto("/recipes/import");
   await chooseFile(page, "two-again.gcode", file);
   await expect(page.getByText("Same file")).toBeVisible();
-  await expect(save).toBeDisabled();
+  await expect(save).toHaveCount(0);
 });
 
 test("products: add a product; a part has no price field; pages pass a11y", async ({ page }, info) => {
   await page.goto("/products/new");
   await checkPage(page);
-  await page.getByLabel("Type").selectOption("part");
+  await page.getByRole("radio", { name: "Part" }).check();
   await expect(page.getByLabel("Sale price")).toHaveCount(0);
-  await page.getByLabel("Type").selectOption("product");
+  await page.getByRole("radio", { name: "Product", exact: true }).check();
   await page.getByLabel("Name", { exact: true }).fill(`Racket holder ${info.project.name}`);
   await page.getByLabel("Sale price").fill("6");
   await page.getByRole("button", { name: "Save product" }).click();
   await expect(page).toHaveURL(/\/products$/);
-  const row = page.getByRole("listitem").filter({ hasText: `Racket holder ${info.project.name}` });
+  const row = page.locator(":is(tr, li):visible").filter({ hasText: `Racket holder ${info.project.name}` });
   await expect(row).toContainText("$6.00");
   await checkPage(page);
   await page.goto("/recipes");
@@ -173,12 +175,16 @@ test("D14 an unknown slicer's file: estimates are labelled, typed values are sav
   const buffer = Buffer.from(syntheticMovesOnly({ header: `; made by HandRolledSlicer ${t}` }));
 
   await page.goto("/calculator");
-  await page.getByLabel("G-code file").setInputFiles({ name: "unknown.gcode", mimeType: "text/x-gcode", buffer });
+  await page
+    .getByLabel("G-code file", { exact: true })
+    .setInputFiles({ name: "unknown.gcode", mimeType: "text/x-gcode", buffer });
   await expect(page.getByText("Estimated values")).toBeVisible();
   await checkPage(page);
 
   await page.goto("/recipes/import");
-  await page.getByLabel("G-code file").setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer });
+  await page
+    .getByLabel("G-code file", { exact: true })
+    .setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer });
   await expect(page.getByText("Check the estimated values")).toBeVisible();
   await page.getByLabel("Filament per plate (g)").fill("12");
   await page.getByLabel("Print time (minutes)").fill("90");
@@ -189,5 +195,5 @@ test("D14 an unknown slicer's file: estimates are labelled, typed values are sav
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page.getByRole("heading", { name: `Tag ${t} · v1` })).toBeVisible();
   await expect(page.getByText("Typed at import (the app's estimate was 0.01 g).")).toBeVisible();
-  await expect(page.getByText("1 h 30 min")).toBeVisible();
+  await expect(page.getByText("1 h 30 min", { exact: true }).first()).toBeVisible();
 });

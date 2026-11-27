@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { FIXTURES, haveFixtures } from "../support/fixtures";
 import { syntheticGcode } from "../support/synthetic-gcode";
-import { checkPage, fillStart, login, pickSupplier, runningPrint } from "./helpers";
+import { checkPage, editInline, fillStart, login, pickSupplier, runningPrint } from "./helpers";
 import { expect, test, type Page } from "./test";
 
 /**
@@ -68,12 +68,12 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   await page.getByRole("button", { name: "Save purchase" }).click();
   await expect(page).toHaveURL(/\/purchases$/);
   await page.goto("/machines");
-  await page.getByRole("link").filter({ hasText: printer }).click();
+  await page.locator(":is(tr, li):visible").filter({ hasText: printer }).getByRole("link").first().click();
   await page.getByLabel("Average power").fill("0.12");
   await page.getByLabel("Expected life").fill("3000");
-  await page.getByLabel("Nozzle (mm)").fill("0.4");
+  await page.getByLabel("Nozzle", { exact: true }).fill("0.4");
   await page.getByRole("button", { name: "Save machine" }).click();
-  await expect(page.getByRole("link").filter({ hasText: printer })).toContainText("$0.067/h");
+  await expect(page.locator(":is(tr, li):visible").filter({ hasText: printer })).toContainText("$0.067");
 
   // 4. Filament (1 kg, $17.50) and 10 boxes ($5) from the supplier.
   await page.goto("/purchases/new");
@@ -105,7 +105,9 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
   // A unique trailing comment keeps the file hash unique per run (same file is refused, R-06).
   const unique = Buffer.concat([bytes, Buffer.from(`\n; golden ${t}\n`)]);
   await page.goto("/recipes/import");
-  await page.getByLabel("G-code file").setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer: unique });
+  await page
+    .getByLabel("G-code file", { exact: true })
+    .setInputFiles({ name: `${t}.gcode`, mimeType: "text/x-gcode", buffer: unique });
   await page.getByLabel("Recipe name").fill(product);
   await page.getByLabel("New product name").fill(product);
   await page.getByRole("button", { name: "Save recipe" }).click();
@@ -116,9 +118,11 @@ test("G-02 full business day through the UI, real G-code", async ({ page }, info
 
   // 6. Price and packaging on the product.
   await page.getByRole("list", { name: "Items on the plate" }).getByRole("link").click();
-  await page.getByLabel("Sale price").fill("6");
-  await page.getByLabel("Packaging").selectOption({ label: box });
-  await page.getByRole("button", { name: "Save product" }).click();
+  await editInline(page, "Sale price", "6");
+  await expect(page.getByRole("button", { name: /^sale price: \$6\.00/ })).toBeVisible();
+  await editInline(page, "Packaging", box, { select: true });
+  await expect(page.getByRole("button", { name: new RegExp(`^packaging: ${box}`) })).toBeVisible();
+  await page.goto("/products");
   await expect(page.locator(":is(tr, li):visible").filter({ hasText: product })).toContainText("$6.00");
 
   // 7. Two good prints and one failed.

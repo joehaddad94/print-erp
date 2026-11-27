@@ -92,6 +92,7 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export async function pickIn(page: Page, label: string, item: string | RegExp) {
   const group = page.getByRole("group", { name: label, exact: true });
   const change = group.getByRole("button", { name: "Change" });
+  await expect(group.getByRole("combobox").or(change)).toBeVisible();
   if (await change.isVisible()) await change.click();
   await group.getByRole("combobox").click();
   const name = typeof item === "string" ? new RegExp(`^${escapeRe(item)}`) : item;
@@ -112,4 +113,16 @@ export function runningPrint(page: Page, printer: string) {
     .getByRole("list", { name: "Needs you" })
     .getByRole("link")
     .filter({ hasText: ` on ${printer}` });
+}
+
+/** Click-to-edit value on a detail page (InlineEdit): open it, type or pick, save with Enter. */
+export async function editInline(page: Page, label: string, value: string, opts: { select?: boolean } = {}) {
+  await page.getByRole("button", { name: new RegExp(`^${escapeRe(label.toLowerCase())}: .*\\. Change$`) }).click();
+  if (opts.select) {
+    await page.getByRole("combobox", { name: label.toLowerCase(), exact: true }).selectOption(value);
+  } else {
+    const box = page.getByRole("textbox", { name: label.toLowerCase(), exact: true });
+    await box.fill(value);
+    await box.press("Enter");
+  }
 }

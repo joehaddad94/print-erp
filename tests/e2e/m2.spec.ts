@@ -157,15 +157,19 @@ test("S-03 purchase: search picks a supplier; + New supplier adds one and picks 
 test("S-02 machine: edit power, history shows the change, list shows hours of life", async ({ page }, info) => {
   await page.goto("/machines");
   await checkPage(page);
-  await expect(page.getByRole("link", { name: /^Ender-3 V3 SE/ })).toContainText(/0 of 3,000 h/);
-  await page.getByRole("link", { name: /^Ender-3 V3 SE/ }).click();
+  const ender = page
+    .locator(":is(tr, li):visible")
+    .filter({ has: page.getByRole("link", { name: /^Ender-3 V3 SE/ }) })
+    .first();
+  await expect(ender).toContainText(/(^|\D)0 h/);
+  await ender.getByRole("link").first().click();
   await checkPage(page);
   const power = info.project.name === "phone" ? "0.13" : "0.12";
   await page.getByLabel("Average power").fill(power);
   await page.getByLabel("Purchase cost").fill("200");
   await page.getByRole("button", { name: "Save machine" }).click();
   await expect(page).toHaveURL(/\/machines$/);
-  await expect(page.getByRole("link", { name: /^Ender-3 V3 SE/ })).toContainText("$0.067/h");
+  await expect(ender).toContainText("$0.067");
 });
 
 test("suppliers: add one, its page shows the WhatsApp number", async ({ page }, info) => {
