@@ -15,7 +15,7 @@ import { Link } from "@/components/ui/link";
 import { db } from "@/db";
 import { formatMoney } from "@/lib/money";
 import { requireUser } from "@/server/auth/session";
-import { PAYMENT_STATE_LABELS, listOrders, shownStatus } from "@/server/orders/service";
+import { PAYMENT_STATE_LABELS, listOrders, owesMoney, shownStatus } from "@/server/orders/service";
 
 type Row = Awaited<ReturnType<typeof listOrders>>[number];
 const closed = (o: Row) => o.status === "delivered" || o.status === "cancelled";
@@ -24,7 +24,7 @@ const VIEWS = {
   unpaid: {
     label: "Unpaid",
     title: "Unpaid orders",
-    keep: (o: Row) => o.status !== "cancelled" && o.status !== "quoted" && o.balanceDueUsd > 0.005,
+    keep: owesMoney,
   },
   delivered: { label: "Delivered", title: "Delivered orders", keep: (o: Row) => o.status === "delivered" },
   all: { label: "All", title: "All orders", keep: () => true },
@@ -40,7 +40,6 @@ const due = (o: Row) =>
   o.dueOn
     ? new Date(`${o.dueOn}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })
     : "—";
-const owes = (o: Row) => o.status !== "cancelled" && o.balanceDueUsd > 0.005;
 
 const columns: Column<Row>[] = [
   {
@@ -80,7 +79,7 @@ const columns: Column<Row>[] = [
     header: "Balance",
     numeric: true,
     cell: (o) =>
-      owes(o) ? (
+      owesMoney(o) ? (
         <span className="font-semibold">{usd(o.balanceDueUsd)}</span>
       ) : (
         <span className="text-ink-muted">{usd(0)}</span>
@@ -139,7 +138,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/orders">)
                 subtitle: [o.itemsText, o.dueOn ? `due ${due(o)}` : null].filter(Boolean).join(" · ") || undefined,
                 trailing: (
                   <span className="flex flex-col items-end gap-1">
-                    <span>{owes(o) ? `${usd(o.balanceDueUsd)} due` : usd(o.totalUsd)}</span>
+                    <span>{owesMoney(o) ? `${usd(o.balanceDueUsd)} due` : usd(o.totalUsd)}</span>
                     {needs(o) ? (
                       <Badge tone="danger">Need to print {o.needToPrint}</Badge>
                     ) : (

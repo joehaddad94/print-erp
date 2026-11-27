@@ -4,7 +4,7 @@ import type * as schema from "@/db/schema";
 import { stockItems } from "@/db/schema";
 import { LOW_FILAMENT_G, isLow } from "@/lib/filament";
 import { appDefaults } from "@/server/settings/service";
-import { listOrders } from "@/server/orders/service";
+import { listOrders, owesMoney } from "@/server/orders/service";
 import { runningJobs } from "@/server/printing/service";
 import { onHand } from "@/server/stock/ledger";
 
@@ -64,7 +64,7 @@ export async function monthSummary(db: Db, now = new Date()) {
   const allTimed = cur != null && Number(cur.costed) === Number(cur.lines);
 
   const open = await listOrders(db);
-  const owing = open.filter((o) => o.status !== "cancelled" && o.status !== "quoted" && o.balanceDueUsd > 0.005);
+  const owing = open.filter(owesMoney);
   return {
     sales,
     salesChangePct: lastSales > 0 ? ((sales - lastSales) / lastSales) * 100 : null,
